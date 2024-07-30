@@ -47,24 +47,23 @@ class SuggestionsController extends ActionController
     {
         $suggestions = [];
         $pageRepository = GeneralUtility::makeInstance(PageRepository::class);
-
+    
         if (isset($analysisResults[$currentPageId]['similarities'])) {
             $similarities = $analysisResults[$currentPageId]['similarities'];
             arsort($similarities);
-            $count = 0;
             foreach ($similarities as $pageId => $similarity) {
-                if ($count >= $maxSuggestions) break;
+                if (count($suggestions) >= $maxSuggestions) break;
+                if ($similarity['score'] < $threshold) break;
+                
                 $pageData = $pageRepository->getPage($pageId);
                 $suggestions[$pageId] = [
                     'similarity' => $similarity['score'],
                     'commonKeywords' => implode(', ', $similarity['commonKeywords']),
                     'relevance' => $similarity['relevance'],
-                    'aboveThreshold' => $similarity['score'] >= $threshold,
+                    'aboveThreshold' => true,
                     'data' => $pageData
                 ];
                 $suggestions[$pageId]['data']['media'] = $this->getPageMedia($pageId);
-
-                $count++;
             }
         }
         return $suggestions;

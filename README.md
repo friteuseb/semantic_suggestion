@@ -18,8 +18,9 @@ Semantic Suggestion analyzes the content of your pages and creates intelligent c
 - Analyzes subpages of a specified parent page
 - Displays title, associated media, and text excerpt of suggested pages
 - Configurable via TypoScript
-- Allows setting the parent page ID and proximity threshold
+- Allows setting the parent page ID, proximity threshold, and search depth
 - Optimized performance by storing proximity scores in the database and updating them periodically
+- Built-in multilingual support
 
 ## Installation
 
@@ -49,16 +50,26 @@ plugin.tx_semanticsuggestion {
         proximityThreshold = 0.7
         maxSuggestions = 3
         excerptLength = 150
+        recursive = 1
         analyzedFields {
             title = 1.5
             description = 1.0
             keywords = 2.0
+            abstract = 1.2
             content = 1.0
         }
-        recursive = 1
     }
 }
 ```
+
+### Configuration Parameters
+
+- `parentPageId`: The ID of the parent page from which the analysis starts
+- `proximityThreshold`: The minimum similarity threshold for displaying a suggestion (0.0 to 1.0)
+- `maxSuggestions`: The maximum number of suggestions to display
+- `excerptLength`: The maximum length of the text excerpt for each suggestion
+- `recursive`: The search depth in the page tree (0 = only direct children)
+- `analyzedFields`: The fields to analyze and their weight in the similarity calculation
 
 ## Usage
 
@@ -67,7 +78,13 @@ Insert the plugin "Semantic Suggestions" on the desired page using the TYPO3 bac
 To add the plugin directly in your Fluid template, use:
 
 ```html
-<f:cObject typoscriptObjectPath="tt_content.list.20.semanticsuggestion_suggestions" />
+<f:cObject typescriptObjectPath="tt_content.list.20.semanticsuggestion_suggestions" />
+```
+
+Or use the defined library:
+
+```html
+<f:cObject typescriptObjectPath="lib.semantic_suggestion" />
 ```
 
 ## Similarity Logic
@@ -75,198 +92,61 @@ To add the plugin directly in your Fluid template, use:
 The extension uses a custom similarity calculation to determine related pages. Here is an overview of the logic:
 
 1. **Data Gathering**: For each subpage of the specified parent page, the extension gathers the title, description, keywords, and content.
-2. **Similarity Calculation**: The extension compares each pair of pages by calculating a similarity score based on the intersection and union of their words. The similarity score is the ratio of the number of common words to the total number of unique words.
-3. **Proximity Threshold**: Pages with a similarity score above the configured threshold are considered related.
+2. **Similarity Calculation**: The extension compares each pair of pages by calculating a similarity score based on the intersection and union of their words. The similarity score is the ratio of the number of common words to the total number of unique words, weighted by the importance of each field.
+3. **Proximity Threshold**: Only pages with a similarity score above the configured threshold are considered related and displayed.
 4. **Caching Scores**: To optimize performance, the calculated scores are stored in a database table `tx_semanticsuggestion_scores`. These scores are periodically updated or when the page content changes.
+
+## Display Customization
+
+The Fluid template (List.html) can be customized to adapt the display of suggestions to your needs. You can override this template by configuring your own template paths in TypoScript.
+
+## Multilingual Support
+
+The extension supports TYPO3's multilingual structure. It analyzes and suggests pages in the current site language.
+
+## Debugging and Maintenance
+
+The extension uses TYPO3's logging system. You can configure logging to get more information about the analysis and suggestion process.
+
+## Security
+
+- Protection against SQL injections through the use of TYPO3's secure query mechanisms (QueryBuilder)
+- Protection against XSS attacks thanks to automatic output escaping in Fluid templates
+- Access control restricted to users with appropriate permissions
+
+## Performance
+
+- Storage of similarity scores in the database to avoid repeated calculations
+- Periodic update of scores or when page content changes
 
 ## File Structure and Logic
 
 ```
-ext_semantics_suggestions/
+ext_semantic_suggestions/
 ├── Classes/
 │   ├── Controller/
-│   │   └── SuggestionsController.php         # Main controller handling the display logic
+│   │   └── SuggestionsController.php
 │   └── Service/
-│       └── PageAnalysisService.php           # Service for analyzing pages and calculating similarity scores
+│       └── PageAnalysisService.php
 │       └── Hooks/
-│           └── DataHandlerHook.php           # Hook for updating scores when page content changes
+│           └── DataHandlerHook.php
 ├── Configuration/
 │   └── TypoScript/
-│       └── setup.typoscript                  # TypoScript configuration for the extension
+│       └── setup.typoscript
 ├── Resources/
 │   ├── Private/
 │   │   ├── Language/
-│   │   │   └── locallang_be.xlf              # Language file for backend labels
+│   │   │   └── locallang.xlf
 │   │   └── Templates/
 │   │       └── Suggestions/
-│   │           └── List.html                 # Fluid template for rendering suggestions
+│   │           └── List.html
 │   └── Public/
 │       └── Icons/
-│           └── Extension.svg                 # Icon for the extension
-├── ext_tables.sql                            # SQL file for creating the necessary database table
-├── composer.json                             # Composer configuration file
-├── ext_emconf.php                            # Extension configuration file
-├── ext_localconf.php                         # Extension local configuration file
-├── ext_tables.php                            # Extension table configuration file
-└── README.md                                 # This README file
+│           └── Extension.svg
+├── ext_emconf.php
+├── ext_localconf.php
+└── ext_tables.php
 ```
-
-## Detailed Classes
-
-### SuggestionsController
-
-The `SuggestionsController` is responsible for the display logic of suggestions. Key features:
-
-- Uses dependency injection for `PageAnalysisService` and `FileRepository`.
-- The `listAction()` method retrieves configuration parameters and uses the `PageAnalysisService` to analyze pages.
-- The `findSimilarPages()` method filters similar pages based on the proximity threshold and maximum number of suggestions.
-
-### PageAnalysisService
-
-The `PageAnalysisService` is the core of the extension, responsible for page analysis and similarity calculation. Key features:
-
-- Uses the `ConfigurationManager` to retrieve extension configuration parameters.
-- The `analyzePages()` method recursively traverses subpages from a given parent page.
-- Similarity calculation is based on a weighted approach of common words between pages.
-- Takes into account the current language for page and content analysis.
-
-## Similarity Calculation Method
-
-The similarity calculation between two pages is performed as follows:
-
-1. For each page, a weighted dictionary of words (unique words with their weight) is created.
-2. The weight of each word is determined by the field in which it appears (title, description, keywords, content) and the configured weight for that field.
-3. Similarity is calculated using the following formula:
-   ```
-   similarity = sum of weights of common words / sum of weights of all unique words
-   ```
-4. The result is a score between 0 and 1, where 1 indicates perfect similarity.
-
-## Inserting the Plugin
-
-### In the TYPO3 Backend
-
-1. Create a new content element.
-2. Choose the content type "Plugin".
-3. Select the plugin "Semantic Suggestions".
-
-### In a Fluid Template
-
-```html
-<f:cObject typoscriptObjectPath="tt_content.list.20.semanticsuggestion_suggestions" />
-```
-
-### Via TypoScript
-
-```typoscript
-lib.semanticSuggestions = USER
-lib.semanticSuggestions {
-    userFunc = TYPO3\CMS\Extbase\Core\Bootstrap->run
-    extensionName = SemanticSuggestion
-    pluginName = Suggestions
-}
-```
-
-Then in your Fluid template:
-
-```html
-<f:cObject typoscriptObjectPath="lib.semanticSuggestions" />
-```
-
-## Security Considerations
-
-1. **SQL Injection**: The extension uses TYPO3's secure query mechanisms (QueryBuilder) to prevent SQL injections.
-2. **XSS**: Outputs in Fluid templates are automatically escaped to prevent XSS attacks.
-3. **CSRF**: Forms in the backend use TYPO3's CSRF tokens for protection.
-4. **Access Control**: Access to the backend module is restricted to users with appropriate permissions.
-5. **Input Validation**: All user inputs are validated and sanitized before use.
-
-## Performance and Optimization
-
-- The extension stores similarity scores in the database to avoid repeated calculations.
-- Scores are updated periodically or when page content changes.
-- For large sites, consider increasing the frequency of score updates or implementing a more advanced caching system.
-
-## Subtleties and Tips
-
-- The extension takes into account TYPO3's multilingual structure by analyzing pages in the current language.
-- Similarity calculation can be adjusted by modifying the weights of different fields in the TypoScript configuration.
-- For optimal results, ensure your pages have well-filled titles, descriptions, and keywords.
-
-## Roadmap
-
-We have exciting plans for improving and expanding the Semantic Suggestion extension. Here are some key areas we're focusing on:
-
-1. **Performance Improvements**
-   - Implement caching for similarity scores
-   - Optimize database queries
-
-2. **Feature Enhancements**
-   - Support for multiple parent pages
-   - Customizable similarity algorithms
-   - Enhanced media handling
-   - Improved excerpt generation
-
-3. **UI/UX Improvements**
-   - Ensure fully responsive design
-   - Implement pagination for suggestions
-
-4. **Code Quality**
-   - Expand unit test coverage
-   - Improve code documentation
-
-5. **Compatibility and Maintenance**
-   - Ensure compatibility with future TYPO3 versions
-   - Maintain backward compatibility where possible
-
-6. **Community and Support**
-   - Expand user documentation
-   - Set up additional support channels
-
-For a full list of planned improvements and feature ideas, please check the [IMPROVEMENTS.md](IMPROVEMENTS.md) file in our repository.
-
-We welcome community input and contributions to help shape the future of this extension!
-
-## Contributing
-
-Contributions to the Semantic Suggestion extension are welcome! Here's how you can contribute:
-
-1. Fork the repository
-2. Create a new branch for your feature or bug fix
-3. Make your changes and commit them with a clear commit message
-4. Push your changes to your fork
-5. Submit a pull request to the main repository
-
-Please make sure to follow the existing coding standards and include appropriate tests for your changes.
-
-## License
-
-This project is licensed under the GNU General Public License v2.0 or later. See the [LICENSE](LICENSE) file for more details.
-
-## Support
-
-For support and further information, please contact:
-
-Wolfangel Cyril  
-Email: cyril.wolfangel@gmail.com
-
-For bug reports and feature requests, please use the [GitHub issue tracker](https://github.com/your-username/semantic-suggestion/issues).
-
-For additional documentation and updates, visit our [GitHub repository](https://github.com/your-username/semantic-suggestion).4. **Code Quality**
-   - Expand unit test coverage
-   - Improve code documentation
-
-5. **Compatibility and Maintenance**
-   - Ensure compatibility with future TYPO3 versions
-   - Maintain backward compatibility where possible
-
-6. **Community and Support**
-   - Expand user documentation
-   - Set up additional support channels
-
-For a full list of planned improvements and feature ideas, please check the [IMPROVEMENTS.md](IMPROVEMENTS.md) file in our repository.
-
-We welcome community input and contributions to help shape the future of this extension!
 
 ## Contributing
 
