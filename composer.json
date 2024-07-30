@@ -2,6 +2,8 @@
     "name": "talan/semantic-suggestion",
     "type": "typo3-cms-extension",
     "description": "TYPO3 extension for suggesting semantically related pages",
+    "version": "1.0.1",
+    "license": "GPL-2.0-or-later",
     "authors": [
         {
             "name": "Wolfangel Cyril",
