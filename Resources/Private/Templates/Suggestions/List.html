@@ -41,8 +41,9 @@
                                             </f:if>
                                             <div class="card-body">
                                                 <h5 class="card-title">{suggestion.data.title}</h5>
-                                                <f:if condition="{suggestion.data.abstract}"></f:if>
-                                                <p class="card-text">{suggestion.data.abstract -> f:format.stripTags() -> f:format.crop(maxCharacters:'150')}</p>
+                                                <f:if condition="{suggestion.data.abstract}">
+                                                    <p class="card-text">{suggestion.data.abstract -> f:format.stripTags() -> f:format.crop(maxCharacters:'150')}</p>
+                                                </f:if>
                                             </div>
                                             <div class="card-footer">
                                                 <f:link.page pageUid="{suggestion.data.uid}" title="{suggestion.data.title}" class="link-arrow link-arrow--small">
@@ -59,6 +60,18 @@
             </div>
         </div>
     </f:if>
+    <f:if condition="{suggestions -> f:count()} == 0">
+        <div class="frame frame-default frame-type-text frame-layout-default frame-size-default frame-height-default frame-background-none frame-space-before-none frame-space-after-none frame-no-backgroundimage">
+            <div class="frame-group-container">
+                <div class="frame-group-inner">
+                    <div class="frame-container frame-container-default">
+                        <div class="frame-inner">
+                            <p><f:translate key="suggestions.noSuggestionsFound" /></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </f:if>
 </f:section>
-
 </html>
