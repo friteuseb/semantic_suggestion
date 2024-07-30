@@ -1,0 +1,25 @@
+{
+    "name": "talan/semantic-suggestion",
+    "type": "typo3-cms-extension",
+    "description": "TYPO3 extension for suggesting semantically related pages",
+    "authors": [
+        {
+            "name": "Wolfangel Cyril",
+            "email": "cyril.wolfangel@gmail.com"
+        }
+    ],
+    "require": {
+        "typo3/cms-core": "^12.4",
+        "typo3/cms-dashboard": "^12.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "Talan\\SemanticSuggestion\\": "Classes/"
+        }
+    },
+    "extra": {
+        "typo3/cms": {
+            "extension-key": "semantic_suggestion"
+        }
+    }
+}

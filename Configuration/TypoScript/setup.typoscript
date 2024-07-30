@@ -1,0 +1,63 @@
+plugin.tx_semanticsuggestion_suggestions {
+    view {
+        templateRootPaths {
+            0 = EXT:semantic_suggestion/Resources/Private/Templates/
+            1 = {$plugin.tx_semanticsuggestion_suggestions.view.templateRootPath}
+        }
+        partialRootPaths {
+            0 = EXT:semantic_suggestion/Resources/Private/Partials/
+            1 = {$plugin.tx_semanticsuggestion_suggestions.view.partialRootPath}
+        }
+        layoutRootPaths {
+            0 = EXT:semantic_suggestion/Resources/Private/Layouts/
+            1 = {$plugin.tx_semanticsuggestion_suggestions.view.layoutRootPath}
+        }
+    }
+    persistence {
+        storagePid = {$plugin.tx_semanticsuggestion_suggestions.persistence.storagePid}
+    }
+    settings {
+        parentPageId = {$plugin.tx_semanticsuggestion_suggestions.settings.parentPageId}
+        proximityThreshold = {$plugin.tx_semanticsuggestion_suggestions.settings.proximityThreshold}
+        maxSuggestions = {$plugin.tx_semanticsuggestion_suggestions.settings.maxSuggestions}
+        # Ajout de la profondeur de recherche
+        recursive = {$plugin.tx_semanticsuggestion_suggestions.settings.recursive}
+    }
+}
+
+plugin.tx_semanticsuggestion_suggestions {
+    settings {
+        analyzedFields {
+            title = 1.5
+            description = 1.0
+            keywords = 2.0
+            abstract = 1.2
+            content = 1.0
+        }
+    }
+}
+
+# Include the plugin in the content
+# <f:cObject typoscriptObjectPath="tt_content.list.20.semanticsuggestion_suggestions" />
+
+tt_content.semantic_suggestion_suggestions = COA
+tt_content.semantic_suggestion_suggestions {
+    10 =< lib.contentElement
+    20 =< plugin.tx_semanticsuggestion_suggestions
+}
+
+
+# Setup library to use in templates Bonne pratique pour ne pas surcharger la librairie tt_content
+# <f:cObject typoscriptObjectPath="lib.semantic_suggestion" />
+
+lib.semantic_suggestion = USER
+lib.semantic_suggestion {
+    userFunc = TYPO3\CMS\Extbase\Core\Bootstrap->run
+    extensionName = SemanticSuggestion
+    pluginName = Suggestions
+    vendorName = Talan
+
+    view =< plugin.tx_semanticsuggestion_suggestions.settings
+    persistence =< plugin.tx_semanticsuggestion_suggestions.persistence
+    settings =< plugin.tx_semanticsuggestion_suggestions.settings
+}
