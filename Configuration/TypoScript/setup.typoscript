@@ -1,55 +1,111 @@
+# Main configuration for the Semantic Suggestion plugin
 plugin.tx_semanticsuggestion_suggestions {
     view {
+        # Template paths configuration
         templateRootPaths {
+            # Default path to the extension's templates
             0 = EXT:semantic_suggestion/Resources/Private/Templates/
+            # Customizable path via a TypoScript constant
             1 = {$plugin.tx_semanticsuggestion_suggestions.view.templateRootPath}
         }
+        # Partial paths configuration
         partialRootPaths {
+            # Default path to the extension's partials
             0 = EXT:semantic_suggestion/Resources/Private/Partials/
+            # Customizable path via a TypoScript constant
             1 = {$plugin.tx_semanticsuggestion_suggestions.view.partialRootPath}
         }
+        # Layout paths configuration
         layoutRootPaths {
+            # Default path to the extension's layouts
             0 = EXT:semantic_suggestion/Resources/Private/Layouts/
+            # Customizable path via a TypoScript constant
             1 = {$plugin.tx_semanticsuggestion_suggestions.view.layoutRootPath}
         }
     }
+    
+    # Persistence configuration (not used at the moment)
     persistence {
+        # Storage PID for records related to the extension
+        # Default value: not set, configure according to your site structure
         storagePid = {$plugin.tx_semanticsuggestion_suggestions.persistence.storagePid}
     }
+    
+    # Main configuration parameters
     settings {
+        # Parent page ID from which to analyze subpages
+        # Default value: not set, configure according to your site structure
+        # Recommended value: ID of the root page of your content section
         parentPageId = {$plugin.tx_semanticsuggestion_suggestions.settings.parentPageId}
+        
+        # Proximity threshold to consider a page as similar
+        # Default value: not set
+        # Recommended value: between 0.5 and 0.7, adjust according to your needs
         proximityThreshold = {$plugin.tx_semanticsuggestion_suggestions.settings.proximityThreshold}
+        
+        # Maximum number of suggestions to display
+        # Default value: not set
+        # Recommended value: between 3 and 5, depending on your design and needs
         maxSuggestions = {$plugin.tx_semanticsuggestion_suggestions.settings.maxSuggestions}
-        # Ajout de la profondeur de recherche
+        
+        # Search depth in the page tree
+        # Default value: not set
+        # Recommended value: 1 for direct children, or more depending on your structure
         recursive = {$plugin.tx_semanticsuggestion_suggestions.settings.recursive}
     }
 }
 
+# Configuration of analyzed fields and their weights
 plugin.tx_semanticsuggestion_suggestions {
     settings {
         analyzedFields {
+            # Weight System Explanation:
+            # - Weights determine the importance of each field in similarity calculations.
+            # - There is no strict maximum; you can use any positive number.
+            # - Values less than 1 decrease importance, greater than 1 increase importance.
+            # - A weight of 1.0 is considered standard importance.
+            # - Adjust weights based on your specific content and similarity needs.
+            # - Example ranges:
+            #   0.5: Half as important as standard
+            #   1.0: Standard importance
+            #   1.5: 50% more important than standard
+            #   2.0: Twice as important as standard
+            #   3.0 and above: Significantly more important than standard
+            
+            # Weight of the title in similarity calculation
+            # Default: 1.5 (more important than standard content)
             title = 1.5
+            
+            # Weight of the description in similarity calculation
+            # Default: 1.0 (standard importance)
             description = 1.0
+            
+            # Weight of keywords in similarity calculation
+            # Default: 2.0 (very important for similarity)
             keywords = 2.0
+            
+            # Weight of the abstract in similarity calculation
+            # Default: 1.2 (slightly more important than standard content)
             abstract = 1.2
+            
+            # Weight of the main content in similarity calculation
+            # Default: 1.0 (standard importance)
             content = 1.0
         }
     }
 }
 
-# Include the plugin in the content
-# <f:cObject typoscriptObjectPath="tt_content.list.20.semanticsuggestion_suggestions" />
-
+# Configuration to include the plugin in the content
+# Usage: <f:cObject typescriptObjectPath="tt_content.list.20.semanticsuggestion_suggestions" />
 tt_content.semantic_suggestion_suggestions = COA
 tt_content.semantic_suggestion_suggestions {
     10 =< lib.contentElement
     20 =< plugin.tx_semanticsuggestion_suggestions
 }
 
-
-# Setup library to use in templates Bonne pratique pour ne pas surcharger la librairie tt_content
-# <f:cObject typoscriptObjectPath="lib.semantic_suggestion" />
-
+# Library configuration for use in templates
+# Usage: <f:cObject typescriptObjectPath="lib.semantic_suggestion" />
+# This approach is a good practice to avoid overloading the tt_content library
 lib.semantic_suggestion = USER
 lib.semantic_suggestion {
     userFunc = TYPO3\CMS\Extbase\Core\Bootstrap->run
@@ -57,6 +113,7 @@ lib.semantic_suggestion {
     pluginName = Suggestions
     vendorName = Talan
 
+    # Reuse of previous configurations
     view =< plugin.tx_semanticsuggestion_suggestions.settings
     persistence =< plugin.tx_semanticsuggestion_suggestions.persistence
     settings =< plugin.tx_semanticsuggestion_suggestions.settings

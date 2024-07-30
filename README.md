@@ -39,6 +39,7 @@ Semantic Suggestion analyzes the content of your pages and creates intelligent c
 2. Upload the extension file to your TYPO3 installation's `typo3conf/ext/` directory.
 3. In the TYPO3 backend, go to the Extension Manager and activate the "Semantic Suggestion" extension.
 
+
 ## Configuration
 
 Edit your TypoScript setup and adjust the following parameters:
@@ -62,6 +63,25 @@ plugin.tx_semanticsuggestion {
 }
 ```
 
+### Weight System for Analyzed Fields
+
+The `analyzedFields` section allows you to configure the importance of different content fields in the similarity calculation. Here's how the weight system works:
+
+- Weights can be any positive number.
+- A weight of 1.0 is considered standard importance.
+- Weights greater than 1.0 increase a field's importance.
+- Weights less than 1.0 decrease a field's importance.
+- There is no strict maximum; you can use values like 3.0 or higher for fields you consider extremely important.
+
+Example weight ranges:
+- 0.5: Half as important as standard
+- 1.0: Standard importance
+- 1.5: 50% more important than standard
+- 2.0: Twice as important as standard
+- 3.0 and above: Significantly more important than standard
+
+Adjust these weights based on your specific content structure and similarity requirements. For example, if titles are crucial for determining similarity in your case, you might increase the title weight to 2.0 or higher.
+
 ### Configuration Parameters
 
 - `parentPageId`: The ID of the parent page from which the analysis starts
@@ -69,7 +89,7 @@ plugin.tx_semanticsuggestion {
 - `maxSuggestions`: The maximum number of suggestions to display
 - `excerptLength`: The maximum length of the text excerpt for each suggestion
 - `recursive`: The search depth in the page tree (0 = only direct children)
-- `analyzedFields`: The fields to analyze and their weight in the similarity calculation
+
 
 ## Usage
 
