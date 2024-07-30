@@ -22,6 +22,10 @@
             <trans-unit id="suggestions.readMore">
                 <source>Read More</source>
             </trans-unit>
+            <trans-unit id="suggestions.noSuggestionsFound">
+                <source>No Suggestions found</source>
+            </trans-unit>
+            
         </body>
     </file>
 </xliff>
