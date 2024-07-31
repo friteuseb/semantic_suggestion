@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+    <path fill="#666" d="M1 1h14v14H1z"/>
+    <path fill="#fff" d="M2 2h12v12H2z"/>
+    <text x="4" y="12" font-family="Arial" font-size="12" fill="#666">SS</text>
+</svg>
