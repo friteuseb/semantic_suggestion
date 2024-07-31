@@ -1,0 +1,55 @@
+# TYPO3 specific
+/var
+/.php_cs.cache
+/.php-cs-fixer.cache
+
+# Composer
+/vendor
+/composer.lock
+
+# IDE and editor specific files
+/.idea
+/.vscode
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Build and temporary files
+/build
+/temp
+
+# Extension specific
+
+
+# TYPO3 generated files
+/typo3conf/ENABLE_INSTALL_TOOL
+/typo3conf/PackageStates.php
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+
+# Backup files
+*~
+*.bak
+
+# Configuration files that may contain sensitive information
+#/Configuration/
+
+# Test and documentation
+/Tests/
+/Documentation-GENERATED-temp/
+
+# Specific files to ignore
+/analyze_extension.php
+/extension_analysis_report.txt
+
+# Keep .gitkeep files
+!/**/.gitkeep
+
+# Git related
+/.git

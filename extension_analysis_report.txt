@@ -6,11 +6,11 @@ Array
             [0] => ext_tables.php
             [1] => composer.json
             [2] => ext_emconf.php
-            [3] => semantic_suggestion_1.0.2.zip
-            [4] => LICENSE
-            [5] => analyze_extension.php
-            [6] => ext_conf_template.txt
-            [7] => IMPROVEMENTS.md
+            [3] => LICENSE
+            [4] => analyze_extension.php
+            [5] => ext_conf_template.txt
+            [6] => IMPROVEMENTS.md
+            [7] => extension_analysis_report.txt
             [8] => README.md
             [9] => ext_localconf.php
             [10] => CHANGELOG.md
@@ -29,15 +29,6 @@ Array
     [Classes/Service] => Array
         (
             [0] => PageAnalysisService.php
-        )
-
-    [Classes/Dashboard] => Array
-        (
-        )
-
-    [Classes/Dashboard/Widget] => Array
-        (
-            [0] => SemanticAnalysisWidget.php
         )
 
     [.git] => Array
@@ -68,7 +59,33 @@ Array
 
     [.git/objects/79] => Array
         (
-            [0] => 8fdb58a5c413c497439cbc8dadb8f2d35054e7
+            [0] => c478cac1da6af8b2f8e3d8a5f36819e22a925b
+            [1] => 8fdb58a5c413c497439cbc8dadb8f2d35054e7
+        )
+
+    [.git/objects/95] => Array
+        (
+            [0] => 87484acc30e024a3add85c2aca15e829f3b993
+        )
+
+    [.git/objects/18] => Array
+        (
+            [0] => 4ce1405235d3a3ad8eac9d8bcb37fceb3bfbe6
+        )
+
+    [.git/objects/7d] => Array
+        (
+            [0] => c6f3c1a2174aad44263c31aebfe5ba81228a2c
+        )
+
+    [.git/objects/f4] => Array
+        (
+            [0] => 5be2ea18f4d8db1eeffd78bf68e88a94aaca07
+        )
+
+    [.git/objects/9a] => Array
+        (
+            [0] => 93bcf96da082fec295192ad08b479138b01a3b
         )
 
     [.git/objects/69] => Array
@@ -80,14 +97,116 @@ Array
         (
         )
 
+    [.git/objects/28] => Array
+        (
+            [0] => 7bc59b00010adc5b7c09647e934d9448dff455
+        )
+
+    [.git/objects/3a] => Array
+        (
+            [0] => 74a807b2bbb7a0619af8ffa8486bfd0ee8005b
+        )
+
     [.git/objects/1c] => Array
         (
-            [0] => 3359158737744cd31c02ba3274d0587e785e99
+            [0] => e4ada4d6b1b9136f92365be20132b8d38c8bed
+            [1] => 3359158737744cd31c02ba3274d0587e785e99
         )
 
     [.git/objects/3e] => Array
         (
             [0] => 1ced5cbc70e0779d244137c0e1c8941b56ef0e
+        )
+
+    [.git/objects/bd] => Array
+        (
+            [0] => 5e6d6d8e07b044feeb5822b32b9073e8b72ec6
+        )
+
+    [.git/objects/34] => Array
+        (
+            [0] => 56b38820a14b2ec15b219e3c90eb4af6b425c0
+        )
+
+    [.git/objects/47] => Array
+        (
+            [0] => 40fa9278c7d61e7d455201d34f9b58738f840f
+            [1] => 4f037402e4aa6374cf115f4dd92a0edb936976
+        )
+
+    [.git/objects/4b] => Array
+        (
+            [0] => 69799339f4bfbe11530f0939a9a07af42ae4a9
+        )
+
+    [.git/objects/8c] => Array
+        (
+            [0] => 98ca46beabefdea834fdb0e61247070097ac9c
+        )
+
+    [.git/objects/62] => Array
+        (
+            [0] => 0a605bee000660afa6947bbbe364da27ff5bce
+        )
+
+    [.git/objects/64] => Array
+        (
+            [0] => 6e087248a9fab2cb8c5a7b7131932f3dd2a997
+        )
+
+    [.git/objects/d0] => Array
+        (
+            [0] => 8be8348e320fd2270363a7c4410d6cd0f660d9
+        )
+
+    [.git/objects/24] => Array
+        (
+            [0] => 61a0ba4a6d398c36fbb3054e0fc5ba2c0f879d
+        )
+
+    [.git/objects/8f] => Array
+        (
+            [0] => 4f2961b0ffa137f1bd8cc27705cbfb70c99623
+        )
+
+    [.git/objects/aa] => Array
+        (
+            [0] => 3e2a4970f73038a376bf25c1801ce13df8adf0
+        )
+
+    [.git/objects/f6] => Array
+        (
+            [0] => 779218d366db9022c868dc49d88061fc97d8ea
+        )
+
+    [.git/objects/cd] => Array
+        (
+            [0] => 52e28eb88e8db9f0108c9d07b6d83e931a77a1
+        )
+
+    [.git/objects/74] => Array
+        (
+            [0] => fd6a90e3799c9ea9cc29437934e0da04cd5ff4
+        )
+
+    [.git/objects/2d] => Array
+        (
+            [0] => 351566a12502ae4e3026afca388ba2506d7cad
+        )
+
+    [.git/objects/b0] => Array
+        (
+            [0] => da5ba285cb631493928a55af9fdb5156332708
+        )
+
+    [.git/objects/4e] => Array
+        (
+            [0] => a22d8a50b75e5477bd29d158c394f40443dc0c
+        )
+
+    [.git/objects/e0] => Array
+        (
+            [0] => 049e137de58cd2b725552f5155487e171cdb99
         )
 
     [.git/objects/pack] => Array
@@ -107,8 +226,9 @@ Array
 
     [.git/logs/refs/heads] => Array
         (
-            [0] => v1.0.2
-            [1] => master
+            [0] => widget
+            [1] => v1.0.2
+            [2] => master
         )
 
     [.git/logs/refs/remotes] => Array
@@ -119,9 +239,10 @@ Array
         (
             [0] => main
             [1] => lenovo
-            [2] => v1.0.2
-            [3] => talan
-            [4] => master
+            [2] => widget
+            [3] => v1.0.2
+            [4] => talan
+            [5] => master
         )
 
     [.git/refs] => Array
@@ -136,8 +257,9 @@ Array
 
     [.git/refs/heads] => Array
         (
-            [0] => v1.0.2
-            [1] => master
+            [0] => widget
+            [1] => v1.0.2
+            [2] => master
         )
 
     [.git/refs/remotes] => Array
@@ -148,9 +270,10 @@ Array
         (
             [0] => main
             [1] => lenovo
-            [2] => v1.0.2
-            [3] => talan
-            [4] => master
+            [2] => widget
+            [3] => v1.0.2
+            [4] => talan
+            [5] => master
         )
 
     [.git/hooks] => Array
@@ -194,11 +317,6 @@ Array
     [Resources/Private/Templates/Suggestions] => Array
         (
             [0] => List.html
-        )
-
-    [Resources/Private/Templates/Widget] => Array
-        (
-            [0] => SemanticAnalysisWidget.html
         )
 
     [Resources/Private/Language] => Array
@@ -336,13 +454,13 @@ Array
 
         )
 
-    [\ComposerAutoloaderInit10aa6602228a829b629b7a3a1c96f8d3] => Array
+    [\ComposerAutoloaderInite10bc1c960c969456e1e3d34afbefd74] => Array
         (
             [file] => vendor/composer/autoload_real.php
             [methods] => Array
                 (
-                    [0] => ComposerAutoloaderInit10aa6602228a829b629b7a3a1c96f8d3
-                    [1] => ComposerAutoloaderInit10aa6602228a829b629b7a3a1c96f8d3
+                    [0] => ComposerAutoloaderInite10bc1c960c969456e1e3d34afbefd74
+                    [1] => ComposerAutoloaderInite10bc1c960c969456e1e3d34afbefd74
                 )
 
         )
