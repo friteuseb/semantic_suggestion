@@ -6,6 +6,7 @@ use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Connection;
+use TYPO3\CMS\Core\Cache\CacheManager;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 
@@ -16,6 +17,7 @@ class PageAnalysisService implements LoggerAwareInterface
     protected $context;
     protected $configurationManager;
     protected $settings;
+    protected $cache;
 
     /**
      * Constructor
@@ -31,17 +33,26 @@ class PageAnalysisService implements LoggerAwareInterface
             ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
             'semanticsuggestion_suggestions'
         );
+        $this->cache = GeneralUtility::makeInstance(CacheManager::class)->getCache('semantic_suggestion');
     }
 
     /**
      * Analyze pages and calculate similarities
      *
-     * @param int $parentPageId
-     * @param int $depth
+     * @param int|null $parentPageId
+     * @param int|null $depth
      * @return array
      */
-    public function analyzePages(int $parentPageId, int $depth = 0): array
+    public function analyzePages(int $parentPageId = null, int $depth = null): array
     {
+        $parentPageId = $parentPageId ?? (int)$this->settings['parentPageId'];
+        $depth = $depth ?? (int)$this->settings['recursive'];
+        $cacheIdentifier = 'semantic_analysis_' . $parentPageId . '_' . $depth;
+
+        if ($this->cache->has($cacheIdentifier)) {
+            return $this->cache->get($cacheIdentifier);
+        }
+
         $pages = $this->getAllSubpages($parentPageId, $depth);
         $analysisResults = [];
 
@@ -62,6 +73,8 @@ class PageAnalysisService implements LoggerAwareInterface
                 }
             }
         }
+
+        $this->cache->set($cacheIdentifier, $analysisResults, ['pages'], 86400); // Cache for 24 hours
 
         return $analysisResults;
     }
@@ -87,7 +100,7 @@ class PageAnalysisService implements LoggerAwareInterface
                     'weight' => (float)$weight
                 ];
             } else {
-                // Ajouter un champ vide avec un poids par défaut si le champ n'existe pas
+                // Add an empty field with default weight if the field doesn't exist
                 $preparedData[$field] = [
                     'content' => '',
                     'weight' => (float)$weight
@@ -96,6 +109,7 @@ class PageAnalysisService implements LoggerAwareInterface
         }
         return $preparedData;
     }
+
     /**
      * Get all subpages recursively
      *
@@ -107,39 +121,44 @@ class PageAnalysisService implements LoggerAwareInterface
     {
         $pages = $this->getSubpages($parentId);
         $allPages = $pages;
-
-        foreach ($pages as $page) {
-            if ($depth !== 1) {
-                $subPages = $this->getAllSubpages($page['uid'], $depth - 1);
+    
+        if ($depth > 0 || $depth === -1) { // -1 pour une profondeur illimitée
+            foreach ($pages as $page) {
+                $subPages = $this->getAllSubpages($page['uid'], $depth === -1 ? -1 : $depth - 1);
                 $allPages = array_merge($allPages, $subPages);
             }
         }
-
+    
         return $allPages;
     }
 
-    /**
-     * Get immediate subpages of a given page
-     *
-     * @param int $parentId
-     * @return array
-     */
-    private function getSubpages(int $parentId): array
-    {
+/**
+ * Get immediate subpages of a given page
+ *
+ * @param int $parentId
+ * @return array
+ */
+private function getSubpages(int $parentId): array
+{
+    $this->logger->info('Fetching subpages', ['parentId' => $parentId]);
+
+    try {
         $queryBuilder = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable('pages');
         $languageUid = $this->getCurrentLanguageUid();
-    
+
         $this->logger->info('Current language UID: ' . $languageUid);
-    
-        // Définissez explicitement les champs que vous voulez récupérer
+
+        // Define explicitly the fields you want to retrieve
         $fieldsToSelect = ['uid', 'title', 'description', 'keywords', 'abstract'];
-    
-        // Assurez-vous que ces champs existent dans la table 'pages'
+
+        // Ensure these fields exist in the 'pages' table
         $tableColumns = $queryBuilder->getConnection()->getSchemaManager()->listTableColumns('pages');
         $existingColumns = array_keys($tableColumns);
         $fieldsToSelect = array_intersect($fieldsToSelect, $existingColumns);
-    
-        return $queryBuilder
+
+        $this->logger->debug('Fields to select', ['fields' => $fieldsToSelect]);
+
+        $result = $queryBuilder
             ->select(...$fieldsToSelect)
             ->from('pages')
             ->where(
@@ -150,7 +169,17 @@ class PageAnalysisService implements LoggerAwareInterface
             )
             ->executeQuery()
             ->fetchAllAssociative();
+
+        $this->logger->info('Subpages fetched successfully', ['count' => count($result)]);
+        $this->logger->debug('Fetched subpages', ['subpages' => $result]);
+
+        return $result;
+    } catch (\Exception $e) {
+        $this->logger->error('Error fetching subpages', ['exception' => $e->getMessage()]);
+        return [];
     }
+}
+    
 
     /**
      * Get page content
@@ -178,25 +207,30 @@ class PageAnalysisService implements LoggerAwareInterface
         return implode(' ', array_column($content, 'bodytext'));
     }
 
+    /**
+     * Get weighted words from page data
+     *
+     * @param array $pageData
+     * @return array
+     */
     private function getWeightedWords(array $pageData): array
-{
-    $weightedWords = [];
-    foreach ($pageData as $field => $data) {
-        if (!isset($data['content']) || !is_string($data['content'])) {
-            continue;
-        }
-        $words = str_word_count(strtolower($data['content']), 1);
-        $weight = $data['weight'] ?? 1.0;
-        foreach ($words as $word) {
-            if (!isset($weightedWords[$word])) {
-                $weightedWords[$word] = 0;
+    {
+        $weightedWords = [];
+        foreach ($pageData as $field => $data) {
+            if (!isset($data['content']) || !is_string($data['content'])) {
+                continue;
             }
-            $weightedWords[$word] += $weight;
+            $words = str_word_count(strtolower($data['content']), 1);
+            $weight = $data['weight'] ?? 1.0;
+            foreach ($words as $word) {
+                if (!isset($weightedWords[$word])) {
+                    $weightedWords[$word] = 0;
+                }
+                $weightedWords[$word] += $weight;
+            }
         }
+        return $weightedWords;
     }
-    return $weightedWords;
-}
-
 
     /**
      * Calculate similarity between two pages
@@ -237,6 +271,13 @@ class PageAnalysisService implements LoggerAwareInterface
         return $similarity;
     }
     
+    /**
+     * Calculate similarity for a specific field
+     *
+     * @param array $field1
+     * @param array $field2
+     * @return float
+     */
     private function calculateFieldSimilarity($field1, $field2): float
     {
         if (!isset($field1['content']) || !isset($field2['content'])) {
@@ -248,7 +289,6 @@ class PageAnalysisService implements LoggerAwareInterface
         $union = array_unique(array_merge($words1, $words2));
         return count($union) > 0 ? count($intersection) / count($union) : 0.0;
     }
-
     
     /**
      * Find common keywords between two pages

@@ -1,0 +1,385 @@
+Structure de l'extension:
+Array
+(
+    [.] => Array
+        (
+            [0] => ext_tables.php
+            [1] => composer.json
+            [2] => ext_emconf.php
+            [3] => semantic_suggestion_1.0.2.zip
+            [4] => LICENSE
+            [5] => analyze_extension.php
+            [6] => ext_conf_template.txt
+            [7] => IMPROVEMENTS.md
+            [8] => README.md
+            [9] => ext_localconf.php
+            [10] => CHANGELOG.md
+        )
+
+    [Classes] => Array
+        (
+        )
+
+    [Classes/Controller] => Array
+        (
+            [0] => BackendController.php
+            [1] => SuggestionsController.php
+        )
+
+    [Classes/Service] => Array
+        (
+            [0] => PageAnalysisService.php
+        )
+
+    [Classes/Dashboard] => Array
+        (
+        )
+
+    [Classes/Dashboard/Widget] => Array
+        (
+            [0] => SemanticAnalysisWidget.php
+        )
+
+    [.git] => Array
+        (
+            [0] => COMMIT_EDITMSG
+            [1] => HEAD
+            [2] => description
+            [3] => FETCH_HEAD
+            [4] => ORIG_HEAD
+            [5] => config
+            [6] => index
+            [7] => packed-refs
+        )
+
+    [.git/info] => Array
+        (
+            [0] => exclude
+        )
+
+    [.git/objects] => Array
+        (
+        )
+
+    [.git/objects/0f] => Array
+        (
+            [0] => 8c988ef9c07702d85e30a74d081fbb29694799
+        )
+
+    [.git/objects/79] => Array
+        (
+            [0] => 8fdb58a5c413c497439cbc8dadb8f2d35054e7
+        )
+
+    [.git/objects/69] => Array
+        (
+            [0] => 7fc5ff7c84042cdc4e528008f04d6bbd704eb4
+        )
+
+    [.git/objects/info] => Array
+        (
+        )
+
+    [.git/objects/1c] => Array
+        (
+            [0] => 3359158737744cd31c02ba3274d0587e785e99
+        )
+
+    [.git/objects/3e] => Array
+        (
+            [0] => 1ced5cbc70e0779d244137c0e1c8941b56ef0e
+        )
+
+    [.git/objects/pack] => Array
+        (
+            [0] => pack-841ea40a7f96791cf10e78a588a750984f48dcf5.pack
+            [1] => pack-841ea40a7f96791cf10e78a588a750984f48dcf5.idx
+        )
+
+    [.git/logs] => Array
+        (
+            [0] => HEAD
+        )
+
+    [.git/logs/refs] => Array
+        (
+        )
+
+    [.git/logs/refs/heads] => Array
+        (
+            [0] => v1.0.2
+            [1] => master
+        )
+
+    [.git/logs/refs/remotes] => Array
+        (
+        )
+
+    [.git/logs/refs/remotes/origin] => Array
+        (
+            [0] => main
+            [1] => lenovo
+            [2] => v1.0.2
+            [3] => talan
+            [4] => master
+        )
+
+    [.git/refs] => Array
+        (
+        )
+
+    [.git/refs/tags] => Array
+        (
+            [0] => 1.0.2
+            [1] => 1.0.1
+        )
+
+    [.git/refs/heads] => Array
+        (
+            [0] => v1.0.2
+            [1] => master
+        )
+
+    [.git/refs/remotes] => Array
+        (
+        )
+
+    [.git/refs/remotes/origin] => Array
+        (
+            [0] => main
+            [1] => lenovo
+            [2] => v1.0.2
+            [3] => talan
+            [4] => master
+        )
+
+    [.git/hooks] => Array
+        (
+            [0] => pre-rebase.sample
+            [1] => pre-push.sample
+            [2] => pre-commit.sample
+            [3] => applypatch-msg.sample
+            [4] => commit-msg.sample
+            [5] => push-to-checkout.sample
+            [6] => fsmonitor-watchman.sample
+            [7] => pre-receive.sample
+            [8] => prepare-commit-msg.sample
+            [9] => update.sample
+            [10] => pre-merge-commit.sample
+            [11] => pre-applypatch.sample
+            [12] => post-update.sample
+        )
+
+    [.git/branches] => Array
+        (
+        )
+
+    [Resources] => Array
+        (
+        )
+
+    [Resources/Private] => Array
+        (
+        )
+
+    [Resources/Private/Templates] => Array
+        (
+        )
+
+    [Resources/Private/Templates/Backend] => Array
+        (
+            [0] => List.html
+        )
+
+    [Resources/Private/Templates/Suggestions] => Array
+        (
+            [0] => List.html
+        )
+
+    [Resources/Private/Templates/Widget] => Array
+        (
+            [0] => SemanticAnalysisWidget.html
+        )
+
+    [Resources/Private/Language] => Array
+        (
+            [0] => locallang.xlf
+            [1] => locallang_semanticproximity.xlf
+            [2] => locallang_be.xlf
+        )
+
+    [Resources/Private/Layouts] => Array
+        (
+            [0] => Default.html
+        )
+
+    [Resources/Public] => Array
+        (
+        )
+
+    [Resources/Public/Icons] => Array
+        (
+            [0] => Extension.svg
+            [1] => user_mod_semanticproximity.svg
+        )
+
+    [Configuration] => Array
+        (
+            [0] => Services.yaml
+        )
+
+    [Configuration/TCA] => Array
+        (
+        )
+
+    [Configuration/TCA/Overrides] => Array
+        (
+            [0] => sys_template.php
+            [1] => tt_content.php
+        )
+
+    [Configuration/TsConfig] => Array
+        (
+        )
+
+    [Configuration/TsConfig/Page] => Array
+        (
+            [0] => Dashboard.tsconfig
+        )
+
+    [Configuration/Backend] => Array
+        (
+            [0] => Routes.php
+        )
+
+    [Configuration/TypoScript] => Array
+        (
+            [0] => constants.typoscript
+            [1] => setup.typoscript
+        )
+
+    [Documentation] => Array
+        (
+            [0] => Index.rst
+        )
+
+    [Documentation/Installation] => Array
+        (
+            [0] => Index.rst
+        )
+
+    [Documentation/Introduction] => Array
+        (
+            [0] => Index.rst
+        )
+
+    [vendor] => Array
+        (
+            [0] => autoload.php
+        )
+
+    [vendor/composer] => Array
+        (
+            [0] => autoload_static.php
+            [1] => autoload_namespaces.php
+            [2] => autoload_real.php
+            [3] => LICENSE
+            [4] => autoload_classmap.php
+            [5] => ClassLoader.php
+            [6] => autoload_psr4.php
+        )
+
+)
+
+Classes et méthodes:
+Array
+(
+    [\defined] => Array
+        (
+            [file] => ext_localconf.php
+            [methods] => Array
+                (
+                )
+
+        )
+
+    [\] => Array
+        (
+            [file] => vendor/composer/ClassLoader.php
+            [methods] => Array
+                (
+                    [0] => 
+                    [1] => 
+                    [2] => 
+                    [3] => 
+                    [4] => 
+                    [5] => 
+                    [6] => 
+                    [7] => 
+                    [8] => 
+                    [9] => 
+                    [10] => 
+                    [11] => 
+                    [12] => 
+                    [13] => 
+                    [14] => 
+                    [15] => 
+                    [16] => 
+                    [17] => 
+                    [18] => 
+                    [19] => 
+                    [20] => 
+                    [21] => 
+                    [22] => 
+                    [23] => 
+                )
+
+        )
+
+    [\ComposerAutoloaderInit10aa6602228a829b629b7a3a1c96f8d3] => Array
+        (
+            [file] => vendor/composer/autoload_real.php
+            [methods] => Array
+                (
+                    [0] => ComposerAutoloaderInit10aa6602228a829b629b7a3a1c96f8d3
+                    [1] => ComposerAutoloaderInit10aa6602228a829b629b7a3a1c96f8d3
+                )
+
+        )
+
+)
+
+Fonctions globales:
+Array
+(
+    [0] => Array
+        (
+            [name] => \defined
+            [file] => ext_tables.php
+        )
+
+    [1] => Array
+        (
+            [name] => \analyzeExtension
+            [file] => analyze_extension.php
+        )
+
+    [2] => Array
+        (
+            [name] => \analyzeExtension
+            [file] => analyze_extension.php
+        )
+
+    [3] => Array
+        (
+            [name] => \analyzeExtension
+            [file] => analyze_extension.php
+        )
+
+    [4] => Array
+        (
+            [name] => \defined
+            [file] => ext_localconf.php
+        )
+
+)

@@ -14,9 +14,6 @@ defined('TYPO3') or die();
         ]
     );
 
-    \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::addTypoScriptSetup(
-        '@import "EXT:semantic_suggestion/Configuration/TsConfig/Page/Dashboard.tsconfig"'
-    );
 
     \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::addTypoScriptSetup(
         '<INCLUDE_TYPOSCRIPT: source="FILE:EXT:semantic_suggestion/Configuration/TypoScript/setup.typoscript">'
@@ -32,4 +29,17 @@ defined('TYPO3') or die();
             ]
         ]
     ];
+
+    // Configuration du cache pour Semantic Suggestion
+    if (!isset($GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['semantic_suggestion'])) {
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['semantic_suggestion'] = [
+            'frontend' => \TYPO3\CMS\Core\Cache\Frontend\VariableFrontend::class,
+            'backend' => \TYPO3\CMS\Core\Cache\Backend\FileBackend::class,
+            'options' => [
+                'defaultLifetime' => 86400 // 24 heures
+            ],
+            'groups' => ['pages']
+        ];
+    }
 })();
+
