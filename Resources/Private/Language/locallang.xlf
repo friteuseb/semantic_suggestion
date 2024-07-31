@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file source-language="en" datatype="plaintext" original="EXT:semantic_suggestion/Resources/Private/Language/locallang.xlf" date="2024-07-16T17:00:00Z" product-name="semantic_suggestion">
+        <header/>
+        <body>
+            <trans-unit id="widget.title">
+                <source>Semantic Analysis</source>
+            </trans-unit>
+            <trans-unit id="widget.contentTitle">
+                <source>Semantic Analysis Results</source>
+            </trans-unit>
+            <trans-unit id="widget.pageTitle">
+                <source>Page Title</source>
+            </trans-unit>
+            <trans-unit id="widget.similarityScore">
+                <source>Similarity Score</source>
+            </trans-unit>
+
+            <trans-unit id="suggestions.title">
+                <source>Suggestions</source>
+            </trans-unit>
+            <trans-unit id="suggestions.readMore">
+                <source>Read More</source>
+            </trans-unit>
+            <trans-unit id="suggestions.noSuggestionsFound">
+                <source>No Suggestions found</source>
+            </trans-unit>
+            
+        </body>
+    </file>
+</xliff>

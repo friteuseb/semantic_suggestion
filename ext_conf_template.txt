@@ -1,0 +1,11 @@
+# cat=basic//10; type=int+; label=Parent Page ID: The ID of the parent page to analyze for semantic suggestions
+settings.parentPageId = 4
+
+# cat=basic//20; type=float; label=Proximity Threshold: The minimum similarity score for a page to be considered as a suggestion (0.0 to 1.0)
+settings.proximityThreshold = 0.3
+
+# cat=basic//30; type=int+; label=Maximum Suggestions: The maximum number of suggestions to display
+settings.maxSuggestions = 5
+
+# cat=basic//40; type=int+; label=Excerpt Length: The maximum length of the page excerpt in characters
+settings.excerptLength = 100

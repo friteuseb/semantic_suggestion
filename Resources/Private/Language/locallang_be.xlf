@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<xliff version="1.0">
+    <file source-language="en" datatype="plaintext" original="messages" date="2023-07-16T12:00:00Z" product-name="semantic_suggestion">
+        <header/>
+        <body>
+            <trans-unit id="plugin.title">
+                <source>Semantic Suggestions</source>
+            </trans-unit>
+            <trans-unit id="plugin.description">
+                <source>Suggests semantically related pages</source>
+            </trans-unit>
+            <trans-unit id="flexforms.parentPageId">
+                <source>Parent Page ID</source>
+            </trans-unit>
+            <trans-unit id="flexforms.proximityThreshold">
+                <source>Proximity Threshold</source>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>

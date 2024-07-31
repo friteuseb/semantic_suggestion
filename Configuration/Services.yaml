@@ -1,0 +1,35 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+    public: false
+
+  TalanHdf\SemanticSuggestion\:
+    resource: '../Classes/*'
+
+  TalanHdf\SemanticSuggestion\Dashboard\Widget\SemanticAnalysisWidget:
+    arguments:
+      $view: '@dashboard.views.widget'
+      $options:
+        parentPageId: 1  # Changez cette valeur à l'ID de la page parent souhaitée
+    tags:
+      - name: dashboard.widget
+        identifier: 'semanticAnalysis'
+        groupNames: 'general'
+        title: 'LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang.xlf:widget.title'
+        description: 'LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang.xlf:widget.description'
+        iconIdentifier: 'content-widget-text'
+        height: 'medium'
+        width: 'medium'
+
+  TalanHdf\SemanticSuggestion\Service\PageAnalysisService:
+    public: true
+    arguments:
+      $context: '@TYPO3\CMS\Core\Context\Context'
+      $configurationManager: '@TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface'
+
+  TalanHdf\SemanticSuggestion\Controller\SuggestionsController:
+    public: true
+    arguments:
+      $pageAnalysisService: '@TalanHdf\SemanticSuggestion\Service\PageAnalysisService'
+      $fileRepository: '@TYPO3\CMS\Core\Resource\FileRepository'

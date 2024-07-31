@@ -1,0 +1,11 @@
+mod.dashboard.dashboards {
+  defaultDashboard {
+    title = Default
+    iconIdentifier = content-dashboard
+    widgets {
+      10 {
+        identifier = semanticAnalysis
+      }
+    }
+  }
+}
