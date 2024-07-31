@@ -11,12 +11,13 @@ services:
     arguments:
       $context: '@TYPO3\CMS\Core\Context\Context'
       $configurationManager: '@TYPO3\CMS\Extbase\Configuration\ConfigurationManager'
-    tags:
-      - name: event.listener
-        identifier: 'semantic-suggestion-page-analysis'
+    public: true
+    # Retirez le tag event.listener si ce service n'est pas censé être un écouteur d'événement
 
   TalanHdf\SemanticSuggestion\Controller\SuggestionsController:
     public: true
     arguments:
       $pageAnalysisService: '@TalanHdf\SemanticSuggestion\Service\PageAnalysisService'
       $fileRepository: '@TYPO3\CMS\Core\Resource\FileRepository'
+
+
