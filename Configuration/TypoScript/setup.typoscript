@@ -138,3 +138,14 @@ module.tx_semanticsuggestion {
         }
     }
 }
+
+
+module.tx_semanticsuggestion {
+    view {
+        layoutRootPaths.10 = EXT:semantic_suggestion/Resources/Private/Layouts/
+        templateRootPaths.10 = EXT:semantic_suggestion/Resources/Private/Templates/
+        partialRootPaths.10 = EXT:semantic_suggestion/Resources/Private/Partials/
+    }
+    _CSS_DEFAULT_STYLE >
+    _CSS_DEFAULT_STYLE = <link rel="stylesheet" type="text/css" href="EXT:semantic_suggestion/Resources/Public/Css/SemanticSuggestion.css" media="all">
+}

@@ -5,76 +5,110 @@
 <f:layout name="Default" />
 
 <f:section name="content">
-    <h1>Semantic Suggestion Analysis</h1>
+    <style>
+        .semantic-suggestion-module {
+            font-family: 'Arial', sans-serif;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .config-panel, .result-card {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .config-item, .field-item {
+            background: #f0f0f0;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        .results-container {
+            max-height: 600px;
+            overflow-y: auto;
+            padding-right: 15px;
+        }
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .similar-page {
+            padding: 8px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+        }
+        .high-relevance { background: #d4edda; color: #155724; }
+        .medium-relevance { background: #fff3cd; color: #856404; }
+        .low-relevance { background: #f8d7da; color: #721c24; }
+        .page-title { font-weight: bold; }
+        .score, .relevance { font-size: 0.9em; margin-left: 10px; }
+    </style>
 
-    <h2>Configuration</h2>
-    <table class="table table-striped">
-        <tr>
-            <th>Parent Page ID</th>
-            <td>{parentPageId}</td>
-        </tr>
-        <tr>
-            <th>Depth</th>
-            <td>{depth}</td>
-        </tr>
-        <tr>
-            <th>Proximity Threshold</th>
-            <td>{proximityThreshold}</td>
-        </tr>
-        <tr>
-            <th>Max Suggestions</th>
-            <td>{maxSuggestions}</td>
-        </tr>
-    </table>
+    <div class="semantic-suggestion-module">
+        <h1>Semantic Suggestion Analysis</h1>
 
-    <h3>Analyzed Fields and Weights</h3>
-    <table class="table table-striped">
-        <tr>
-            <th>Field</th>
-            <th>Weight</th>
-        </tr>
-        <f:for each="{analyzedFields}" as="weight" key="field">
-            <tr>
-                <td>{field}</td>
-                <td>{weight}</td>
-            </tr>
-        </f:for>
-    </table>
+        <div class="config-panel">
+            <h2>Configuration</h2>
+            <div class="config-grid">
+                <div class="config-item">
+                    <span class="label">Parent Page ID:</span>
+                    <span class="value">{parentPageId}</span>
+                </div>
+                <div class="config-item">
+                    <span class="label">Depth:</span>
+                    <span class="value">{depth}</span>
+                </div>
+                <div class="config-item">
+                    <span class="label">Proximity Threshold:</span>
+                    <span class="value">{proximityThreshold}</span>
+                </div>
+                <div class="config-item">
+                    <span class="label">Max Suggestions:</span>
+                    <span class="value">{maxSuggestions}</span>
+                </div>
+            </div>
 
-    <h2>Analysis Results</h2>
-    <f:if condition="{analysisResults}">
-        <f:then>
-            <table class="table table-striped">
-                <tr>
-                    <th>Page ID</th>
-                    <th>Title</th>
-                    <th>Similar Pages</th>
-                </tr>
-                <f:for each="{analysisResults}" as="pageData" key="pageId">
-                    <tr>
-                        <td>{pageId}</td>
-                        <td>{pageData.title.content}</td>
-                        <td>
-                            <ul>
-                                <f:for each="{pageData.similarities}" as="similarity" key="similarPageId">
-                                    <f:if condition="{similarity.score} >= {proximityThreshold}">
-                                        <li>
-                                            Page {similarPageId}: 
-                                            Score: {similarity.score -> f:format.number(decimals: 2)}, 
-                                            Relevance: {similarity.relevance}
-                                        </li>
-                                    </f:if>
-                                </f:for>
-                            </ul>
-                        </td>
-                    </tr>
+            <h3>Analyzed Fields and Weights</h3>
+            <div class="analyzed-fields">
+                <f:for each="{analyzedFields}" as="weight" key="field">
+                    <span class="field-item">{field}: {weight}</span>
                 </f:for>
-            </table>
-        </f:then>
-        <f:else>
-            <p>No analysis results available. Please check your configuration.</p>
-        </f:else>
-    </f:if>
+            </div>
+        </div>
+
+        <h2>Analysis Results</h2>
+        <div class="results-container">
+            <div class="results-grid">
+                <f:for each="{analysisResults}" as="pageData" key="pageId">
+                    <div class="result-card">
+                        <h3>{pageData.title.content} (ID: {pageId})</h3>
+                        <f:for each="{pageData.similarities}" as="similarity" key="similarPageId">
+                            <f:if condition="{similarity.score} >= {proximityThreshold}">
+                                <div class="similar-page {f:if(condition: '{similarity.relevance} == \'High\'', then: 'high-relevance')}{f:if(condition: '{similarity.relevance} == \'Medium\'', then: 'medium-relevance')}{f:if(condition: '{similarity.relevance} == \'Low\'', then: 'low-relevance')}">
+                                    <span class="page-title">
+                                        <f:if condition="{analysisResults.{similarPageId}}">
+                                            <f:then>{analysisResults.{similarPageId}.title.content}</f:then>
+                                            <f:else>Page {similarPageId}</f:else>
+                                        </f:if>
+                                    </span>
+                                    <span class="score">Score: {similarity.score -> f:format.number(decimals: 2)}</span>
+                                    <span class="relevance">{similarity.relevance}</span>
+                                </div>
+                            </f:if>
+                        </f:for>
+                    </div>
+                </f:for>
+            </div>
+        </div>
+    </div>
 </f:section>
 
 </html>
