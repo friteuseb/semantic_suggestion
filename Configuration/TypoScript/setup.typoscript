@@ -24,6 +24,7 @@ plugin.tx_semanticsuggestion_suggestions {
         }
     }
     
+
     # Persistence configuration (not used at the moment)
     persistence {
         # Storage PID for records related to the extension
@@ -117,4 +118,23 @@ lib.semantic_suggestion {
     view =< plugin.tx_semanticsuggestion_suggestions.settings
     persistence =< plugin.tx_semanticsuggestion_suggestions.persistence
     settings =< plugin.tx_semanticsuggestion_suggestions.settings
+}
+
+
+
+module.tx_semanticsuggestion {
+    view {
+        templateRootPaths {
+            0 = EXT:semantic_suggestion/Resources/Private/Templates/
+            1 = {$module.tx_semanticsuggestion.view.templateRootPath}
+        }
+        partialRootPaths {
+            0 = EXT:semantic_suggestion/Resources/Private/Partials/
+            1 = {$module.tx_semanticsuggestion.view.partialRootPath}
+        }
+        layoutRootPaths {
+            0 = EXT:semantic_suggestion/Resources/Private/Layouts/
+            1 = {$module.tx_semanticsuggestion.view.layoutRootPath}
+        }
+    }
 }

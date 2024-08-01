@@ -21,3 +21,5 @@ services:
       $fileRepository: '@TYPO3\CMS\Core\Resource\FileRepository'
 
 
+  TalanHdf\SemanticSuggestion\Controller\SemanticBackendController:
+    tags: ['backend.controller']

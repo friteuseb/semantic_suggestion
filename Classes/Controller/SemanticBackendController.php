@@ -8,7 +8,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 
 class SemanticBackendController extends ActionController
 {
-    protected ModuleTemplateFactory $moduleTemplateFactory;
+    protected $moduleTemplateFactory;
 
     public function __construct(ModuleTemplateFactory $moduleTemplateFactory)
     {
@@ -18,7 +18,7 @@ class SemanticBackendController extends ActionController
     public function indexAction(): ResponseInterface
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $moduleTemplate->setContent($this->view->render());
-        return $this->htmlResponse($moduleTemplate->renderContent());
+        $moduleTemplate->setContent('Hello from SemanticBackendController!');
+        return $moduleTemplate->renderResponse();
     }
 }

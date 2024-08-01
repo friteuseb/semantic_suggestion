@@ -1,16 +1,18 @@
 <?php
 return [
-    'semantic_suggestion' => [
+    'web_SemanticSuggestion' => [
         'parent' => 'web',
         'position' => ['after' => 'web_info'],
         'access' => 'user,group',
-        'path' => '/module/semantic-suggestion',
+        'workspaces' => 'live',
+        'path' => '/module/web/SemanticSuggestion',
         'labels' => 'LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_mod.xlf',
         'icon' => 'EXT:semantic_suggestion/Resources/Public/Icons/module-semantic-suggestion.svg',
+        'extensionName' => 'semantic-suggestion',
         'controllerActions' => [
-            \TalanHdf\SemanticSuggestion\Controller\SemanticBackendController::class => [
-                'index',
-            ],
+            \TalanHdf\SemanticSuggestion\Controller\SemanticBackendController::class => 'index,list'
         ],
+        
     ],
 ];
+
