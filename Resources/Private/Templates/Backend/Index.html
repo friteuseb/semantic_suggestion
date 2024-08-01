@@ -1,11 +1,28 @@
 <html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
       data-namespace-typo3-fluid="true">
 
 <f:layout name="Default" />
 
 <f:section name="content">
-    <h1>Semantic Suggestion Backend Module</h1>
-    <p>Welcome to the Semantic Suggestion backend module. Here you can manage and view semantic analysis results.</p>
+    <h1>Semantic Similarity Visualization</h1>
+
+    <f:form action="index" method="get">
+        <div class="form-group">
+            <label for="pid">Parent Page ID:</label>
+            <f:form.textfield id="pid" name="pid" value="{pid}" class="form-control" />
+        </div>
+        <div class="form-group">
+            <label for="depth">Depth:</label>
+            <f:form.textfield id="depth" name="depth" value="{depth}" class="form-control" />
+        </div>
+        <f:form.submit value="Analyze" class="btn btn-primary" />
+    </f:form>
+
+    <div id="visualization"></div>
+
+    <f:comment><!-- Inclure les ressources JavaScript nécessaires --></f:comment>
+    <f:be.pageRenderer includeRequireJsModules="{0:'TYPO3/CMS/SemanticSuggestion/Visualization'}" />
 </f:section>
 
 </html>

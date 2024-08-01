@@ -14,10 +14,12 @@ defined('TYPO3') or die();
         ]
     );
 
-
     \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::addTypoScriptSetup(
         '<INCLUDE_TYPOSCRIPT: source="FILE:EXT:semantic_suggestion/Configuration/TypoScript/setup.typoscript">'
     );
+
+    // Ajoutez cette ligne pour inclure les routes AJAX
+    $GLOBALS['TYPO3_CONF_VARS']['BE']['AJAX']['SemanticSuggestion::analyze'] = \TalanHdf\SemanticSuggestion\Controller\SemanticBackendController::class . '::analyzeAction';
 
     // Register logger for the extension
     $GLOBALS['TYPO3_CONF_VARS']['LOG']['Talan']['SemanticSuggestion']['writerConfiguration'] = [
@@ -42,4 +44,3 @@ defined('TYPO3') or die();
         ];
     }
 })();
-

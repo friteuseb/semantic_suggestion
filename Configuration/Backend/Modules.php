@@ -8,11 +8,12 @@ return [
         'path' => '/module/web/SemanticSuggestion',
         'labels' => 'LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_mod.xlf',
         'icon' => 'EXT:semantic_suggestion/Resources/Public/Icons/module-semantic-suggestion.svg',
-        'extensionName' => 'semantic-suggestion',
+        'iconIdentifier' => 'module-semantic-suggestion',
+        'extensionName' => 'SemanticSuggestion',
         'controllerActions' => [
-            \TalanHdf\SemanticSuggestion\Controller\SemanticBackendController::class => 'index,list'
+            \TalanHdf\SemanticSuggestion\Controller\SemanticBackendController::class => [
+                'index', 'list'
+            ],
         ],
-        
     ],
 ];
-

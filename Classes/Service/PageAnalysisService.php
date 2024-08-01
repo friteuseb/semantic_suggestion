@@ -34,8 +34,17 @@ class PageAnalysisService implements LoggerAwareInterface
             'semanticsuggestion_suggestions'
         );
         $this->cache = GeneralUtility::makeInstance(CacheManager::class)->getCache('semantic_suggestion');
-    }
 
+        if (!isset($this->settings['analyzedFields']) || !is_array($this->settings['analyzedFields'])) {
+        $this->settings['analyzedFields'] = [
+            'title' => 1.5,
+            'description' => 1.0,
+            'keywords' => 2.0,
+            'abstract' => 1.2,
+            'content' => 1.0
+        ];
+    }
+}
     /**
      * Analyze pages and calculate similarities
      *
@@ -85,10 +94,15 @@ class PageAnalysisService implements LoggerAwareInterface
      * @param array $page
      * @return array
      */
+
     protected function preparePageData(array $page): array
-    {
-        $preparedData = [];
-        foreach ($this->settings['analyzedFields'] as $field => $weight) {
+     {
+         $preparedData = [];
+         if (!is_array($this->settings['analyzedFields'])) {
+             $this->logger->warning('analyzedFields is not an array', ['settings' => $this->settings]);
+             return $preparedData;
+         }
+         foreach ($this->settings['analyzedFields'] as $field => $weight) {
             if ($field === 'content') {
                 $preparedData['content'] = [
                     'content' => $this->getPageContent($page['uid']),
