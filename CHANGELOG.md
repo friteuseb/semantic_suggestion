@@ -5,6 +5,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.0.4] - 2024-08-01
+
+### Added
+- Implemented a new visual representation of similarity scores using progress bars in the backend module.
+- Added a distribution chart for similarity scores to provide a better overview of the analysis results.
+
+### Changed
+- Improved the calculation of top similar page pairs to ensure unique and accurate results.
+- Enhanced the display of statistical data in the backend module for better readability and comprehension.
+- Updated the template to use native Fluid operations instead of custom ViewHelpers for better compatibility.
+
+### Fixed
+- Corrected the algorithm for calculating the top 5 most similar page pairs to avoid repetition and ensure diversity in results.
+- Fixed an issue where the distribution of similarity scores was not being calculated correctly.
+- Resolved display issues in the backend module related to long page titles and inconsistent data presentation.
+
+### Performance
+- Optimized the calculation of similarity statistics to improve overall module performance.
+
+### UI/UX
+- Redesigned the backend module layout for a more compact and informative display of analysis results.
+- Implemented responsive design improvements to ensure proper display on various screen sizes.
+
+### Development
+- Refactored the `calculateStatistics` method in `SemanticBackendController` for improved code clarity and efficiency.
+- Updated Fluid templates to better handle edge cases and improve overall stability.
+
+
 ## [1.0.3] - 2024-07-31
 
 ### Removed
