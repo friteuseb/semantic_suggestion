@@ -8,6 +8,11 @@ This extension provides a plugin for TYPO3 v12 that suggests semantically relate
 
 Semantic Suggestion analyzes the content of your pages and creates intelligent connections between them. By understanding the context and meaning of your content, it offers visitors related pages that are truly relevant to their interests, improving navigation and content discovery.
 
+
+### Frontend View
+![Frontend view with the same theme](Documentation/Medias/frontend_on_the_same_theme_view.jpg)
+
+
 ## Requirements
 
 - TYPO3 12.4.0-12.4.99
@@ -118,6 +123,8 @@ The extension uses a custom similarity calculation to determine related pages. H
 
 
 ## Backend Module
+
+![Backend module](Documentation/Medias/backend_module.png)
 
 The Semantic Suggestion extension now includes a powerful backend module that provides comprehensive insights into the semantic relationships between your pages. This module offers the following features:
 

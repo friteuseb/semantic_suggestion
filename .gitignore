@@ -22,7 +22,7 @@ Thumbs.db
 /temp
 
 # Extension specific
-
+extension_report.json
 
 # TYPO3 generated files
 /typo3conf/ENABLE_INSTALL_TOOL
