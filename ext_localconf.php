@@ -9,11 +9,8 @@ defined('TYPO3') or die();
             \TalanHdf\SemanticSuggestion\Controller\SuggestionsController::class => 'list'
         ],
         // non-cacheable actions
-        [
-            \TalanHdf\SemanticSuggestion\Controller\SuggestionsController::class => 'list'
-        ]
+        []
     );
-
 
     \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::addTypoScriptSetup(
         '<INCLUDE_TYPOSCRIPT: source="FILE:EXT:semantic_suggestion/Configuration/TypoScript/setup.typoscript">'
