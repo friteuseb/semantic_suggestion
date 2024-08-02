@@ -6,109 +6,196 @@
 
 <f:section name="content">
     <style>
-        .semantic-suggestion-module {
-            font-family: 'Arial', sans-serif;
-            color: #333;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .config-panel, .result-card {
-            background: #fff;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        .config-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 10px;
-        }
-        .config-item, .field-item {
-            background: #f0f0f0;
-            padding: 5px 10px;
-            border-radius: 4px;
-        }
-        .results-container {
-            max-height: 600px;
+        .semantic-analysis-container {
+            max-height: 800px;
             overflow-y: auto;
-            padding-right: 15px;
+            padding: 15px;
         }
-        .results-grid {
+        .stat-card {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stat-card h3 {
+            margin-top: 0;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 10px;
+        }
+        .stat-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
         }
-        .similar-page {
-            padding: 8px;
-            margin-bottom: 5px;
+        .stat-item {
+            background-color: #ffffff;
             border-radius: 4px;
+            padding: 10px;
+            text-align: center;
         }
-        .high-relevance { background: #d4edda; color: #155724; }
-        .medium-relevance { background: #fff3cd; color: #856404; }
-        .low-relevance { background: #f8d7da; color: #721c24; }
-        .page-title { font-weight: bold; }
-        .score, .relevance { font-size: 0.9em; margin-left: 10px; }
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+        .compact-table {
+            width: 100%;
+            font-size: 0.9em;
+        }
+        .compact-table th, .compact-table td {
+            padding: 8px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .compact-table th {
+            background-color: #e9ecef;
+        }
+        .progress-bar {
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background-color: #007bff;
+            transition: width 0.5s ease-in-out;
+        }
     </style>
 
-    <div class="semantic-suggestion-module">
+    <div class="semantic-analysis-container">
         <h1>Semantic Suggestion Analysis</h1>
 
-        <div class="config-panel">
-            <h2>Configuration</h2>
-            <div class="config-grid">
-                <div class="config-item">
-                    <span class="label">Parent Page ID:</span>
-                    <span class="value">{parentPageId}</span>
-                </div>
-                <div class="config-item">
-                    <span class="label">Depth:</span>
-                    <span class="value">{depth}</span>
-                </div>
-                <div class="config-item">
-                    <span class="label">Proximity Threshold:</span>
-                    <span class="value">{proximityThreshold}</span>
-                </div>
-                <div class="config-item">
-                    <span class="label">Max Suggestions:</span>
-                    <span class="value">{maxSuggestions}</span>
-                </div>
-            </div>
+        <div class="stat-card">
 
-            <h3>Analyzed Fields and Weights</h3>
-            <div class="analyzed-fields">
-                <f:for each="{analyzedFields}" as="weight" key="field">
-                    <span class="field-item">{field}: {weight}</span>
-                </f:for>
+
+
+
+
+            <h3>Configuration &amp; General Statistics</h3>
+            <div class="stat-grid">
+                <div class="stat-item">
+                    <div class="stat-value">{parentPageId}</div>
+                    <div class="stat-label">Parent Page ID</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{depth}</div>
+                    <div class="stat-label">Depth</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{proximityThreshold -> f:format.number(decimals: 2)}</div>
+                    <div class="stat-label">Proximity Threshold</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{maxSuggestions}</div>
+                    <div class="stat-label">Max Suggestions</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{statistics.totalPages}</div>
+                    <div class="stat-label">Total Pages Analyzed</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{statistics.averageSimilarity -> f:format.number(decimals: 2)}</div>
+                    <div class="stat-label">Average Similarity Score</div>
+                </div>
             </div>
         </div>
 
-        <h2>Analysis Results</h2>
-        <div class="results-container">
-            <div class="results-grid">
-                <f:for each="{analysisResults}" as="pageData" key="pageId">
-                    <div class="result-card">
-                        <h3>{pageData.title.content} (ID: {pageId})</h3>
-                        <f:for each="{pageData.similarities}" as="similarity" key="similarPageId">
-                            <f:if condition="{similarity.score} >= {proximityThreshold}">
-                                <div class="similar-page {f:if(condition: '{similarity.relevance} == \'High\'', then: 'high-relevance')}{f:if(condition: '{similarity.relevance} == \'Medium\'', then: 'medium-relevance')}{f:if(condition: '{similarity.relevance} == \'Low\'', then: 'low-relevance')}">
-                                    <span class="page-title">
-                                        <f:if condition="{analysisResults.{similarPageId}}">
-                                            <f:then>{analysisResults.{similarPageId}.title.content}</f:then>
-                                            <f:else>Page {similarPageId}</f:else>
-                                        </f:if>
-                                    </span>
-                                    <span class="score">Score: {similarity.score -> f:format.number(decimals: 2)}</span>
-                                    <span class="relevance">{similarity.relevance}</span>
+        
+        <div class="stat-card">
+            <h3>Top 5 Most Similar Page Pairs</h3>
+            <table class="compact-table">
+                <thead>
+                    <tr>
+                        <th>Page 1</th>
+                        <th>Page 2</th>
+                        <th>Similarity Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <f:for each="{statistics.topSimilarPairs}" as="pair">
+                        <tr>
+                            <td>{analysisResults.{pair.page1}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pair.page1})</td>
+                            <td>{analysisResults.{pair.page2}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pair.page2})</td>
+                            <td>
+                                <div class="progress-bar">
+                                    <div class="progress-bar-fill" style="width: {pair.score * 100}%;"></div>
                                 </div>
-                            </f:if>
-                        </f:for>
-                    </div>
-                </f:for>
-            </div>
+                                {pair.score -> f:format.number(decimals: 2)}
+                            </td>
+                        </tr>
+                    </f:for>
+                </tbody>
+            </table>
+        </div>
+     
+        <div class="stat-card">
+            <h3>Distribution of Similarity Scores</h3>
+            <table class="compact-table">
+                <thead>
+                    <tr>
+                        <th>Score Range</th>
+                        <th>Count</th>
+                        <th>Distribution</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <f:variable name="totalCount" value="0" />
+                    <f:for each="{statistics.distributionScores}" as="count">
+                        <f:variable name="totalCount" value="{totalCount + count}" />
+                    </f:for>
+                    
+                    <f:for each="{statistics.distributionScores}" as="count" key="range">
+                        <tr>
+                            <td>{range}</td>
+                            <td>{count}</td>
+                            <td>
+                                <f:if condition="{totalCount} > 0">
+                                    <f:then>
+                                        <f:variable name="percentage" value="{count / totalCount * 100}" />
+                                        <div class="progress-bar">
+                                            <div class="progress-bar-fill" style="width: {percentage}%;"></div>
+                                        </div>
+                                        {percentage -> f:format.number(decimals: 1)}%
+                                    </f:then>
+                                    <f:else>
+                                        <div class="progress-bar">
+                                            <div class="progress-bar-fill" style="width: 0%;"></div>
+                                        </div>
+                                        0%
+                                    </f:else>
+                                </f:if>
+                            </td>
+                        </tr>
+                    </f:for>
+                </tbody>
+            </table>
+        </div>
+
+
+        <div class="stat-card">
+            <h3>Top 5 Pages with Most Similarities</h3>
+            <table class="compact-table">
+                <thead>
+                    <tr>
+                        <th>Page</th>
+                        <th>Number of Significant Similarities</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <f:for each="{statistics.topSimilarPages}" as="count" key="pageId">
+                        <tr>
+                            <td>{analysisResults.{pageId}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pageId})</td>
+                            <td>{count}</td>
+                        </tr>
+                    </f:for>
+                </tbody>
+            </table>
         </div>
     </div>
 </f:section>
-
 </html>
