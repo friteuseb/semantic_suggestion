@@ -1,0 +1,227 @@
+{
+    "composer": {
+        "name": "talan-hdf\/semantic-suggestion",
+        "description": "TYPO3 extension for suggesting semantically related pages",
+        "version": "1.0.4",
+        "autoload": {
+            "psr-4": {
+                "TalanHdf\\SemanticSuggestion\\": "Classes\/"
+            }
+        },
+        "psr-4": {
+            "TalanHdf\\SemanticSuggestion\\": "Classes\/"
+        }
+    },
+    "other_files": [
+        "semantic_suggestion\/.gitignore",
+        "semantic_suggestion\/CHANGELOG.md",
+        "semantic_suggestion\/Documentation\/Index.rst",
+        "semantic_suggestion\/Documentation\/Installation\/Index.rst",
+        "semantic_suggestion\/Documentation\/Introduction\/Index.rst",
+        "semantic_suggestion\/LICENSE",
+        "semantic_suggestion\/README.md",
+        "semantic_suggestion\/Resources\/Private\/Language\/locallang.xlf",
+        "semantic_suggestion\/Resources\/Private\/Language\/locallang_be.xlf",
+        "semantic_suggestion\/Resources\/Private\/Language\/locallang_mod.xlf",
+        "semantic_suggestion\/Resources\/Private\/Language\/locallang_semanticproximity.xlf",
+        "semantic_suggestion\/Resources\/Public\/Css\/SemanticSuggestion.css",
+        "semantic_suggestion\/Resources\/Public\/Icons\/Extension.svg",
+        "semantic_suggestion\/Resources\/Public\/Icons\/module-semantic-suggestion.svg",
+        "semantic_suggestion\/Resources\/Public\/Icons\/user_mod_semanticproximity.svg",
+        "semantic_suggestion\/composer.json",
+        "semantic_suggestion\/ext_conf_template.txt",
+        "semantic_suggestion\/extension_report.json",
+        "semantic_suggestion\/semantic_suggestion_1.0.4.zip",
+        "semantic_suggestion\/vendor\/composer\/LICENSE"
+    ],
+    "php_files": [
+        {
+            "path": "semantic_suggestion\/Classes\/Controller\/BackendController.php",
+            "namespace": "",
+            "class": "->",
+            "functions": [
+                "__construct",
+                "listAction",
+                "getPages",
+                "calculateProximityMatrix",
+                "calculateProximity"
+            ]
+        },
+        {
+            "path": "semantic_suggestion\/Classes\/Controller\/SemanticBackendController.php",
+            "namespace": "",
+            "class": "SemanticBackendController",
+            "functions": [
+                "__construct",
+                "indexAction",
+                "calculateStatistics",
+                "$a"
+            ]
+        },
+        {
+            "path": "semantic_suggestion\/Classes\/Controller\/SuggestionsController.php",
+            "namespace": "",
+            "class": "",
+            "functions": [
+                "__construct",
+                "listAction",
+                "findSimilarPages",
+                "getPageLink",
+                "getPageMedia"
+            ]
+        },
+        {
+            "path": "semantic_suggestion\/Classes\/Service\/PageAnalysisService.php",
+            "namespace": "",
+            "class": "->",
+            "functions": [
+                "__construct",
+                "analyzePages",
+                "preparePageData",
+                "getAllSubpages",
+                "getSubpages",
+                "getPageContent",
+                "getWeightedWords",
+                "calculateSimilarity",
+                "calculateFieldSimilarity",
+                "findCommonKeywords",
+                "determineRelevance",
+                "getCurrentLanguageUid"
+            ]
+        },
+        {
+            "path": "semantic_suggestion\/Configuration\/Backend\/Modules.php",
+            "namespace": "",
+            "class": "=>",
+            "functions": []
+        },
+        {
+            "path": "semantic_suggestion\/Configuration\/Backend\/Routes.php",
+            "namespace": "",
+            "class": "",
+            "functions": []
+        },
+        {
+            "path": "semantic_suggestion\/Configuration\/TCA\/Overrides\/sys_template.php",
+            "namespace": "",
+            "class": "",
+            "functions": []
+        },
+        {
+            "path": "semantic_suggestion\/Configuration\/TCA\/Overrides\/tt_content.php",
+            "namespace": "",
+            "class": "",
+            "functions": []
+        },
+        {
+            "path": "semantic_suggestion\/ext_emconf.php",
+            "namespace": "",
+            "class": "",
+            "functions": []
+        },
+        {
+            "path": "semantic_suggestion\/ext_localconf.php",
+            "namespace": "",
+            "class": "\n            ",
+            "functions": [
+                ""
+            ]
+        },
+        {
+            "path": "semantic_suggestion\/ext_tables.php",
+            "namespace": "",
+            "class": "=>",
+            "functions": [
+                ""
+            ]
+        },
+        {
+            "path": "semantic_suggestion\/vendor\/autoload.php",
+            "namespace": "",
+            "class": "",
+            "functions": []
+        },
+        {
+            "path": "semantic_suggestion\/vendor\/composer\/ClassLoader.php",
+            "namespace": "",
+            "class": "ClassLoader",
+            "functions": [
+                "__construct",
+                "getPrefixes",
+                "getPrefixesPsr4",
+                "getFallbackDirs",
+                "getFallbackDirsPsr4",
+                "getClassMap",
+                "addClassMap",
+                "add",
+                "addPsr4",
+                "set",
+                "setPsr4",
+                "setUseIncludePath",
+                "getUseIncludePath",
+                "setClassMapAuthoritative",
+                "isClassMapAuthoritative",
+                "setApcuPrefix",
+                "getApcuPrefix",
+                "register",
+                "unregister",
+                "loadClass",
+                "findFile",
+                "getRegisteredLoaders",
+                "findFileWithExtension",
+                "includeFile"
+            ]
+        },
+        {
+            "path": "semantic_suggestion\/vendor\/composer\/autoload_classmap.php",
+            "namespace": "",
+            "class": "",
+            "functions": []
+        },
+        {
+            "path": "semantic_suggestion\/vendor\/composer\/autoload_namespaces.php",
+            "namespace": "",
+            "class": "",
+            "functions": []
+        },
+        {
+            "path": "semantic_suggestion\/vendor\/composer\/autoload_psr4.php",
+            "namespace": "",
+            "class": "",
+            "functions": []
+        },
+        {
+            "path": "semantic_suggestion\/vendor\/composer\/autoload_real.php",
+            "namespace": "",
+            "class": "ComposerAutoloaderInite10bc1c960c969456e1e3d34afbefd74",
+            "functions": [
+                "loadClassLoader",
+                "getLoader"
+            ]
+        },
+        {
+            "path": "semantic_suggestion\/vendor\/composer\/autoload_static.php",
+            "namespace": "",
+            "class": "",
+            "functions": [
+                "getInitializer",
+                ""
+            ]
+        }
+    ],
+    "configuration_files": [
+        "semantic_suggestion\/Configuration\/Services.yaml"
+    ],
+    "typoscript_files": [
+        "semantic_suggestion\/Configuration\/TypoScript\/constants.typoscript",
+        "semantic_suggestion\/Configuration\/TypoScript\/setup.typoscript"
+    ],
+    "template_files": [
+        "semantic_suggestion\/Resources\/Private\/Layouts\/Default.html",
+        "semantic_suggestion\/Resources\/Private\/Templates\/Backend\/Index.html",
+        "semantic_suggestion\/Resources\/Private\/Templates\/Backend\/List.html",
+        "semantic_suggestion\/Resources\/Private\/Templates\/SemanticBackend\/Index.html",
+        "semantic_suggestion\/Resources\/Private\/Templates\/SemanticBackend\/List.html",
+        "semantic_suggestion\/Resources\/Private\/Templates\/Suggestions\/List.html"
+    ]
+}

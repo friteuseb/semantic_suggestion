@@ -10,66 +10,79 @@ use TYPO3\CMS\Core\Cache\CacheManager;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 
+// The PageAnalysisService class manages semantic analysis of TYPO3 pages.
 class PageAnalysisService implements LoggerAwareInterface
 {
-    use LoggerAwareTrait;
+    use LoggerAwareTrait; // Uses the LoggerAwareTrait for logging capabilities
 
+    // Protected properties to store dependencies and configuration settings
     protected $context;
     protected $configurationManager;
     protected $settings;
     protected $cache;
 
     /**
-     * Constructor
+     * Constructor for the class
      *
-     * @param Context $context
-     * @param ConfigurationManagerInterface $configurationManager
+     * @param Context $context TYPO3 context object
+     * @param ConfigurationManagerInterface $configurationManager Configuration manager instance
      */
     public function __construct(Context $context, ConfigurationManagerInterface $configurationManager)
     {
+        // Initialize properties with the provided dependencies
         $this->context = $context;
         $this->configurationManager = $configurationManager;
+        
+        // Load configuration settings for the extension
         $this->settings = $this->configurationManager->getConfiguration(
             ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
             'semanticsuggestion_suggestions'
         );
+        
+        // Initialize cache for semantic suggestions
         $this->cache = GeneralUtility::makeInstance(CacheManager::class)->getCache('semantic_suggestion');
 
+        // Initialize fields to be analyzed with default weights if not set
         if (!isset($this->settings['analyzedFields']) || !is_array($this->settings['analyzedFields'])) {
-        $this->settings['analyzedFields'] = [
-            'title' => 1.5,
-            'description' => 1.0,
-            'keywords' => 2.0,
-            'abstract' => 1.2,
-            'content' => 1.0
-        ];
+            $this->settings['analyzedFields'] = [
+                'title' => 1.5,
+                'description' => 1.0,
+                'keywords' => 2.0,
+                'abstract' => 1.2,
+                'content' => 1.0
+            ];
+        }
     }
-}
+
     /**
-     * Analyze pages and calculate similarities
+     * Analyzes pages and calculates similarities
      *
-     * @param int|null $parentPageId
-     * @param int|null $depth
-     * @return array
+     * @param int|null $parentPageId Parent page ID (defaults to configured ID)
+     * @param int|null $depth Depth of analysis (defaults to configured depth)
+     * @return array Analysis results
      */
     public function analyzePages(int $parentPageId = null, int $depth = null): array
     {
+        // Set default values if not provided
         $parentPageId = $parentPageId ?? (int)$this->settings['parentPageId'];
         $depth = $depth ?? (int)$this->settings['recursive'];
         $cacheIdentifier = 'semantic_analysis_' . $parentPageId . '_' . $depth;
 
+        // Check if the results are already cached
         if ($this->cache->has($cacheIdentifier)) {
             return $this->cache->get($cacheIdentifier);
         }
 
+        // Retrieve all subpages
         $pages = $this->getAllSubpages($parentPageId, $depth);
         $analysisResults = [];
 
+        // Prepare data for each page
         foreach ($pages as $page) {
             $analysisResults[$page['uid']] = $this->preparePageData($page);
         }
 
-        // Calculate similarities
+        // Calculate similarities between pages
         foreach ($analysisResults as $pageId => &$pageData) {
             foreach ($analysisResults as $comparisonPageId => $comparisonPageData) {
                 if ($pageId !== $comparisonPageId) {
@@ -83,32 +96,36 @@ class PageAnalysisService implements LoggerAwareInterface
             }
         }
 
-        $this->cache->set($cacheIdentifier, $analysisResults, ['pages'], 86400); // Cache for 24 hours
+        // Cache the analysis results for 24 hours
+        $this->cache->set($cacheIdentifier, $analysisResults, ['pages'], 86400);
 
         return $analysisResults;
     }
 
     /**
-     * Prepare page data based on configured fields
+     * Prepares page data based on configured fields
      *
-     * @param array $page
-     * @return array
+     * @param array $page Page data
+     * @return array Prepared data
      */
-
     protected function preparePageData(array $page): array
-     {
-         $preparedData = [];
-         if (!is_array($this->settings['analyzedFields'])) {
-             $this->logger->warning('analyzedFields is not an array', ['settings' => $this->settings]);
-             return $preparedData;
-         }
-         foreach ($this->settings['analyzedFields'] as $field => $weight) {
+    {
+        $preparedData = [];
+        if (!is_array($this->settings['analyzedFields'])) {
+            $this->logger->warning('analyzedFields is not an array', ['settings' => $this->settings]);
+            return $preparedData;
+        }
+
+        // Iterate over configured fields and their weights
+        foreach ($this->settings['analyzedFields'] as $field => $weight) {
             if ($field === 'content') {
+                // Get content if field is 'content'
                 $preparedData['content'] = [
                     'content' => $this->getPageContent($page['uid']),
                     'weight' => (float)$weight
                 ];
             } elseif (isset($page[$field])) {
+                // Add existing field content and weight
                 $preparedData[$field] = [
                     'content' => $page[$field],
                     'weight' => (float)$weight
@@ -127,85 +144,97 @@ class PageAnalysisService implements LoggerAwareInterface
     /**
      * Get all subpages recursively
      *
-     * @param int $parentId
-     * @param int $depth
-     * @return array
+     * @param int $parentId Parent page ID
+     * @param int $depth Depth of recursion
+     * @return array List of all subpages
      */
     private function getAllSubpages(int $parentId, int $depth = 0): array
     {
-        $pages = $this->getSubpages($parentId);
-        $allPages = $pages;
-    
-        if ($depth > 0 || $depth === -1) { // -1 pour une profondeur illimitée
+        $allPages = [];
+        $queue = [[$parentId, 0]];
+
+        // Use a queue for breadth-first search
+        while (!empty($queue)) {
+            [$currentId, $currentDepth] = array_shift($queue);
+
+            // Stop recursion if depth limit is reached
+            if ($depth !== -1 && $currentDepth > $depth) {
+                continue;
+            }
+
+            // Retrieve subpages for the current page
+            $pages = $this->getSubpages($currentId);
+            $allPages = array_merge($allPages, $pages);
+
+            // Add subpages to the queue for further processing
             foreach ($pages as $page) {
-                $subPages = $this->getAllSubpages($page['uid'], $depth === -1 ? -1 : $depth - 1);
-                $allPages = array_merge($allPages, $subPages);
+                $queue[] = [$page['uid'], $currentDepth + 1];
             }
         }
-    
+
         return $allPages;
     }
 
-/**
- * Get immediate subpages of a given page
- *
- * @param int $parentId
- * @return array
- */
-private function getSubpages(int $parentId): array
-{
-    $this->logger->info('Fetching subpages', ['parentId' => $parentId]);
+    /**
+     * Get immediate subpages of a given page
+     *
+     * @param int $parentId Parent page ID
+     * @return array List of subpages
+     */
+    private function getSubpages(int $parentId): array
+    {
+        $this->logger->info('Fetching subpages', ['parentId' => $parentId]);
 
-    try {
-        $queryBuilder = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable('pages');
-        $languageUid = $this->getCurrentLanguageUid();
+        try {
+            $queryBuilder = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable('pages');
+            $languageUid = $this->getCurrentLanguageUid();
 
-        $this->logger->info('Current language UID: ' . $languageUid);
+            $this->logger->info('Current language UID: ' . $languageUid);
 
-        // Define explicitly the fields you want to retrieve
-        $fieldsToSelect = ['uid', 'title', 'description', 'keywords', 'abstract'];
+            // Define the fields to retrieve
+            $fieldsToSelect = ['uid', 'title', 'description', 'keywords', 'abstract'];
 
-        // Ensure these fields exist in the 'pages' table
-        $tableColumns = $queryBuilder->getConnection()->getSchemaManager()->listTableColumns('pages');
-        $existingColumns = array_keys($tableColumns);
-        $fieldsToSelect = array_intersect($fieldsToSelect, $existingColumns);
+            // Ensure fields exist in the 'pages' table
+            $tableColumns = $queryBuilder->getConnection()->getSchemaManager()->listTableColumns('pages');
+            $existingColumns = array_keys($tableColumns);
+            $fieldsToSelect = array_intersect($fieldsToSelect, $existingColumns);
 
-        $this->logger->debug('Fields to select', ['fields' => $fieldsToSelect]);
+            $this->logger->debug('Fields to select', ['fields' => $fieldsToSelect]);
 
-        $result = $queryBuilder
-            ->select(...$fieldsToSelect)
-            ->from('pages')
-            ->where(
-                $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($parentId, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->eq('hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->in('sys_language_uid', $queryBuilder->createNamedParameter([$languageUid, -1], Connection::PARAM_INT_ARRAY))
-            )
-            ->executeQuery()
-            ->fetchAllAssociative();
+            // Execute the query
+            $result = $queryBuilder
+                ->select(...$fieldsToSelect)
+                ->from('pages')
+                ->where(
+                    $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($parentId, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->eq('hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->in('sys_language_uid', $queryBuilder->createNamedParameter([$languageUid, -1], Connection::PARAM_INT_ARRAY))
+                )
+                ->executeQuery()
+                ->fetchAllAssociative();
 
-        $this->logger->info('Subpages fetched successfully', ['count' => count($result)]);
-        $this->logger->debug('Fetched subpages', ['subpages' => $result]);
+            $this->logger->info('Subpages fetched successfully', ['count' => count($result)]);
+            $this->logger->debug('Fetched subpages', ['subpages' => $result]);
 
-        return $result;
-    } catch (\Exception $e) {
-        $this->logger->error('Error fetching subpages', ['exception' => $e->getMessage()]);
-        return [];
+            return $result;
+        } catch (\Exception $e) {
+            $this->logger->error('Error fetching subpages', ['exception' => $e->getMessage()]);
+            return [];
+        }
     }
-}
-    
 
     /**
      * Get page content
      *
-     * @param int $pageId
-     * @return string
+     * @param int $pageId Page ID
+     * @return string Page content
      */
     private function getPageContent(int $pageId): string
     {
         $queryBuilder = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable('tt_content');
         $languageUid = $this->getCurrentLanguageUid();
-    
+
         $content = $queryBuilder
             ->select('bodytext')
             ->from('tt_content')
@@ -217,15 +246,16 @@ private function getSubpages(int $parentId): array
             )
             ->executeQuery()
             ->fetchAllAssociative();
-    
+
+        // Concatenate all bodytext content into a single string
         return implode(' ', array_column($content, 'bodytext'));
     }
 
     /**
      * Get weighted words from page data
      *
-     * @param array $pageData
-     * @return array
+     * @param array $pageData Page data
+     * @return array Weighted words
      */
     private function getWeightedWords(array $pageData): array
     {
@@ -249,27 +279,29 @@ private function getSubpages(int $parentId): array
     /**
      * Calculate similarity between two pages
      *
-     * @param array $page1
-     * @param array $page2
-     * @return float
+     * @param array $page1 Data for the first page
+     * @param array $page2 Data for the second page
+     * @return float Similarity score
      */
     private function calculateSimilarity(array $page1, array $page2): float
     {
         $words1 = $this->getWeightedWords($page1);
         $words2 = $this->getWeightedWords($page2);
-    
+
+        // Calculate intersection and union of words
         $intersection = array_intersect_key($words1, $words2);
         $union = $words1 + $words2;
-    
+
         $intersectionSum = array_sum($intersection);
         $unionSum = array_sum($union);
-    
+
+        // Prevent division by zero
         if ($unionSum === 0) {
             return 0.0;
         }
-    
+
         $similarity = min($intersectionSum / $unionSum, 1.0);
-    
+
         $this->logger->info('Similarity calculation', [
             'page1' => $page1['uid'] ?? 'unknown',
             'page2' => $page2['uid'] ?? 'unknown',
@@ -281,16 +313,16 @@ private function getSubpages(int $parentId): array
                 'content' => $this->calculateFieldSimilarity($page1['content'] ?? [], $page2['content'] ?? []),
             ]
         ]);
-    
+
         return $similarity;
     }
-    
+
     /**
      * Calculate similarity for a specific field
      *
-     * @param array $field1
-     * @param array $field2
-     * @return float
+     * @param array $field1 Data for the first field
+     * @param array $field2 Data for the second field
+     * @return float Similarity score for the field
      */
     private function calculateFieldSimilarity($field1, $field2): float
     {
@@ -303,27 +335,27 @@ private function getSubpages(int $parentId): array
         $union = array_unique(array_merge($words1, $words2));
         return count($union) > 0 ? count($intersection) / count($union) : 0.0;
     }
-    
+
     /**
      * Find common keywords between two pages
      *
-     * @param array $page1
-     * @param array $page2
-     * @return array
+     * @param array $page1 Data for the first page
+     * @param array $page2 Data for the second page
+     * @return array Common keywords
      */
     private function findCommonKeywords(array $page1, array $page2): array
     {
         $keywords1 = isset($page1['keywords']['content']) ? array_map('trim', explode(',', strtolower($page1['keywords']['content']))) : [];
         $keywords2 = isset($page2['keywords']['content']) ? array_map('trim', explode(',', strtolower($page2['keywords']['content']))) : [];
-    
+
         return array_intersect($keywords1, $keywords2);
     }
 
     /**
      * Determine relevance based on similarity score
      *
-     * @param float $similarity
-     * @return string
+     * @param float $similarity Similarity score
+     * @return string Relevance level ('High', 'Medium', 'Low')
      */
     private function determineRelevance(float $similarity): string
     {
@@ -339,7 +371,7 @@ private function getSubpages(int $parentId): array
     /**
      * Get current language UID
      *
-     * @return int
+     * @return int Language UID
      */
     private function getCurrentLanguageUid(): int
     {
