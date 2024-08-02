@@ -116,6 +116,23 @@ The extension uses a custom similarity calculation to determine related pages. H
 3. **Proximity Threshold**: Only pages with a similarity score above the configured threshold are considered related and displayed.
 4. **Caching Scores**: To optimize performance, the calculated scores are stored in a database table `tx_semanticsuggestion_scores`. These scores are periodically updated or when the page content changes.
 
+
+## Backend Module
+
+The Semantic Suggestion extension now includes a powerful backend module that provides comprehensive insights into the semantic relationships between your pages. This module offers the following features:
+
+- **Similarity Analysis**: Visualize the semantic similarity between pages in your TYPO3 installation.
+- **Top Similar Pairs**: Quickly identify the most semantically related page pairs.
+- **Distribution of Similarity Scores**: Get a clear overview of how similarity is distributed across your content.
+- **Configurable Analysis**: Set custom parameters such as parent page ID, analysis depth, and similarity thresholds.
+- **Visual Representation**: Utilize progress bars and charts for an intuitive understanding of the data.
+- **Detailed Statistics**: View in-depth statistics about page similarities and content relationships.
+
+To access the module, navigate to the backend and look for "Semantic Suggestion" under the Web menu. This tool is invaluable for content managers and editors looking to optimize content structure, improve internal linking, and understand the thematic relationships within their website.
+
+Note: The effectiveness of the semantic analysis depends on the quality and quantity of your content. For best results, ensure your pages have meaningful titles, descriptions, and content.
+
+
 ## Display Customization
 
 The Fluid template (List.html) can be customized to adapt the display of suggestions to your needs. You can override this template by configuring your own template paths in TypoScript.
