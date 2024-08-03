@@ -1,18 +1,53 @@
 plugin.tx_semanticsuggestion_suggestions {
+    view {
+        # cat=plugin.tx_semanticsuggestion_suggestions/file; type=string; label=Path to template root (FE)
+        templateRootPath = EXT:semantic_suggestion/Resources/Private/Templates/
+        # cat=plugin.tx_semanticsuggestion_suggestions/file; type=string; label=Path to template partials (FE)
+        partialRootPath = EXT:semantic_suggestion/Resources/Private/Partials/
+        # cat=plugin.tx_semanticsuggestion_suggestions/file; type=string; label=Path to template layouts (FE)
+        layoutRootPath = EXT:semantic_suggestion/Resources/Private/Layouts/
+    }
     persistence {
-        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Default storage PID
-        storagePid = 
+        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=string; label=Default storage PID
+        storagePid =
     }
     settings {
-        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Parent Page ID
+        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Parent Page ID: The ID of the parent page from which to start the analysis
         parentPageId = 1
-        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Proximity Threshold
-        proximityThreshold = 0.3
-        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Maximum number of suggestions
-        maxSuggestions = 5
-        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Recursive depth for subpage search
-        recursive = 0  # 0 pour tous les niveaux, changez selon vos besoins
-        # Comma-separated list of page IDs to exclude
+        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Proximity Threshold: Minimum similarity score to consider pages as related (0.0 to 1.0)
+        proximityThreshold = 0.5
+        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Maximum Suggestions: Maximum number of similar pages to display
+        maxSuggestions = 3
+        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Recursive Depth: How deep to search in the page tree (0 = only direct children)
+        recursive = 1
+        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=string; label=Exclude Pages: Comma-separated list of page UIDs to exclude from suggestions
         excludePages = 
+        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Excerpt Length: Number of characters to show in the suggestion's text excerpt
+        excerptLength = 100
+
+        analyzedFields {
+            # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Title Weight: Importance of the page title in similarity calculation
+            title = 1.5
+            # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Description Weight: Importance of the page description in similarity calculation
+            description = 1.0
+            # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Keywords Weight: Importance of the page keywords in similarity calculation
+            keywords = 2.0
+            # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Abstract Weight: Importance of the page abstract in similarity calculation
+            abstract = 1.2
+            # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Content Weight: Importance of the main page content in similarity calculation
+            content = 1.0
+        }
+    }
+}
+
+# Backend module configuration
+module.tx_semanticsuggestion {
+    view {
+        # cat=module.tx_semanticsuggestion/file; type=string; label=Path to template root (BE)
+        templateRootPath = EXT:semantic_suggestion/Resources/Private/Backend/Templates/
+        # cat=module.tx_semanticsuggestion/file; type=string; label=Path to template partials (BE)
+        partialRootPath = EXT:semantic_suggestion/Resources/Private/Backend/Partials/
+        # cat=module.tx_semanticsuggestion/file; type=string; label=Path to template layouts (BE)
+        layoutRootPath = EXT:semantic_suggestion/Resources/Private/Backend/Layouts/
     }
 }
