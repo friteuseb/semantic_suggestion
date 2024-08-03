@@ -57,6 +57,7 @@ plugin.tx_semanticsuggestion {
         maxSuggestions = 3
         excerptLength = 150
         recursive = 1
+        excludePages = 8,9,3456
         analyzedFields {
             title = 1.5
             description = 1.0
