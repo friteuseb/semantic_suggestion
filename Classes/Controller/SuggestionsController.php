@@ -25,12 +25,13 @@ class SuggestionsController extends ActionController
         $proximityThreshold = (float)($this->settings['proximityThreshold'] ?? 0.3);
         $maxSuggestions = (int)($this->settings['maxSuggestions'] ?? 5);
         $excerptLength = (int)($this->settings['excerptLength'] ?? 100);
-        $depth = (int)($this->settings['recursive'] ?? 0); // Ajoutez cette ligne
+        $depth = (int)($this->settings['recursive'] ?? 0);
         $currentPageId = $GLOBALS['TSFE']->id;
+        $excludePages = GeneralUtility::intExplode(',', $this->settings['excludePages'] ?? '', true);
     
-        $analysisResults = $this->pageAnalysisService->analyzePages($parentPageId, $depth); // Modifiez cette ligne
+        $analysisResults = $this->pageAnalysisService->analyzePages($parentPageId, $depth);
     
-        $suggestions = $this->findSimilarPages($analysisResults, $currentPageId, $proximityThreshold, $maxSuggestions);
+        $suggestions = $this->findSimilarPages($analysisResults, $currentPageId, $proximityThreshold, $maxSuggestions, $excludePages);
     
         $this->view->assignMultiple([
             'currentPageTitle' => $analysisResults[$currentPageId]['title'] ?? 'Current Page',
@@ -43,7 +44,7 @@ class SuggestionsController extends ActionController
         return $this->htmlResponse();
     }
     
-    protected function findSimilarPages(array $analysisResults, int $currentPageId, float $threshold, int $maxSuggestions): array
+    protected function findSimilarPages(array $analysisResults, int $currentPageId, float $threshold, int $maxSuggestions, array $excludePages): array
     {
         $suggestions = [];
         $pageRepository = GeneralUtility::makeInstance(PageRepository::class);
@@ -53,7 +54,7 @@ class SuggestionsController extends ActionController
             arsort($similarities);
             foreach ($similarities as $pageId => $similarity) {
                 if (count($suggestions) >= $maxSuggestions) break;
-                if ($similarity['score'] < $threshold) break;
+                if ($similarity['score'] < $threshold || in_array($pageId, $excludePages)) continue;
                 
                 $pageData = $pageRepository->getPage($pageId);
                 $suggestions[$pageId] = [
@@ -69,6 +70,7 @@ class SuggestionsController extends ActionController
         return $suggestions;
     }
 
+    
     protected function getPageLink(int $pageId): string
     {
         return $this->uriBuilder->reset()->setTargetPageUid($pageId)->buildFrontendUri();
