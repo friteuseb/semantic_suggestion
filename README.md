@@ -140,6 +140,57 @@ To access the module, navigate to the backend and look for "Semantic Suggestion"
 
 Note: The effectiveness of the semantic analysis depends on the quality and quantity of your content. For best results, ensure your pages have meaningful titles, descriptions, and content.
 
+##  Backend Module - Performance Metrics
+
+The Semantic Suggestion extension provides,  through the backend module, performance metrics to help you understand and optimize its operation. Here's an explanation of each metric:
+
+![Backend module](Documentation/Medias/backend_module_performance_metrics.jpg)
+
+### Execution Time (seconds)
+
+**Calculation:** This is the total time taken to perform the semantic analysis, including page retrieval, similarity calculations, and caching operations.
+
+**Interpretation:** 
+- A lower value indicates faster execution.
+- If consistently high, consider optimizing your content structure or increasing the caching duration.
+- Note: When results are from cache, this value may appear as 0.00 seconds.
+
+### Total Pages Analyzed
+
+**Calculation:** The total number of pages included in the semantic analysis.
+
+**Interpretation:**
+- This number depends on your page tree structure and the configured depth of analysis.
+- A higher number may lead to more accurate suggestions but can increase execution time.
+
+### Similarity Calculations
+
+**Calculation:** The total number of page-to-page similarity comparisons performed.
+
+**Interpretation:**
+- This is typically calculated as `n * (n-1) / 2`, where `n` is the number of pages analyzed.
+- A higher number indicates more comprehensive analysis but may impact performance.
+
+### Results from Cache
+
+**Calculation:** A boolean indicator (Yes/No) showing whether the results were retrieved from cache.
+
+**Interpretation:**
+- "Yes" indicates that the results were retrieved from cache, resulting in faster execution.
+- "No" means a fresh analysis was performed.
+- Frequent "No" results might indicate that your cache is being cleared too often or that your content is changing frequently.
+
+### Optimizing Performance
+
+1. **Caching:** Ensure your caching configuration is appropriate for your update frequency.
+2. **Analysis Depth:** Adjust the analysis depth to balance between comprehensive results and performance.
+3. **Excluded Pages:** Use the `excludePages` setting to omit irrelevant pages from analysis.
+4. **Content Structure:** Organize your content to minimize the number of pages that need to be analyzed without compromising suggestion quality.
+
+By monitoring these metrics, you can fine-tune the extension's configuration to achieve the best balance between performance and suggestion accuracy for your specific use case.
+
+
+
 
 ## Display Customization
 
