@@ -53,6 +53,9 @@ plugin.tx_semanticsuggestion_suggestions {
         # Default value: not set
         # Recommended value: 1 for direct children, or more depending on your structure
         recursive = {$plugin.tx_semanticsuggestion_suggestions.settings.recursive}
+
+        # List of page IDs to exclude from suggestions
+        excludePages = {$plugin.tx_semanticsuggestion_suggestions.settings.excludePages}
     }
 }
 

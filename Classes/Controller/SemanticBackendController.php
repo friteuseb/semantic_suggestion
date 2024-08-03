@@ -6,6 +6,7 @@ use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TalanHdf\SemanticSuggestion\Service\PageAnalysisService;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class SemanticBackendController extends ActionController
 {
@@ -37,8 +38,12 @@ class SemanticBackendController extends ActionController
         $depth = (int)($extensionConfig['recursive'] ?? 1);
         $proximityThreshold = (float)($extensionConfig['proximityThreshold'] ?? 0.5);
         $maxSuggestions = (int)($extensionConfig['maxSuggestions'] ?? 5);
+        $excludePages = GeneralUtility::intExplode(',', $extensionConfig['excludePages'] ?? '', true);
 
         $analysisResults = $this->pageAnalysisService->analyzePages($parentPageId, $depth);
+
+        // Filter out excluded pages from analysis results
+        $analysisResults = array_diff_key($analysisResults, array_flip($excludePages));
 
         $statistics = $this->calculateStatistics($analysisResults, $proximityThreshold);
 
@@ -47,6 +52,7 @@ class SemanticBackendController extends ActionController
             'depth' => $depth,
             'proximityThreshold' => $proximityThreshold,
             'maxSuggestions' => $maxSuggestions,
+            'excludePages' => implode(', ', $excludePages),
             'statistics' => $statistics,
             'analysisResults' => $analysisResults,
         ]);
@@ -54,7 +60,6 @@ class SemanticBackendController extends ActionController
         $moduleTemplate->setContent($this->view->render());
         return $moduleTemplate->renderResponse();
     }
-
 
     private function calculateStatistics(array $analysisResults, float $proximityThreshold): array
 {

@@ -12,5 +12,7 @@ plugin.tx_semanticsuggestion_suggestions {
         maxSuggestions = 5
         # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Recursive depth for subpage search
         recursive = 0  # 0 pour tous les niveaux, changez selon vos besoins
+        # Comma-separated list of page IDs to exclude
+        excludePages = 
     }
 }
