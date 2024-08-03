@@ -29,12 +29,13 @@ class SuggestionsController extends ActionController
         $currentPageId = $GLOBALS['TSFE']->id;
         $excludePages = GeneralUtility::intExplode(',', $this->settings['excludePages'] ?? '', true);
     
-        $analysisResults = $this->pageAnalysisService->analyzePages($parentPageId, $depth);
+        $analysisData = $this->pageAnalysisService->analyzePages($parentPageId, $depth);
+        $analysisResults = $analysisData['results'] ?? [];
     
         $suggestions = $this->findSimilarPages($analysisResults, $currentPageId, $proximityThreshold, $maxSuggestions, $excludePages);
     
         $this->view->assignMultiple([
-            'currentPageTitle' => $analysisResults[$currentPageId]['title'] ?? 'Current Page',
+            'currentPageTitle' => $analysisResults[$currentPageId]['title']['content'] ?? 'Current Page',
             'suggestions' => $suggestions,
             'analysisResults' => $analysisResults,
             'proximityThreshold' => $proximityThreshold,
@@ -70,7 +71,6 @@ class SuggestionsController extends ActionController
         return $suggestions;
     }
 
-    
     protected function getPageLink(int $pageId): string
     {
         return $this->uriBuilder->reset()->setTargetPageUid($pageId)->buildFrontendUri();

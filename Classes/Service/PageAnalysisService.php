@@ -63,25 +63,32 @@ class PageAnalysisService implements LoggerAwareInterface
      */
     public function analyzePages(int $parentPageId = null, int $depth = null): array
     {
+        $startTime = microtime(true);
+    
         // Set default values if not provided
         $parentPageId = $parentPageId ?? (int)$this->settings['parentPageId'];
         $depth = $depth ?? (int)$this->settings['recursive'];
         $cacheIdentifier = 'semantic_analysis_' . $parentPageId . '_' . $depth;
-
+    
         // Check if the results are already cached
         if ($this->cache->has($cacheIdentifier)) {
-            return $this->cache->get($cacheIdentifier);
+            $cachedResult = $this->cache->get($cacheIdentifier);
+            $cachedResult['metrics']['fromCache'] = true;
+            $cachedResult['metrics']['executionTime'] = microtime(true) - $startTime;
+            return $cachedResult;
         }
-
+    
         // Retrieve all subpages
         $pages = $this->getAllSubpages($parentPageId, $depth);
+        $totalPages = count($pages);
         $analysisResults = [];
-
+    
         // Prepare data for each page
         foreach ($pages as $page) {
             $analysisResults[$page['uid']] = $this->preparePageData($page);
         }
-
+    
+        $similarityCalculations = 0;
         // Calculate similarities between pages
         foreach ($analysisResults as $pageId => &$pageData) {
             foreach ($analysisResults as $comparisonPageId => $comparisonPageData) {
@@ -92,14 +99,28 @@ class PageAnalysisService implements LoggerAwareInterface
                         'commonKeywords' => $this->findCommonKeywords($pageData, $comparisonPageData),
                         'relevance' => $this->determineRelevance($similarity),
                     ];
+                    $similarityCalculations++;
                 }
             }
         }
-
+    
+        $endTime = microtime(true);
+        $executionTime = $endTime - $startTime;
+    
+        $result = [
+            'results' => $analysisResults,
+            'metrics' => [
+                'executionTime' => $executionTime,
+                'totalPages' => $totalPages,
+                'similarityCalculations' => $similarityCalculations,
+                'fromCache' => false,
+            ],
+        ];
+    
         // Cache the analysis results for 24 hours
-        $this->cache->set($cacheIdentifier, $analysisResults, ['pages'], 86400);
-
-        return $analysisResults;
+        $this->cache->set($cacheIdentifier, $result, ['pages'], 86400);
+    
+        return $result;
     }
 
     /**

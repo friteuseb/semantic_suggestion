@@ -27,26 +27,57 @@ class SemanticBackendController extends ActionController
     public function indexAction(): ResponseInterface
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-
+    
         $fullTypoScript = $this->configurationManager->getConfiguration(
             ConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
         );
-
+    
         $extensionConfig = $fullTypoScript['plugin.']['tx_semanticsuggestion_suggestions.']['settings.'] ?? [];
-
+    
         $parentPageId = (int)($extensionConfig['parentPageId'] ?? 0);
         $depth = (int)($extensionConfig['recursive'] ?? 1);
         $proximityThreshold = (float)($extensionConfig['proximityThreshold'] ?? 0.5);
         $maxSuggestions = (int)($extensionConfig['maxSuggestions'] ?? 5);
         $excludePages = GeneralUtility::intExplode(',', $extensionConfig['excludePages'] ?? '', true);
-
-        $analysisResults = $this->pageAnalysisService->analyzePages($parentPageId, $depth);
-
-        // Filter out excluded pages from analysis results
-        $analysisResults = array_diff_key($analysisResults, array_flip($excludePages));
-
-        $statistics = $this->calculateStatistics($analysisResults, $proximityThreshold);
-
+    
+        $analysisData = $this->pageAnalysisService->analyzePages($parentPageId, $depth);
+    
+        $analysisResults = [];
+        $performanceMetrics = [];
+        $statistics = [];
+    
+        if (is_array($analysisData) && isset($analysisData['results']) && is_array($analysisData['results'])) {
+            $analysisResults = $analysisData['results'];
+            
+            // Filter out excluded pages from analysis results
+            if (!empty($excludePages)) {
+                $analysisResults = array_diff_key($analysisResults, array_flip($excludePages));
+            }
+    
+            $statistics = $this->calculateStatistics($analysisResults, $proximityThreshold);
+        } else {
+            $this->addFlashMessage(
+                'The analysis did not return valid results. Please check your configuration and try again.',
+                'Analysis Error',
+                \TYPO3\CMS\Core\Messaging\AbstractMessage::ERROR
+            );
+        }
+    
+        if (isset($analysisData['metrics']) && is_array($analysisData['metrics'])) {
+            $performanceMetrics = [
+                'executionTime' => $analysisData['metrics']['executionTime'] ?? 0,
+                'totalPages' => $analysisData['metrics']['totalPages'] ?? 0,
+                'similarityCalculations' => $analysisData['metrics']['similarityCalculations'] ?? 0,
+                'fromCache' => isset($analysisData['metrics']['fromCache']) ? ($analysisData['metrics']['fromCache'] ? 'Yes' : 'No') : 'Unknown',
+            ];
+        } else {
+            $this->addFlashMessage(
+                'Performance metrics are not available.',
+                'Metrics Unavailable',
+                \TYPO3\CMS\Core\Messaging\AbstractMessage::WARNING
+            );
+        }
+    
         $moduleTemplate->assignMultiple([
             'parentPageId' => $parentPageId,
             'depth' => $depth,
@@ -55,12 +86,14 @@ class SemanticBackendController extends ActionController
             'excludePages' => implode(', ', $excludePages),
             'statistics' => $statistics,
             'analysisResults' => $analysisResults,
+            'performanceMetrics' => $performanceMetrics,
         ]);
-
+    
         $moduleTemplate->setContent($this->view->render());
         return $moduleTemplate->renderResponse();
     }
-
+    
+    
     private function calculateStatistics(array $analysisResults, float $proximityThreshold): array
 {
     $totalPages = count($analysisResults);

@@ -96,7 +96,7 @@
                 </div>
                 <div class="stat-item">
                     <div class="stat-value">{statistics.totalPages}</div>
-                    <div class="stat-label">Total Pages Analyzed</div>
+                    <div class="stat-label">Total Validated Pages Analyzed</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-value">{statistics.averageSimilarity -> f:format.number(decimals: 2)}</div>
@@ -105,6 +105,30 @@
                 <div class="stat-item">
                     <div class="stat-value">{excludePages}</div>
                     <div class="stat-label">Excluded Pages</div>
+                </div>
+            </div>
+        </div>
+
+    
+
+        <div class="stat-card">
+            <h3>Performance Metrics</h3>
+            <div class="stat-grid">
+                <div class="stat-item">
+                    <div class="stat-value">{performanceMetrics.executionTime -> f:format.number(decimals: 2)}</div>
+                    <div class="stat-label">Execution Time (seconds)</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{performanceMetrics.totalPages}</div>
+                    <div class="stat-label">Total Pages Analyzed</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{performanceMetrics.similarityCalculations}</div>
+                    <div class="stat-label">Similarity Calculations</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{performanceMetrics.fromCache}</div>
+                    <div class="stat-label">Results from Cache</div>
                 </div>
             </div>
         </div>
