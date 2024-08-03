@@ -5,6 +5,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+
+## [1.0.6] - 2024-08-03
+### Added
+
+New performance metrics in the backend module for better analysis
+Ability to exclude specific pages from suggestions via TypoScript configuration
+Configuration option for excerpt length in suggestions
+
+### Changed
+
+Improved caching mechanism for faster analysis results
+Updated TypoScript setup and constants with more detailed comments
+Refactored PageAnalysisService for better performance
+
+### Fixed
+
+Issue with suggestion display in frontend when using cached results
+
+
+
 ## [1.0.4] - 2024-08-01
 
 ### Added
