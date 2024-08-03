@@ -38,3 +38,6 @@
 - **Schema**: Define the schema for the table to include relevant fields such as page IDs, similarity scores, and comparison details.
 - **Data Management**: Ensure proper data management practices for storing, retrieving, and updating similarity results.
 
+
+## 8. Créate unit and functionnal tests
+

@@ -47,6 +47,7 @@ extension_report.json
 # Specific files to ignore
 /analyze_extension.php
 /extension_analysis_report.txt
+/extension_report.json
 
 # Keep .gitkeep files
 !/**/.gitkeep
