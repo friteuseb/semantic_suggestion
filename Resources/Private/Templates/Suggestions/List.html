@@ -41,9 +41,12 @@
                                             </f:if>
                                             <div class="card-body">
                                                 <h5 class="card-title">{suggestion.data.title}</h5>
-                                                <f:if condition="{suggestion.data.abstract}">
-                                                    <p class="card-text">{suggestion.data.abstract -> f:format.stripTags() -> f:format.crop(maxCharacters:'150')}</p>
+                                                <f:if condition="{suggestion.excerpt}">
+                                                    <p class="card-text">{suggestion.excerpt -> f:format.raw()}</p>
                                                 </f:if>
+                                                <h2>extrait</h2>
+                                                <!-- Débogage -->
+                                                <f:debug title="Suggestion Data">{suggestion}</f:debug>
                                             </div>
                                             <div class="card-footer">
                                                 <f:link.page pageUid="{suggestion.data.uid}" title="{suggestion.data.title}" class="link-arrow link-arrow--small">
