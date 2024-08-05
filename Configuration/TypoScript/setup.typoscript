@@ -52,27 +52,42 @@ plugin.tx_semanticsuggestion_suggestions {
 }
 
 # Configuration to include the plugin in content elements
-# Usage: <f:cObject typoscriptObjectPath="tt_content.list.20.semanticsuggestion_suggestions" />
-tt_content.semantic_suggestion_suggestions = COA
-tt_content.semantic_suggestion_suggestions {
-    10 =< lib.contentElement
-    20 =< plugin.tx_semanticsuggestion_suggestions
-}
+# This allows you to include the semantic suggestion functionality
+# in any content element by referencing `lib.semantic_suggestion`
+# Usage: <f:cObject typoscriptObjectPath="lib.semantic_suggestion" />
 
-# Library configuration for use in templates
-# Usage: <f:cObject typescriptObjectPath="lib.semantic_suggestion" />
+# Configuration of the lib.semantic_suggestion
+# This block defines a TypoScript object that can be reused throughout the site
 lib.semantic_suggestion = USER
 lib.semantic_suggestion {
+    # Specifies the user function that should be called to execute the plugin
     userFunc = TYPO3\CMS\Extbase\Core\Bootstrap->run
+
+    # Specifies the name of the extension, the plugin, and the vendor
+    # This tells TYPO3 which extension and plugin to use
     extensionName = SemanticSuggestion
     pluginName = Suggestions
     vendorName = Talan
 
-    # Reuse of previous configurations
+    # Inherit the view configuration from the plugin setup
+    # This includes paths to templates, partials, and layouts
     view =< plugin.tx_semanticsuggestion_suggestions.view
+
+    # Inherit the persistence configuration from the plugin setup
+    # This includes settings related to database storage
     persistence =< plugin.tx_semanticsuggestion_suggestions.persistence
+
+    # Inherit the settings configuration from the plugin setup
+    # This includes custom settings like parentPageId, proximityThreshold, etc.
     settings =< plugin.tx_semanticsuggestion_suggestions.settings
 }
+
+# Configuration to include the plugin in content elements
+# This maps the TypoScript path `tt_content.list.20.semanticsuggestion_suggestions`
+# to the plugin configuration `plugin.tx_semanticsuggestion_suggestions`
+# This allows the plugin to be used as a content element
+tt_content.list.20.semanticsuggestion_suggestions =< plugin.tx_semanticsuggestion_suggestions
+
 
 # Backend module configuration
 module.tx_semanticsuggestion {
