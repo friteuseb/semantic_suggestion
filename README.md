@@ -1,6 +1,9 @@
 # TYPO3 Extension: Semantic Suggestion
 
 [![TYPO3 12](https://img.shields.io/badge/TYPO3-12-orange.svg)](https://get.typo3.org/version/12)
+[![TYPO3 13](https://img.shields.io/badge/TYPO3-13-orange.svg)](https://get.typo3.org/version/13)
+[![Latest Stable Version](https://img.shields.io/packagist/v/talan-hdf/semantic-suggestion.svg)](https://packagist.org/packages/talan-hdf/semantic-suggestion)
+[![License](https://img.shields.io/packagist/l/talan-hdf/semantic-suggestion.svg)](https://packagist.org/packages/talan-hdf/semantic-suggestion)
 
 This extension provides a plugin for TYPO3 v12 that suggests semantically related pages. Semantic suggestion enhances user experience by automatically recommending relevant content, increasing engagement and time spent on your website.
 
@@ -15,17 +18,19 @@ Semantic Suggestion analyzes the content of your pages and creates intelligent c
 
 ## Requirements
 
-- TYPO3 12.4.0-12.4.99
+- TYPO3 12.0.0-13.9.99
 - PHP 8.0 or higher
 
 ## Features
 
 - Analyzes subpages of a specified parent page
-- Displays title, associated media, and text excerpt of suggested pages
+- Displays title, associated media, and enhanced text excerpt of suggested pages
 - Configurable via TypoScript
 - Allows setting the parent page ID, proximity threshold, and search depth
 - Optimized performance by storing proximity scores in the database and updating them periodically
 - Built-in multilingual support
+- Improved compatibility with various TYPO3 content structures, including Bootstrap Package
+- Option to exclude specific pages from analysis and suggestions
 
 ## Installation
 
@@ -95,6 +100,7 @@ Adjust these weights based on your specific content structure and similarity req
 - `maxSuggestions`: The maximum number of suggestions to display
 - `excerptLength`: The maximum length of the text excerpt for each suggestion
 - `recursive`: The search depth in the page tree (0 = only direct children)
+- `excludePages`: Comma-separated list of page UIDs to exclude from analysis and suggestions
 
 
 ## Usage
@@ -214,6 +220,10 @@ The extension uses TYPO3's logging system. You can configure logging to get more
 
 - Storage of similarity scores in the database to avoid repeated calculations
 - Periodic update of scores or when page content changes
+- Optimized content retrieval process for improved performance with large numbers of pages
+- Efficient handling of excluded pages to reduce unnecessary calculations
+- Improved caching mechanisms for faster retrieval of analysis results
+- Batch processing of page analysis to manage server load effectively
 
 ## File Structure and Logic
 

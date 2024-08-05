@@ -5,6 +5,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+# Changelog for Semantic Suggestion Extension
+
+## [1.0.7] - 2024-08-04
+Enhanced excerpt generation for suggestions, providing more accurate and relevant content previews from various page elements.
+
+### Added
+- Support for Bootstrap Package content retrieval in excerpt generation
+- Improved content analysis for more accurate semantic suggestions
+
+### Changed
+- Enhanced compatibility with various TYPO3 content structures
+- Optimized content retrieval process for better performance
+- Refactored code for improved maintainability and readability
+
+### Improved
+- Better handling of different page layouts and content elements
+- Enhanced excerpt generation to include relevant page content
+- Optimized backend module for better performance with large numbers of pages
+
+### Fixed
+- Resolved issues with content retrieval in specific TYPO3 setups
+- Fixed potential performance bottlenecks in similarity calculations
+
+### Security
+- Improved content retrieval security by respecting hidden and deleted flags
+
+
 
 ## [1.0.6] - 2024-08-03
 ### Added

@@ -44,9 +44,6 @@
                                                 <f:if condition="{suggestion.excerpt}">
                                                     <p class="card-text">{suggestion.excerpt -> f:format.raw()}</p>
                                                 </f:if>
-                                                <h2>extrait</h2>
-                                                <!-- Débogage -->
-                                                <f:debug title="Suggestion Data">{suggestion}</f:debug>
                                             </div>
                                             <div class="card-footer">
                                                 <f:link.page pageUid="{suggestion.data.uid}" title="{suggestion.data.title}" class="link-arrow link-arrow--small">
