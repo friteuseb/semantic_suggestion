@@ -110,12 +110,6 @@ Insert the plugin "Semantic Suggestions" on the desired page using the TYPO3 bac
 To add the plugin directly in your Fluid template, use:
 
 ```html
-<f:cObject typescriptObjectPath="tt_content.list.20.semanticsuggestion_suggestions" />
-```
-
-Or use the defined library:
-
-```html
 <f:cObject typescriptObjectPath="lib.semantic_suggestion" />
 ```
 
