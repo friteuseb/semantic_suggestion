@@ -12,7 +12,6 @@ services:
       $context: '@TYPO3\CMS\Core\Context\Context'
       $configurationManager: '@TYPO3\CMS\Extbase\Configuration\ConfigurationManager'
     public: true
-    # Retirez le tag event.listener si ce service n'est pas censé être un écouteur d'événement
 
   TalanHdf\SemanticSuggestion\Controller\SuggestionsController:
     public: true
@@ -20,6 +19,15 @@ services:
       $pageAnalysisService: '@TalanHdf\SemanticSuggestion\Service\PageAnalysisService'
       $fileRepository: '@TYPO3\CMS\Core\Resource\FileRepository'
 
-
   TalanHdf\SemanticSuggestion\Controller\SemanticBackendController:
     tags: ['backend.controller']
+
+  # Configuration explicite pour Connection
+  TYPO3\CMS\Core\Database\Connection:
+    factory: ['@TYPO3\CMS\Core\Database\ConnectionPool', 'getConnectionByName']
+    arguments: ['Default']
+
+  # Configuration pour QueryBuilder
+  TYPO3\CMS\Core\Database\Query\QueryBuilder:
+    factory: ['@TYPO3\CMS\Core\Database\ConnectionPool', 'getQueryBuilderForTable']
+    arguments: ['pages']  # Vous pouvez ajuster cela selon vos besoins

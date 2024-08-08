@@ -9,6 +9,8 @@ use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Cache\CacheManager;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
+use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
 // The PageAnalysisService class manages semantic analysis of TYPO3 pages.
 class PageAnalysisService implements LoggerAwareInterface
@@ -20,6 +22,7 @@ class PageAnalysisService implements LoggerAwareInterface
     protected $configurationManager;
     protected $settings;
     protected $cache;
+    protected $queryBuilder;
 
     /**
      * Constructor for the class
@@ -27,8 +30,13 @@ class PageAnalysisService implements LoggerAwareInterface
      * @param Context $context TYPO3 context object
      * @param ConfigurationManagerInterface $configurationManager Configuration manager instance
      */
-    public function __construct(Context $context, ConfigurationManagerInterface $configurationManager)
-    {
+    public function __construct(
+               Context $context,
+               ConfigurationManagerInterface $configurationManager,
+               ?FrontendInterface $cache = null,
+               ?QueryBuilder $queryBuilder = null
+           )
+        {
         // Initialize properties with the provided dependencies
         $this->context = $context;
         $this->configurationManager = $configurationManager;
@@ -38,9 +46,16 @@ class PageAnalysisService implements LoggerAwareInterface
             ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
             'semanticsuggestion_suggestions'
         );
-        
+    
         // Initialize cache for semantic suggestions
-        $this->cache = GeneralUtility::makeInstance(CacheManager::class)->getCache('semantic_suggestion');
+        if ($cache === null) {
+            $cacheManager = GeneralUtility::makeInstance(CacheManager::class);
+            $this->cache = $cacheManager->getCache('semantic_suggestion');
+        } else {
+            $this->cache = $cache;
+        }
+    
+        $this->queryBuilder = $queryBuilder;
 
         // Initialize fields to be analyzed with default weights if not set
         if (!isset($this->settings['analyzedFields']) || !is_array($this->settings['analyzedFields'])) {
@@ -52,6 +67,14 @@ class PageAnalysisService implements LoggerAwareInterface
                 'content' => 1.0
             ];
         }
+    }
+
+    protected function getQueryBuilder(): QueryBuilder
+    {
+        if ($this->queryBuilder === null) {
+            return GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable('tt_content');
+        }
+        return $this->queryBuilder;
     }
 
     /**
@@ -207,7 +230,7 @@ class PageAnalysisService implements LoggerAwareInterface
         $this->logger->info('Fetching subpages', ['parentId' => $parentId]);
 
         try {
-            $queryBuilder = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable('pages');
+            $queryBuilder = $this->getQueryBuilder();
             $languageUid = $this->getCurrentLanguageUid();
 
             $this->logger->info('Current language UID: ' . $languageUid);
@@ -253,17 +276,17 @@ class PageAnalysisService implements LoggerAwareInterface
      */
     private function getPageContent(int $pageId): string
     {
-        $queryBuilder = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable('tt_content');
+        $queryBuilder = $this->getQueryBuilder();
         $languageUid = $this->getCurrentLanguageUid();
 
         $content = $queryBuilder
             ->select('bodytext')
             ->from('tt_content')
             ->where(
-                $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pageId, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->eq('hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->in('sys_language_uid', $queryBuilder->createNamedParameter([$languageUid, -1], Connection::PARAM_INT_ARRAY))
+                $queryBuilder->expr()->eq('tt_content.pid', $queryBuilder->createNamedParameter($pageId, \PDO::PARAM_INT)),
+                $queryBuilder->expr()->eq('tt_content.hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
+                $queryBuilder->expr()->eq('tt_content.deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
+                $queryBuilder->expr()->in('tt_content.sys_language_uid', $queryBuilder->createNamedParameter([$languageUid, -1], Connection::PARAM_INT_ARRAY))
             )
             ->executeQuery()
             ->fetchAllAssociative();
@@ -271,7 +294,6 @@ class PageAnalysisService implements LoggerAwareInterface
         // Concatenate all bodytext content into a single string
         return implode(' ', array_column($content, 'bodytext'));
     }
-
     /**
      * Get weighted words from page data
      *
@@ -397,10 +419,12 @@ class PageAnalysisService implements LoggerAwareInterface
     private function getCurrentLanguageUid(): int
     {
         try {
-            return $this->context->getPropertyFromAspect('language', 'id');
+            return (int)$this->context->getAspect('language')->getId();
         } catch (\Exception $e) {
             $this->logger->warning('Failed to get language from context, defaulting to 0', ['exception' => $e]);
             return 0;
         }
     }
 }
+
+
