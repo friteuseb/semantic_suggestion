@@ -124,6 +124,27 @@ class PageAnalysisService implements LoggerAwareInterface
         return $this->connectionPool->getQueryBuilderForTable($table);
     }
 
+        public function getContext(): Context
+    {
+        return $this->context;
+    }
+
+    public function getCacheManager(): ?CacheManager
+    {
+        return $this->cacheManager;
+    }
+
+    public function getSettings(): array
+    {
+        return $this->settings;
+    }
+
+    public function getConnectionPool(): ?ConnectionPool
+    {
+        return $this->connectionPool;
+    }
+
+
     /**
      * Analyzes pages and calculates similarities
      *
