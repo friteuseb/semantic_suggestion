@@ -31,33 +31,32 @@ class PageAnalysisService implements LoggerAwareInterface
      * @param ConfigurationManagerInterface $configurationManager Configuration manager instance
      */
     public function __construct(
-               Context $context,
-               ConfigurationManagerInterface $configurationManager,
-               ?FrontendInterface $cache = null,
-               ?QueryBuilder $queryBuilder = null
-           )
-        {
-        // Initialize properties with the provided dependencies
+        Context $context,
+        ConfigurationManagerInterface $configurationManager,
+        ?FrontendInterface $cache = null,
+        ?QueryBuilder $queryBuilder = null
+    ) {
         $this->context = $context;
         $this->configurationManager = $configurationManager;
         
-        // Load configuration settings for the extension
         $this->settings = $this->configurationManager->getConfiguration(
             ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
             'semanticsuggestion_suggestions'
         );
-    
-        // Initialize cache for semantic suggestions
+        
         if ($cache === null) {
-            $cacheManager = GeneralUtility::makeInstance(CacheManager::class);
-            $this->cache = $cacheManager->getCache('semantic_suggestion');
+            try {
+                $this->cache = GeneralUtility::makeInstance(CacheManager::class)->getCache('semantic_suggestion');
+            } catch (\Exception $e) {
+                // Dans le cas où le cache n'existe pas, on crée un cache en mémoire pour les tests
+                $this->cache = new \TYPO3\CMS\Core\Cache\Frontend\VariableFrontend('semantic_suggestion', new \TYPO3\CMS\Core\Cache\Backend\TransientMemoryBackend());
+            }
         } else {
             $this->cache = $cache;
         }
     
         $this->queryBuilder = $queryBuilder;
-
-        // Initialize fields to be analyzed with default weights if not set
+    
         if (!isset($this->settings['analyzedFields']) || !is_array($this->settings['analyzedFields'])) {
             $this->settings['analyzedFields'] = [
                 'title' => 1.5,
