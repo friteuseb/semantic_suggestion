@@ -248,6 +248,65 @@ ext_semantic_suggestions/
 └── ext_tables.php
 ```
 
+
+
+## Unit Tests
+
+The Semantic Suggestion extension includes a comprehensive suite of unit tests to ensure the reliability and correctness of its core functionalities. These tests are crucial for maintaining the quality of the extension and facilitating future development.
+
+### Test Coverage
+
+Our unit tests cover the following key areas:
+
+1. **Page Data Preparation**: Ensures that page data is correctly prepared and weighted for analysis.
+2. **Page Analysis**: Verifies the overall page analysis process, including caching mechanisms.
+3. **Similarity Calculation**: Tests the accuracy of similarity calculations between different pages.
+4. **Common Keywords Detection**: Checks the functionality for finding common keywords between pages.
+5. **Relevance Determination**: Validates the logic for determining the relevance level based on similarity scores.
+
+### List of Tests
+
+The main test class `PageAnalysisServiceTest` includes the following test methods:
+
+- `testPreparePageData()`: Validates the correct preparation of page data.
+- `testAnalyzePages()`: Checks the complete page analysis process.
+- `testCalculateSimilarity()`: Ensures accurate similarity calculations between pages.
+- `testFindCommonKeywords()`: Verifies the detection of common keywords.
+- `testDetermineRelevance()`: Confirms correct relevance level assignments.
+
+### Running the Tests
+
+To run the unit tests, follow these steps:
+
+1. Ensure you have a development environment set up with DDEV.
+2. Open a terminal and navigate to your project root.
+3. Run the following command:
+
+   ```bash
+   ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist --testdox --colors=always
+   ```
+
+   This command will execute all unit tests and provide a detailed, color-coded output of the results.
+
+4. To run a specific test, you can add the test method name to the command:
+
+   ```bash
+   ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist --filter testMethodName
+   ```
+
+   Replace `testMethodName` with the name of the specific test you want to run (e.g., `testCalculateSimilarity`).
+
+### Interpreting Test Results
+
+- Green checkmarks (✔) indicate passed tests.
+- Red crosses (✘) indicate failed tests.
+- Yellow exclamation marks (⚠) indicate risky or incomplete tests.
+
+The test output will provide detailed information about any failures or issues, helping you quickly identify and address problems.
+
+Regular execution of these tests is recommended, especially after making changes to the codebase, to ensure continued functionality and to catch any regressions early in the development process.
+
+
 ## Contributing
 
 Contributions to the Semantic Suggestion extension are welcome! Here's how you can contribute:

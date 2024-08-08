@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog for Semantic Suggestion Extension
 
+
+## [1.0.8] - 2024-08-08
+
+### Added
+- New unit tests for improved code coverage
+- Implemented more accurate similarity calculation between pages
+
+### Changed
+- Optimized performance of PageAnalysisService
+- Refactored code for better readability and maintainability
+- Updated inline code documentation
+
+### Fixed
+- Resolved 'pid' column ambiguity issue in SQL queries
+- Corrected edge case handling in similarity calculations
+
+### Security
+- Improved handling of user inputs in database queries
+
+
+
 ## [1.0.7] - 2024-08-04
 Enhanced excerpt generation for suggestions, providing more accurate and relevant content previews from various page elements.
 
