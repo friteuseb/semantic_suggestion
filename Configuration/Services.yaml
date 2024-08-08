@@ -11,6 +11,8 @@ services:
     arguments:
       $context: '@TYPO3\CMS\Core\Context\Context'
       $configurationManager: '@TYPO3\CMS\Extbase\Configuration\ConfigurationManager'
+      $cacheManager: '@TYPO3\CMS\Core\Cache\CacheManager'
+      $dbConnection: '@TYPO3\CMS\Core\Database\ConnectionPool'
     public: true
 
   TalanHdf\SemanticSuggestion\Controller\SuggestionsController:
@@ -21,13 +23,3 @@ services:
 
   TalanHdf\SemanticSuggestion\Controller\SemanticBackendController:
     tags: ['backend.controller']
-
-  # Configuration explicite pour Connection
-  TYPO3\CMS\Core\Database\Connection:
-    factory: ['@TYPO3\CMS\Core\Database\ConnectionPool', 'getConnectionByName']
-    arguments: ['Default']
-
-  # Configuration pour QueryBuilder
-  TYPO3\CMS\Core\Database\Query\QueryBuilder:
-    factory: ['@TYPO3\CMS\Core\Database\ConnectionPool', 'getQueryBuilderForTable']
-    arguments: ['pages']  # Vous pouvez ajuster cela selon vos besoins
