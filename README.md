@@ -106,12 +106,79 @@ Adjust these weights based on your specific content structure and similarity req
 ## Usage
 
 Insert the plugin "Semantic Suggestions" on the desired page using the TYPO3 backend.
-
 To add the plugin directly in your Fluid template, use:
 
 ```html
 <f:cObject typescriptObjectPath="lib.semantic_suggestion" />
 ```
+
+## Integration in Fluid Templates with custom Viewhelper
+
+The Semantic Suggestion extension now offers a custom ViewHelper for easy integration into your Fluid templates. This provides a flexible way to display semantic suggestions directly in your pages.
+
+### Using the SuggestionsViewHelper
+
+1. First, declare the namespace for the ViewHelper at the top of your Fluid template:
+
+   ```html
+   {namespace semanticSuggestion=TalanHdf\SemanticSuggestion\ViewHelpers}
+   ```
+
+2. You can then use the ViewHelper in your template as follows:
+
+   ```html
+   <semanticSuggestion:suggestions 
+       pageUid="{data.uid}" 
+       parentPageId="1" 
+       proximityThreshold="0.3" 
+       maxSuggestions="5" 
+       depth="1">
+       <!-- Your custom rendering here -->
+   </semanticSuggestion:suggestions>
+   ```
+
+   The ViewHelper accepts the following arguments:
+   - `pageUid` (required): The UID of the current page
+   - `parentPageId` (optional, default: 0): The parent page ID to start the analysis from
+   - `proximityThreshold` (optional, default: 0.3): The threshold for considering pages as similar
+   - `maxSuggestions` (optional, default: 5): The maximum number of suggestions to display
+   - `depth` (optional, default: 0): The depth of the page tree to analyze
+
+3. Inside the ViewHelper tags, you can customize how the suggestions are rendered. Here's an example:
+
+   ```html
+   <semanticSuggestion:suggestions pageUid="{data.uid}" parentPageId="1" proximityThreshold="0.3" maxSuggestions="5" depth="1">
+       <f:if condition="{suggestions}">
+           <f:then>
+               <ul>
+                   <f:for each="{suggestions}" as="suggestion">
+                       <li>
+                           <f:link.page pageUid="{suggestion.data.uid}">
+                               {suggestion.data.title}
+                           </f:link.page>
+                           <p>Similarity: {suggestion.similarity -> f:format.number(decimals: 2)}</p>
+                       </li>
+                   </f:for>
+               </ul>
+           </f:then>
+           <f:else>
+               <p>No related pages found.</p>
+           </f:else>
+       </f:if>
+   </semanticSuggestion:suggestions>
+   ```
+
+   This example creates an unordered list of related pages, displaying the title and similarity score for each suggestion.
+
+### Benefits of Using the ViewHelper
+
+1. **Flexibility**: You can easily customize the output directly in your Fluid templates.
+2. **Performance**: The ViewHelper handles caching and efficient data retrieval internally.
+3. **Ease of Use**: No need to modify controllers or create new templates - simply add the ViewHelper where you want the suggestions to appear.
+4. **Configurability**: All major parameters can be adjusted directly in the template, allowing for easy customization per page or section.
+
+Remember to clear the TYPO3 cache after adding the ViewHelper to your templates for the changes to take effect.
+
 
 ## Similarity Logic
 
@@ -190,8 +257,6 @@ The Semantic Suggestion extension provides,  through the backend module, perform
 By monitoring these metrics, you can fine-tune the extension's configuration to achieve the best balance between performance and suggestion accuracy for your specific use case.
 
 
-
-
 ## Display Customization
 
 The Fluid template (List.html) can be customized to adapt the display of suggestions to your needs. You can override this template by configuring your own template paths in TypoScript.
@@ -222,30 +287,79 @@ The extension uses TYPO3's logging system. You can configure logging to get more
 ## File Structure and Logic
 
 ```
-ext_semantic_suggestions/
+semantic_suggestion/
 ├── Classes/
 │   ├── Controller/
+│   │   ├── SemanticBackendController.php
 │   │   └── SuggestionsController.php
 │   └── Service/
 │       └── PageAnalysisService.php
-│       └── Hooks/
-│           └── DataHandlerHook.php
 ├── Configuration/
-│   └── TypoScript/
-│       └── setup.typoscript
+│   ├── Backend/
+│   │   ├── Modules.php
+│   │   └── Routes.php
+│   ├── TCA/
+│   │   └── Overrides/
+│   │       ├── sys_template.php
+│   │       └── tt_content.php
+│   ├── TypoScript/
+│   │   ├── constants.typoscript
+│   │   └── setup.typoscript
+│   └── Services.yaml
+├── Documentation/
+│   ├── Index.rst
+│   ├── Installation/
+│   │   └── Index.rst
+│   ├── Introduction/
+│   │   └── Index.rst
+│   └── Medias/
+│       ├── backend_module.png
+│       ├── backend_module_performance_metrics.jpg
+│       └── frontend_on_the_same_theme_view.jpg
 ├── Resources/
 │   ├── Private/
 │   │   ├── Language/
-│   │   │   └── locallang.xlf
+│   │   │   ├── locallang.xlf
+│   │   │   ├── locallang_be.xlf
+│   │   │   ├── locallang_mod.xlf
+│   │   │   └── locallang_semanticproximity.xlf
+│   │   ├── Layouts/
+│   │   │   └── Default.html
 │   │   └── Templates/
+│   │       ├── SemanticBackend/
+│   │       │   ├── Index.html
+│   │       │   └── List.html
 │   │       └── Suggestions/
 │   │           └── List.html
 │   └── Public/
+│       ├── Css/
+│       │   └── SemanticSuggestion.css
 │       └── Icons/
-│           └── Extension.svg
+│           ├── Extension.svg
+│           ├── module-semantic-suggestion.svg
+│           └── user_mod_semanticproximity.svg
+├── Tests/
+│   ├── Fixtures/
+│   │   └── pages.xml
+│   ├── Integration/
+│   │   └── Service/
+│   │       └── PageAnalysisServiceIntegrationTest.php
+│   └── Unit/
+│       └── Service/
+│           └── PageAnalysisServiceTest.php
+├── .env
+├── .gitignore
+├── CHANGELOG.md
+├── IMPROVEMENTS.MD
+├── LICENSE
+├── README.md
+├── ROADMAP_TO_STABLE.md
+├── composer.json
+├── ext_conf_template.txt
 ├── ext_emconf.php
 ├── ext_localconf.php
-└── ext_tables.php
+├── ext_tables.php
+└── phpunit.xml.dist
 ```
 
 
@@ -270,41 +384,19 @@ Our unit tests cover the following key areas:
 
 ### List of Test Functions
 
-1. **setUp()**
-   - Initializes mocks and sets up the test environment for each test.
-
-2. **testPreparePageData()**
-   - Verifies that the preparePageData method correctly prepares the data for a page by applying weights and fetching the content.
-
-3. **testAnalyzePages()**
-   - Tests the analyzePages method to ensure that it produces the expected results and uses the cache correctly.
-
-4. **testCalculateSimilarity()**
-   - Verifies that calculating similarity between two pages produces consistent results for different scenarios.
-
-5. **testFindCommonKeywords()**
-   - Tests the findCommonKeywords method to ensure that it correctly finds common keywords between two pages.
-
-6. **testDetermineRelevance()**
-   - Verifies that determining relevance based on the similarity score produces the expected results for different similarity values.
-
-7. **testPerformanceWithLargeDataset()**
-   - Tests the performance of the service with a large number of pages to ensure that it can handle large datasets efficiently.
-
-8. **testAnalyzePagesWithCacheHit()**
-   - Checks that the service is using the cache correctly when a result is already cached.
-
-9. **testPageWithoutContent()**
-   - Tests the data preparation of a page without content to ensure that the service handles empty pages correctly.
-
-10. **testPageWithVeryLargeContent()**
-    - Checks that the service can handle large amounts of text without errors and that fields are correctly populated with the expected content.
-
-11. **testContentSizeLimits()**
-    - Tests the content size limits in the service to check if it is applying appropriate limits on different fields when it receives extremely large content.
+1. **setUp()**: Initializes mocks and test environment.
+2. **testPreparePageData()**: Verifies correct page data preparation and weighting.
+3. **testAnalyzePages()**: Ensures expected results and proper cache usage.
+4. **testCalculateSimilarity()**: Checks consistency of similarity calculations.
+5. **testFindCommonKeywords()**: Validates common keyword detection.
+6. **testDetermineRelevance()**: Confirms accurate relevance determination.
+7. **testPerformanceWithLargeDataset()**: Evaluates efficiency with large datasets.
+8. **testAnalyzePagesWithCacheHit()**: Verifies correct cache usage.
+9. **testPageWithoutContent()**: Ensures proper handling of empty pages.
+10. **testPageWithVeryLargeContent()**: Checks handling of large text volumes.
+11. **testContentSizeLimits()**: Validates content size limit enforcement.
 
 This comprehensive set of tests ensures that our PageAnalysisService is robust, efficient, and capable of handling various scenarios, from normal operations to edge cases.
-
 
 
 ### Running the Tests
