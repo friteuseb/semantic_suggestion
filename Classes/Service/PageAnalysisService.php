@@ -155,12 +155,12 @@ class PageAnalysisService implements LoggerAwareInterface
     public function analyzePages(int $parentPageId = null, int $depth = null): array
     {
         $startTime = microtime(true);
-
+    
         // Set default values if not provided
         $parentPageId = $parentPageId ?? (int)$this->settings['parentPageId'];
         $depth = $depth ?? (int)$this->settings['recursive'];
         $cacheIdentifier = 'semantic_analysis_' . $parentPageId . '_' . $depth;
-
+    
         // Check if the results are already cached
         if ($this->cache->has($cacheIdentifier)) {
             $cachedResult = $this->cache->get($cacheIdentifier);
@@ -168,18 +168,18 @@ class PageAnalysisService implements LoggerAwareInterface
             $cachedResult['metrics']['executionTime'] = microtime(true) - $startTime;
             return $cachedResult;
         }
-
+    
         try {
             // Retrieve all subpages
             $pages = $this->getAllSubpages($parentPageId, $depth);
             $totalPages = count($pages);
             $analysisResults = [];
-
+    
             // Prepare data for each page
             foreach ($pages as $page) {
                 $analysisResults[$page['uid']] = $this->preparePageData($page);
             }
-
+    
             $similarityCalculations = 0;
             // Calculate similarities between pages
             foreach ($analysisResults as $pageId => &$pageData) {
@@ -195,16 +195,16 @@ class PageAnalysisService implements LoggerAwareInterface
                     }
                 }
             }
-
+    
         } catch (\Exception $e) {
             // Log the error and return an empty result
             $this->logger?->error('Error during page analysis', ['exception' => $e->getMessage()]);
             return [];
         }
-
+    
         $endTime = microtime(true);
         $executionTime = $endTime - $startTime;
-
+    
         $result = [
             'results' => $analysisResults,
             'metrics' => [
@@ -214,12 +214,19 @@ class PageAnalysisService implements LoggerAwareInterface
                 'fromCache' => false,
             ],
         ];
-
-        // Cache the analysis results for 24 hours
-        $this->cache->set($cacheIdentifier, $result, ['pages'], 86400);
-
+    
+        // Cache the analysis results with the tx_semanticsuggestion tag
+        $this->cache->set(
+            $cacheIdentifier,
+            $result,
+            ['tx_semanticsuggestion', 'pages_' . $parentPageId],
+            86400 // Cache for 24 hours
+        );
+    
         return $result;
     }
+
+    
  /**
      * Prepares page data based on configured fields
      *

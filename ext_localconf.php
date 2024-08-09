@@ -7,10 +7,15 @@ defined('TYPO3') or die();
         'Suggestions',
         [
             \TalanHdf\SemanticSuggestion\Controller\SuggestionsController::class => 'list'
-        ],
-        // non-cacheable actions
-        []
+        ]
+        // Supprimez la partie non-cacheable actions (pas bon pour les performances)
     );
+
+    // Ajoutez ces lignes pour l'invalidation du cache au changement de contenus
+    $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass'][] = 
+        \TalanHdf\SemanticSuggestion\Hooks\DataHandlerHook::class;
+    $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processCmdmapClass'][] = 
+        \TalanHdf\SemanticSuggestion\Hooks\DataHandlerHook::class;
 
     \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::addTypoScriptSetup(
         '<INCLUDE_TYPOSCRIPT: source="FILE:EXT:semantic_suggestion/Configuration/TypoScript/setup.typoscript">'
@@ -39,4 +44,3 @@ defined('TYPO3') or die();
         ];
     }
 })();
-
