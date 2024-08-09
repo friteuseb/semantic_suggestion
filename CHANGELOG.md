@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog for Semantic Suggestion Extension
 
+## [1.1.0] 
+
+### Added
+- New `SuggestionsViewHelper` for easy integration in Fluid templates
+  - Allows direct rendering of semantic suggestions in any template
+  - Supports customizable parameters: pageUid, parentPageId, proximityThreshold, maxSuggestions, depth
+  - Flexible content rendering within ViewHelper tags
+
+### Changed
+- Update README.md to integrate an explicit but light documentation
 
 ## [1.0.8] - 2024-08-08
 
