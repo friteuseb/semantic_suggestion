@@ -54,3 +54,5 @@ extension_report.json
 
 # Git related
 /.git
+
+*.env
