@@ -4,11 +4,11 @@ Semantic Suggestion
 
 :Extension key: semantic_suggestion
 :Package name: talan/semantic-suggestion
-:Version: 1.0.1
+:Version: 1.1.0
 :Language: en
 :Description: Manual for the TYPO3 extension Semantic Suggestion
-:Keywords: semantic, suggestion, typo3, extension
-:Copyright: 2023
+:Keywords: semantic, suggestion, typo3, extension, More Like This, 
+:Copyright: 2024
 :Author: Wolfangel Cyril
 :Email: cyril.wolfangel@gmail.com
 :License: This document is published under the Open Content License available from https://www.openhub.net/licenses/opl

@@ -263,16 +263,49 @@ Our unit tests cover the following key areas:
 3. **Similarity Calculation**: Tests the accuracy of similarity calculations between different pages.
 4. **Common Keywords Detection**: Checks the functionality for finding common keywords between pages.
 5. **Relevance Determination**: Validates the logic for determining the relevance level based on similarity scores.
+6. **Performance Testing**: Evaluates the service's ability to handle large datasets efficiently.
+7. **Cache Handling**: Verifies proper use of caching mechanisms for improved performance.
+8. **Edge Case Handling**: Tests the service's behavior with empty pages and extremely large content.
+9. **Content Size Limits**: Checks if appropriate size limits are applied to different fields.
 
-### List of Tests
+### List of Test Functions
 
-The main test class `PageAnalysisServiceTest` includes the following test methods:
+1. **setUp()**
+   - Initializes mocks and sets up the test environment for each test.
 
-- `testPreparePageData()`: Validates the correct preparation of page data.
-- `testAnalyzePages()`: Checks the complete page analysis process.
-- `testCalculateSimilarity()`: Ensures accurate similarity calculations between pages.
-- `testFindCommonKeywords()`: Verifies the detection of common keywords.
-- `testDetermineRelevance()`: Confirms correct relevance level assignments.
+2. **testPreparePageData()**
+   - Verifies that the preparePageData method correctly prepares the data for a page by applying weights and fetching the content.
+
+3. **testAnalyzePages()**
+   - Tests the analyzePages method to ensure that it produces the expected results and uses the cache correctly.
+
+4. **testCalculateSimilarity()**
+   - Verifies that calculating similarity between two pages produces consistent results for different scenarios.
+
+5. **testFindCommonKeywords()**
+   - Tests the findCommonKeywords method to ensure that it correctly finds common keywords between two pages.
+
+6. **testDetermineRelevance()**
+   - Verifies that determining relevance based on the similarity score produces the expected results for different similarity values.
+
+7. **testPerformanceWithLargeDataset()**
+   - Tests the performance of the service with a large number of pages to ensure that it can handle large datasets efficiently.
+
+8. **testAnalyzePagesWithCacheHit()**
+   - Checks that the service is using the cache correctly when a result is already cached.
+
+9. **testPageWithoutContent()**
+   - Tests the data preparation of a page without content to ensure that the service handles empty pages correctly.
+
+10. **testPageWithVeryLargeContent()**
+    - Checks that the service can handle large amounts of text without errors and that fields are correctly populated with the expected content.
+
+11. **testContentSizeLimits()**
+    - Tests the content size limits in the service to check if it is applying appropriate limits on different fields when it receives extremely large content.
+
+This comprehensive set of tests ensures that our PageAnalysisService is robust, efficient, and capable of handling various scenarios, from normal operations to edge cases.
+
+
 
 ### Running the Tests
 
