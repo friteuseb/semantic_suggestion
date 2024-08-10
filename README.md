@@ -63,6 +63,8 @@ plugin.tx_semanticsuggestion {
         excerptLength = 150
         recursive = 1
         excludePages = 8,9,3456
+        recencyWeight = 0.2
+
         analyzedFields {
             title = 1.5
             description = 1.0
@@ -101,6 +103,58 @@ Adjust these weights based on your specific content structure and similarity req
 - `excerptLength`: The maximum length of the text excerpt for each suggestion
 - `recursive`: The search depth in the page tree (0 = only direct children)
 - `excludePages`: Comma-separated list of page UIDs to exclude from analysis and suggestions
+- `recencyWeight`: Weight of recency in similarity calculation (0-1) 
+
+## The Weight of Recency in Similarity Calculation (0-1)
+
+The recency weight is a parameter that determines how much importance is given to the publication or modification date of a page when calculating its similarity to other pages. This weight ranges from 0 to 1, where:
+
+* **0:** Recency has no impact on similarity calculations.
+* **1:** Recency has the maximum impact on similarity calculations.
+
+### How it works
+
+1. The extension calculates a base similarity score between pages based on their content.
+2. It then calculates a recency boost based on how recently the pages were published or modified.
+3. The final similarity score is a combination of the content similarity and the recency boost, weighted by the recency weight.
+
+### Formula
+
+```
+finalSimilarity = (contentSimilarity * (1 - recencyWeight)) + (recencyBoost * recencyWeight)
+```
+
+### Why use recency weight
+
+* **Relevance:** Recent content is often more relevant to users.
+* **Freshness:** It helps promote newer content without completely disregarding content similarity.
+* **Balance:** It allows you to find a balance between content relevance and timeliness.
+
+### How to configure
+
+In your TypoScript setup, you can set the `recencyWeight` like this:
+
+```typo3_typoscript
+plugin.tx_semanticsuggestion_suggestions {
+    settings {
+        recencyWeight = 0.3
+    }
+}
+```
+
+### Choosing the right value
+
+* **Low values (e.g., 0.1-0.3):** Slightly favor recent content while maintaining a strong emphasis on content similarity.
+* **Medium values (e.g., 0.4-0.6):** Balance between content similarity and recency.
+* **High values (e.g., 0.7-0.9):** Strongly favor recent content, potentially at the expense of content similarity.
+
+### Consider your specific use case
+
+* **News website:** Higher recency weight to promote fresh content.
+* **Educational resource:** Lower recency weight to focus on content relevance.
+* **General blog:** Medium recency weight for a balance of relevance and freshness. 
+
+
 
 
 ## Usage
