@@ -145,7 +145,8 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
                     'relevance' => $similarity['relevance'],
                     'aboveThreshold' => true,
                     'data' => $pageData,
-                    'excerpt' => $excerpt
+                    'excerpt' => $excerpt,
+                    'recency' => $recencyScore
                 ];
                 $suggestions[$pageId]['data']['media'] = $this->getPageMedia($pageId);
                 

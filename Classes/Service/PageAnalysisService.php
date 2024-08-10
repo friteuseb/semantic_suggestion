@@ -186,10 +186,14 @@ class PageAnalysisService implements LoggerAwareInterface
                     if ($pageId !== $comparisonPageId) {
                         $similarity = $this->calculateSimilarity($pageData, $comparisonPageData);
                         $pageData['similarities'][$comparisonPageId] = [
-                            'score' => $similarity,
+                            'score' => $similarity['finalSimilarity'],
+                            'semanticSimilarity' => $similarity['semanticSimilarity'],
+                            'recencyBoost' => $similarity['recencyBoost'],
                             'commonKeywords' => $this->findCommonKeywords($pageData, $comparisonPageData),
-                            'relevance' => $this->determineRelevance($similarity),
+                            'relevance' => $this->determineRelevance($similarity['finalSimilarity']),
+                            'ageInDays' => round((time() - $comparisonPageData['content_modified_at']) / (24 * 3600), 1),
                         ];
+                        
                         $similarityCalculations++;
                     }
                 }
@@ -200,6 +204,9 @@ class PageAnalysisService implements LoggerAwareInterface
             return [];
         }
     
+
+
+
         $endTime = microtime(true);
         $executionTime = $endTime - $startTime;
     
@@ -395,7 +402,7 @@ private function getWeightedWords(array $pageData): array
     return $weightedWords;
 }
 
-private function calculateSimilarity(array $page1, array $page2): float
+private function calculateSimilarity(array $page1, array $page2): array
 {
     $words1 = $this->getWeightedWords($page1);
     $words2 = $this->getWeightedWords($page2);
@@ -407,23 +414,26 @@ private function calculateSimilarity(array $page1, array $page2): float
     $unionSum = array_sum($union);
 
     if ($unionSum === 0) {
-        return 0.0;
+        return [
+            'semanticSimilarity' => 0.0,
+            'recencyBoost' => 0.0,
+            'finalSimilarity' => 0.0
+        ];
     }
 
     $semanticSimilarity = min($intersectionSum / $unionSum, 1.0);
 
-    $now = time();
-    $recencyScore1 = exp(-($now - ($page1['content_modified_at'] ?? $now)) / (3600 * 24 * 30));
-    $recencyScore2 = exp(-($now - ($page2['content_modified_at'] ?? $now)) / (3600 * 24 * 30));
-    $recencySimilarity = 1 - abs($recencyScore1 - $recencyScore2);
+    $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
 
-    $finalSimilarity = $semanticSimilarity + ($recencySimilarity * ($this->settings['recencyWeight'] ?? 0.2));
+    // Ajuster la formule pour donner plus d'importance à la récence
+    $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
+    $finalSimilarity = ($semanticSimilarity * (1 - $recencyWeight)) + ($recencyBoost * $recencyWeight);
 
     $this->logger?->info('Similarity calculation', [
         'page1' => $page1['uid'] ?? 'unknown',
         'page2' => $page2['uid'] ?? 'unknown',
         'semanticSimilarity' => $semanticSimilarity, 
-        'recencySimilarity' => $recencySimilarity,
+        'recencyBoost' => $recencyBoost,
         'finalSimilarity' => $finalSimilarity,
         'fieldScores' => [
             'title' => $this->calculateFieldSimilarity($page1['title'] ?? [], $page2['title'] ?? []),
@@ -433,7 +443,26 @@ private function calculateSimilarity(array $page1, array $page2): float
         ]
     ]);
 
-    return $finalSimilarity;
+    return [
+        'semanticSimilarity' => $semanticSimilarity,
+        'recencyBoost' => $recencyBoost,
+        'finalSimilarity' => min($finalSimilarity, 1.0)
+    ];
+}
+
+private function calculateRecencyBoost(array $page1, array $page2): float
+{
+    $now = time();
+    $maxAge = 30 * 24 * 3600; // 30 jours en secondes
+    $age1 = min($now - ($page1['content_modified_at'] ?? $now), $maxAge);
+    $age2 = min($now - ($page2['content_modified_at'] ?? $now), $maxAge);
+    
+    // Normaliser les âges entre 0 et 1
+    $normalizedAge1 = 1 - ($age1 / $maxAge);
+    $normalizedAge2 = 1 - ($age2 / $maxAge);
+    
+    // Calculer la différence de récence
+    return abs($normalizedAge1 - $normalizedAge2);
 }
 
 private function calculateFieldSimilarity($field1, $field2): float
@@ -457,15 +486,21 @@ $keywords2 = isset($page2['keywords']['content']) ? array_map('trim', explode(',
 return array_intersect($keywords1, $keywords2);
 }
 
-private function determineRelevance(float $similarity): string
+private function determineRelevance($similarity): string
 {
-if ($similarity > 0.7) {
-    return 'High';
-} elseif ($similarity > 0.4) {
-    return 'Medium';
-} else {
-    return 'Low';
-}
+    if (is_array($similarity)) {
+        $similarityValue = $similarity['finalSimilarity'] ?? 0;
+    } else {
+        $similarityValue = (float)$similarity;
+    }
+
+    if ($similarityValue > 0.7) {
+        return 'High';
+    } elseif ($similarityValue > 0.4) {
+        return 'Medium';
+    } else {
+        return 'Low';
+    }
 }
 
 private function getCurrentLanguageUid(): int

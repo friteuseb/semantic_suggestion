@@ -24,6 +24,8 @@ plugin.tx_semanticsuggestion_suggestions {
         excludePages = 
         # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Excerpt Length: Number of characters to show in the suggestion's text excerpt
         excerptLength = 100
+        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Recency Weight: Importance of the page's recency in similarity calculation (0.0 to 1.0)
+        recencyWeight = 0.2
 
         analyzedFields {
             # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Title Weight: Importance of the page title in similarity calculation
