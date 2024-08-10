@@ -21,8 +21,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Validation of view data assignment
   - Checks for proper HTTP response generation
 
-### Changed
-- Update README.md to integrate an explicit but light documentation
+- Recency-based boost system for page suggestions
+  - Implemented a recency-based boost system for page suggestions
+  - New `recencyWeight` parameter to control the importance of recency in similarity calculations
+  - Added detailed information about similarity and recency in analysis results
+
+  #### Changes
+  - Redesigned the `calculateSimilarity` method to better account for page recency
+  - Improved the `calculateRecencyBoost` method for better normalization of page ages
+  - Updated the `analyzePages` method to include more information in results
+  - Update README.md to integrate an explicit but light documentation
+
+
+  #### Fixes
+  - Fixed various bugs related to similarity calculations
+  - Improved error handling and added additional logging for easier debugging
+
 
 ## [1.0.8] - 2024-08-08
 
