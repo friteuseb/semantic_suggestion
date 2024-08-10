@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Supports customizable parameters: pageUid, parentPageId, proximityThreshold, maxSuggestions, depth
   - Flexible content rendering within ViewHelper tags
 
+- Comprehensive unit tests for `SuggestionsController`
+  - Tests for cache handling in list action
+  - Verification of page analysis integration
+  - Validation of view data assignment
+  - Checks for proper HTTP response generation
+
 ### Changed
 - Update README.md to integrate an explicit but light documentation
 

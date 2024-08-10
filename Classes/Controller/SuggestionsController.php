@@ -66,12 +66,12 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
     
     protected function generateSuggestions(int $currentPageId): array
     {
-        $parentPageId = (int)$this->settings['parentPageId'];
-        $proximityThreshold = (float)($this->settings['proximityThreshold'] ?? 0.3);
-        $maxSuggestions = (int)($this->settings['maxSuggestions'] ?? 5);
-        $depth = (int)($this->settings['recursive'] ?? 0);
+        $parentPageId = isset($this->settings['parentPageId']) ? (int)$this->settings['parentPageId'] : 0; 
+        $proximityThreshold = isset($this->settings['proximityThreshold']) ? (float)$this->settings['proximityThreshold'] : 0.3; 
+        $maxSuggestions = isset($this->settings['maxSuggestions']) ? (int)$this->settings['maxSuggestions'] : 5; 
+        $depth = isset($this->settings['recursive']) ? (int)$this->settings['recursive'] : 0; 
         $excludePages = GeneralUtility::intExplode(',', $this->settings['excludePages'] ?? '', true);
-    
+  
         $analysisData = $this->pageAnalysisService->analyzePages($parentPageId, $depth);
         $analysisResults = $analysisData['results'] ?? [];
     

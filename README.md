@@ -396,6 +396,62 @@ Our unit tests cover the following key areas:
 10. **testPageWithVeryLargeContent()**: Checks handling of large text volumes.
 11. **testContentSizeLimits()**: Validates content size limit enforcement.
 
+
+
+## Unit Tests for SuggestionsController
+
+
+   ```bash
+   ddev exec vendor/bin/phpunit -c vendor/typo3/testing-framework/Resources/Core/Build/UnitTests.xml packages/semantic_suggestion/Tests/Unit/ --testdox --colors=always
+   ```
+
+### Overview
+The unit tests for the `SuggestionsController` are designed to ensure the proper functioning of the semantic suggestion feature in our TYPO3 extension. These tests focus on verifying the controller's behavior in various scenarios, particularly in handling cache and generating page suggestions.
+
+### Test Objectives
+
+1. **Cache Handling**
+   - Verify that the controller correctly uses cached data when available.
+   - Ensure that the controller generates new suggestions when cache is not available.
+
+2. **Page Analysis Integration**
+   - Test the integration between the controller and the `PageAnalysisService`.
+   - Confirm that page analysis results are correctly processed and passed to the view.
+
+3. **View Interaction**
+   - Validate that the controller correctly assigns data to the view.
+   - Ensure that the assigned data matches the expected format and content.
+
+4. **Response Generation**
+   - Verify that the controller always returns a valid `ResponseInterface` object.
+
+5. **Error Handling**
+   - Test the controller's behavior in edge cases and error scenarios.
+
+### Key Test Cases
+
+1. **Cache Hit Scenario**
+   - Checks if the controller retrieves and uses cached suggestions correctly.
+
+2. **Cache Miss Scenario**
+   - Verifies that the controller generates new suggestions when cache is empty.
+   - Ensures proper interaction with `PageAnalysisService` for fresh data.
+
+3. **Data Assignment to View**
+   - Tests if the correct data is assigned to the view in both cache hit and miss scenarios.
+
+4. **Response Validation**
+   - Confirms that all controller actions return a valid HTTP response.
+
+### Benefits
+
+- Ensures reliability of the semantic suggestion feature.
+- Facilitates easier maintenance and future development.
+- Helps catch potential issues early in the development cycle.
+- Provides documentation of expected controller behavior.
+
+
+
 This comprehensive set of tests ensures that our PageAnalysisService is robust, efficient, and capable of handling various scenarios, from normal operations to edge cases.
 
 
