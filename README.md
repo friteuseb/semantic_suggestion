@@ -7,19 +7,33 @@
 
 This extension provides a plugin for TYPO3 v12 that suggests semantically related pages. Semantic suggestion enhances user experience by automatically recommending relevant content, increasing engagement and time spent on your website.
 
+## Table of Contents
+
+1. [Introduction](#introduction)
+2. [Features](#features)
+3. [Requirements](#requirements)
+4. [Installation](#installation)
+5. [Configuration](#configuration)
+6. [Usage](#usage)
+7. [Backend Module](#backend-module)
+8. [Similarity Logic](#similarity-logic)
+9. [Display Customization](#display-customization)
+10. [Multilingual Support](#multilingual-support)
+11. [Debugging and Maintenance](#debugging-and-maintenance)
+12. [Security](#security)
+13. [Performance](#performance)
+14. [File Structure and Logic](#file-structure-and-logic)
+15. [Unit Tests](#unit-tests)
+16. [Contributing](#contributing)
+17. [License](#license)
+18. [Support](#support)
+
 ## Introduction
 
 Semantic Suggestion analyzes the content of your pages and creates intelligent connections between them. By understanding the context and meaning of your content, it offers visitors related pages that are truly relevant to their interests, improving navigation and content discovery.
 
-
 ### Frontend View
 ![Frontend view with the same theme](Documentation/Medias/frontend_on_the_same_theme_view.jpg)
-
-
-## Requirements
-
-- TYPO3 12.0.0-13.9.99
-- PHP 8.0 or higher
 
 ## Features
 
@@ -31,6 +45,11 @@ Semantic Suggestion analyzes the content of your pages and creates intelligent c
 - Built-in multilingual support
 - Improved compatibility with various TYPO3 content structures, including Bootstrap Package
 - Option to exclude specific pages from analysis and suggestions
+
+## Requirements
+
+- TYPO3 12.0.0-13.9.99
+- PHP 8.0 or higher
 
 ## Installation
 
@@ -49,7 +68,6 @@ Semantic Suggestion analyzes the content of your pages and creates intelligent c
 2. Upload the extension file to your TYPO3 installation's `typo3conf/ext/` directory.
 3. In the TYPO3 backend, go to the Extension Manager and activate the "Semantic Suggestion" extension.
 
-
 ## Configuration
 
 Edit your TypoScript setup and adjust the following parameters:
@@ -63,6 +81,8 @@ plugin.tx_semanticsuggestion {
         excerptLength = 150
         recursive = 1
         excludePages = 8,9,3456
+        recencyWeight = 0.2
+
         analyzedFields {
             title = 1.5
             description = 1.0
@@ -101,7 +121,56 @@ Adjust these weights based on your specific content structure and similarity req
 - `excerptLength`: The maximum length of the text excerpt for each suggestion
 - `recursive`: The search depth in the page tree (0 = only direct children)
 - `excludePages`: Comma-separated list of page UIDs to exclude from analysis and suggestions
+- `recencyWeight`: Weight of recency in similarity calculation (0-1) 
 
+## The Weight of Recency in Similarity Calculation (0-1)
+
+The recency weight is a parameter that determines how much importance is given to the publication or modification date of a page when calculating its similarity to other pages. This weight ranges from 0 to 1, where:
+
+* **0:** Recency has no impact on similarity calculations.
+* **1:** Recency has the maximum impact on similarity calculations.
+
+### How it works
+
+1. The extension calculates a base similarity score between pages based on their content.
+2. It then calculates a recency boost based on how recently the pages were published or modified.
+3. The final similarity score is a combination of the content similarity and the recency boost, weighted by the recency weight.
+
+### Formula
+
+```
+finalSimilarity = (contentSimilarity * (1 - recencyWeight)) + (recencyBoost * recencyWeight)
+```
+
+### Why use recency weight
+
+* **Relevance:** Recent content is often more relevant to users.
+* **Freshness:** It helps promote newer content without completely disregarding content similarity.
+* **Balance:** It allows you to find a balance between content relevance and timeliness.
+
+### How to configure
+
+In your TypoScript setup, you can set the `recencyWeight` like this:
+
+```typo3_typoscript
+plugin.tx_semanticsuggestion_suggestions {
+    settings {
+        recencyWeight = 0.3
+    }
+}
+```
+
+### Choosing the right value
+
+* **Low values (e.g., 0.1-0.3):** Slightly favor recent content while maintaining a strong emphasis on content similarity.
+* **Medium values (e.g., 0.4-0.6):** Balance between content similarity and recency.
+* **High values (e.g., 0.7-0.9):** Strongly favor recent content, potentially at the expense of content similarity.
+
+### Consider your specific use case
+
+* **News website:** Higher recency weight to promote fresh content.
+* **Educational resource:** Lower recency weight to focus on content relevance.
+* **General blog:** Medium recency weight for a balance of relevance and freshness.
 
 ## Usage
 
@@ -179,17 +248,6 @@ The Semantic Suggestion extension now offers a custom ViewHelper for easy integr
 
 Remember to clear the TYPO3 cache after adding the ViewHelper to your templates for the changes to take effect.
 
-
-## Similarity Logic
-
-The extension uses a custom similarity calculation to determine related pages. Here is an overview of the logic:
-
-1. **Data Gathering**: For each subpage of the specified parent page, the extension gathers the title, description, keywords, and content.
-2. **Similarity Calculation**: The extension compares each pair of pages by calculating a similarity score based on the intersection and union of their words. The similarity score is the ratio of the number of common words to the total number of unique words, weighted by the importance of each field.
-3. **Proximity Threshold**: Only pages with a similarity score above the configured threshold are considered related and displayed.
-4. **Caching Scores**: To optimize performance, the calculated scores are stored in a database table `tx_semanticsuggestion_scores`. These scores are periodically updated or when the page content changes.
-
-
 ## Backend Module
 
 ![Backend module](Documentation/Medias/backend_module.png)
@@ -209,7 +267,7 @@ Note: The effectiveness of the semantic analysis depends on the quality and quan
 
 ##  Backend Module - Performance Metrics
 
-The Semantic Suggestion extension provides,  through the backend module, performance metrics to help you understand and optimize its operation. Here's an explanation of each metric:
+The Semantic Suggestion extension provides, through the backend module, performance metrics to help you understand and optimize its operation. Here's an explanation of each metric:
 
 ![Backend module](Documentation/Medias/backend_module_performance_metrics.jpg)
 
@@ -256,6 +314,14 @@ The Semantic Suggestion extension provides,  through the backend module, perform
 
 By monitoring these metrics, you can fine-tune the extension's configuration to achieve the best balance between performance and suggestion accuracy for your specific use case.
 
+## Similarity Logic
+
+The extension uses a custom similarity calculation to determine related pages. Here is an overview of the logic:
+
+1. **Data Gathering**: For each subpage of the specified parent page, the extension gathers the title, description, keywords, and content.
+2. **Similarity Calculation**: The extension compares each pair of pages by calculating a similarity score based on the intersection and union of their words. The similarity score is the ratio of the number of common words to the total number of unique words, weighted by the importance of each field.
+3. **Proximity Threshold**: Only pages with a similarity score above the configured threshold are considered related and displayed.
+4. **Caching Scores**: To optimize performance, the calculated scores are stored in a database table `tx_semanticsuggestion_scores`. These scores are periodically updated or when the page content changes.
 
 ## Display Customization
 
@@ -362,8 +428,6 @@ semantic_suggestion/
 └── phpunit.xml.dist
 ```
 
-
-
 ## Unit Tests
 
 The Semantic Suggestion extension includes a comprehensive suite of unit tests to ensure the reliability and correctness of its core functionalities. These tests are crucial for maintaining the quality of the extension and facilitating future development.
@@ -396,20 +460,37 @@ Our unit tests cover the following key areas:
 10. **testPageWithVeryLargeContent()**: Checks handling of large text volumes.
 11. **testContentSizeLimits()**: Validates content size limit enforcement.
 
-
-
 ## Unit Tests for SuggestionsController
 
+### Running the Tests
+
+To run the unit tests, follow these steps:
+
+1. Ensure you have a development environment set up with DDEV.
+2. Open a terminal and navigate to your project root.
+3. Run the following command:
 
    ```bash
-   ddev exec vendor/bin/phpunit -c vendor/typo3/testing-framework/Resources/Core/Build/UnitTests.xml packages/semantic_suggestion/Tests/Unit/ --testdox --colors=always
+   ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist --testdox --colors=always
    ```
-   or
-   
-   ```bash
-   ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist packages/semantic_suggestion/Tests/Unit/ --testdox --colors=always
 
+   This command will execute all unit tests and provide a detailed, color-coded output of the results.
+
+4. To run a specific test, you can add the test method name to the command:
+
+   ```bash
+   ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist --filter testMethodName
    ```
+
+   Replace `testMethodName` with the name of the specific test you want to run (e.g., `testCalculateSimilarity`).
+
+### Interpreting Test Results
+
+- Green checkmarks (✔) indicate passed tests.
+- Red crosses (✘) indicate failed tests.
+- Yellow exclamation marks (⚠) indicate risky or incomplete tests.
+
+The test output will provide detailed information about any failures or issues, helping you quickly identify and address problems.
 
 ### Overview
 The unit tests for the `SuggestionsController` are designed to ensure the proper functioning of the semantic suggestion feature in our TYPO3 extension. These tests focus on verifying the controller's behavior in various scenarios, particularly in handling cache and generating page suggestions.
@@ -456,44 +537,7 @@ The unit tests for the `SuggestionsController` are designed to ensure the proper
 - Helps catch potential issues early in the development cycle.
 - Provides documentation of expected controller behavior.
 
-
-
-This comprehensive set of tests ensures that our PageAnalysisService is robust, efficient, and capable of handling various scenarios, from normal operations to edge cases.
-
-
-### Running the Tests
-
-To run the unit tests, follow these steps:
-
-1. Ensure you have a development environment set up with DDEV.
-2. Open a terminal and navigate to your project root.
-3. Run the following command:
-
-   ```bash
-   ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist --testdox --colors=always
-   
-   ```
-
-   This command will execute all unit tests and provide a detailed, color-coded output of the results.
-
-4. To run a specific test, you can add the test method name to the command:
-
-   ```bash
-   ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist --filter testMethodName
-   ```
-
-   Replace `testMethodName` with the name of the specific test you want to run (e.g., `testCalculateSimilarity`).
-
-### Interpreting Test Results
-
-- Green checkmarks (✔) indicate passed tests.
-- Red crosses (✘) indicate failed tests.
-- Yellow exclamation marks (⚠) indicate risky or incomplete tests.
-
-The test output will provide detailed information about any failures or issues, helping you quickly identify and address problems.
-
 Regular execution of these tests is recommended, especially after making changes to the codebase, to ensure continued functionality and to catch any regressions early in the development process.
-
 
 ## Contributing
 
