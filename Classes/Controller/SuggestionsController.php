@@ -9,50 +9,90 @@ use TYPO3\CMS\Core\Resource\FileRepository;
 use TYPO3\CMS\Core\Domain\Repository\PageRepository;
 use TYPO3\CMS\Frontend\ContentObject\ContentObjectRenderer;
 use TYPO3\CMS\Core\Cache\CacheManager;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
+use Psr\Log\LoggerInterface;
 
-class SuggestionsController extends ActionController
+class SuggestionsController extends ActionController implements LoggerAwareInterface
 {
-    protected $pageAnalysisService;
-    protected $fileRepository;
+    use LoggerAwareTrait;
 
-    public function __construct(PageAnalysisService $pageAnalysisService, FileRepository $fileRepository)
-    {
+    protected PageAnalysisService $pageAnalysisService;
+    protected FileRepository $fileRepository;
+
+    public function __construct(
+        PageAnalysisService $pageAnalysisService, 
+        FileRepository $fileRepository,
+        LoggerInterface $logger
+    ) {
         $this->pageAnalysisService = $pageAnalysisService;
         $this->fileRepository = $fileRepository;
+        $this->setLogger($logger);
     }
 
     public function listAction(): ResponseInterface
     {
-        $cacheIdentifier = 'suggestions_' . $GLOBALS['TSFE']->id;
+        $this->logger->info('listAction called');
+    
+        $currentPageId = $GLOBALS['TSFE']->id;
+        $cacheIdentifier = 'suggestions_' . $currentPageId;
         $cacheManager = GeneralUtility::makeInstance(CacheManager::class);
         $cache = $cacheManager->getCache('semantic_suggestion');
     
-        if ($cache->has($cacheIdentifier)) {
-            $this->view->assignMultiple($cache->get($cacheIdentifier));
-        } else {
-            $parentPageId = (int)$this->settings['parentPageId'];
-            $proximityThreshold = (float)($this->settings['proximityThreshold'] ?? 0.3);
-            $maxSuggestions = (int)($this->settings['maxSuggestions'] ?? 5);
-            $depth = (int)($this->settings['recursive'] ?? 0);
-            $currentPageId = $GLOBALS['TSFE']->id;
-            $excludePages = GeneralUtility::intExplode(',', $this->settings['excludePages'] ?? '', true);
-    
-            $analysisResults = $this->pageAnalysisService->analyzePages($parentPageId, $depth);
-            $suggestions = $this->findSimilarPages($analysisResults, $currentPageId, $proximityThreshold, $maxSuggestions, $excludePages);
-    
-            $viewData = [
-                'currentPageTitle' => $analysisResults[$currentPageId]['title']['content'] ?? 'Current Page',
-                'suggestions' => $suggestions,
-                'analysisResults' => $analysisResults,
-                'proximityThreshold' => $proximityThreshold,
-                'maxSuggestions' => $maxSuggestions,
-            ];
+        try {
+            if ($cache->has($cacheIdentifier)) {
+                $this->logger->debug('Cache hit for suggestions', ['pageId' => $currentPageId]);
+                $viewData = $cache->get($cacheIdentifier);
+            } else {
+                $this->logger->debug('Cache miss for suggestions', ['pageId' => $currentPageId]);
+                $viewData = $this->generateSuggestions($currentPageId);
+                
+                if (!empty($viewData['suggestions'])) {
+                    $cache->set($cacheIdentifier, $viewData, ['tx_semanticsuggestion'], 3600); // Cache for 1 hour
+                } else {
+                    $this->logger->warning('No suggestions generated', ['pageId' => $currentPageId]);
+                }
+            }
     
             $this->view->assignMultiple($viewData);
-            $cache->set($cacheIdentifier, $viewData, ['tx_semanticsuggestion']);
+    
+        } catch (\Exception $e) {
+            $this->logger->error('Error in listAction', ['exception' => $e->getMessage()]);
+            $this->view->assign('error', 'An error occurred while generating suggestions.');
         }
     
         return $this->htmlResponse();
+    }
+    
+    protected function generateSuggestions(int $currentPageId): array
+    {
+        $parentPageId = (int)$this->settings['parentPageId'];
+        $proximityThreshold = (float)($this->settings['proximityThreshold'] ?? 0.3);
+        $maxSuggestions = (int)($this->settings['maxSuggestions'] ?? 5);
+        $depth = (int)($this->settings['recursive'] ?? 0);
+        $excludePages = GeneralUtility::intExplode(',', $this->settings['excludePages'] ?? '', true);
+    
+        $analysisData = $this->pageAnalysisService->analyzePages($parentPageId, $depth);
+        $analysisResults = $analysisData['results'] ?? [];
+    
+        $suggestions = $this->findSimilarPages($analysisResults, $currentPageId, $proximityThreshold, $maxSuggestions, $excludePages);
+    
+        $this->logger->debug('Suggestions generated', [
+            'count' => count($suggestions),
+            'parentPageId' => $parentPageId,
+            'currentPageId' => $currentPageId,
+            'proximityThreshold' => $proximityThreshold,
+            'maxSuggestions' => $maxSuggestions,
+            'depth' => $depth
+        ]);
+    
+        return [
+            'currentPageTitle' => $analysisResults[$currentPageId]['title']['content'] ?? 'Current Page',
+            'suggestions' => $suggestions,
+            'analysisResults' => $analysisResults,
+            'proximityThreshold' => $proximityThreshold,
+            'maxSuggestions' => $maxSuggestions,
+        ];
     }
 
     protected function prepareExcerpt(array $pageData, int $excerptLength): string
@@ -74,7 +114,14 @@ class SuggestionsController extends ActionController
         return '';
     }
 
-    protected function findSimilarPages(array $analysisResults, int $currentPageId, float $threshold, int $maxSuggestions, array $excludePages): array    {
+    protected function findSimilarPages(array $analysisResults, int $currentPageId, float $threshold, int $maxSuggestions, array $excludePages): array
+    {
+        $this->logger->info('Finding similar pages', [
+            'currentPageId' => $currentPageId,
+            'threshold' => $threshold,
+            'maxSuggestions' => $maxSuggestions
+        ]);
+    
         $suggestions = [];
         $pageRepository = GeneralUtility::makeInstance(PageRepository::class);
     
@@ -83,8 +130,11 @@ class SuggestionsController extends ActionController
             arsort($similarities);
             foreach ($similarities as $pageId => $similarity) {
                 if (count($suggestions) >= $maxSuggestions) break;
-                if ($similarity['score'] < $threshold || in_array($pageId, $excludePages)) continue;
-                            
+                if ($similarity['score'] < $threshold || in_array($pageId, $excludePages)) {
+                    $this->logger->debug('Page excluded', ['pageId' => $pageId, 'reason' => $similarity['score'] < $threshold ? 'below threshold' : 'in exclude list']);
+                    continue;
+                }
+                
                 $pageData = $pageRepository->getPage($pageId);
                 $pageData['tt_content'] = $this->getPageContents($pageId);
                 $excerpt = $this->prepareExcerpt($pageData, (int)($this->settings['excerptLength'] ?? 150));
@@ -98,8 +148,14 @@ class SuggestionsController extends ActionController
                     'excerpt' => $excerpt
                 ];
                 $suggestions[$pageId]['data']['media'] = $this->getPageMedia($pageId);
+                
+                $this->logger->debug('Added suggestion', ['pageId' => $pageId, 'similarity' => $similarity['score']]);
             }
+        } else {
+            $this->logger->warning('No similarities found for current page', ['currentPageId' => $currentPageId]);
         }
+    
+        $this->logger->info('Found similar pages', ['count' => count($suggestions)]);
         return $suggestions;
     }
 
