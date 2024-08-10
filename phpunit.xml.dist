@@ -1,21 +1,35 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.5/phpunit.xsd"
-         bootstrap="../../vendor/autoload.php"
+         bootstrap="Tests/UnitTestsBootstrap.php"
          colors="true"
          cacheDirectory=".phpunit.cache"
          executionOrder="depends,defects"
-         beStrictAboutOutputDuringTests="true"
+         beStrictAboutTestsThatDoNotTestAnything="false"
          failOnRisky="true"
-         failOnWarning="true">
+         failOnWarning="true"
+         cacheResult="false"
+         displayDetailsOnTestsThatTriggerDeprecations="true"
+         displayDetailsOnTestsThatTriggerErrors="true"
+         displayDetailsOnTestsThatTriggerNotices="true"
+         displayDetailsOnTestsThatTriggerWarnings="true"
+         failOnDeprecation="true"
+         failOnNotice="true"
+         requireCoverageMetadata="false">
     <testsuites>
         <testsuite name="unit">
             <directory>Tests/Unit</directory>
         </testsuite>
     </testsuites>
+
     <source>
         <include>
             <directory suffix=".php">Classes</directory>
         </include>
     </source>
+
+    <php>
+        <ini name="display_errors" value="1"/>
+        <env name="TYPO3_CONTEXT" value="Testing"/>
+    </php>
 </phpunit>

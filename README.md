@@ -404,6 +404,12 @@ Our unit tests cover the following key areas:
    ```bash
    ddev exec vendor/bin/phpunit -c vendor/typo3/testing-framework/Resources/Core/Build/UnitTests.xml packages/semantic_suggestion/Tests/Unit/ --testdox --colors=always
    ```
+   or
+   
+   ```bash
+   ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist packages/semantic_suggestion/Tests/Unit/ --testdox --colors=always
+
+   ```
 
 ### Overview
 The unit tests for the `SuggestionsController` are designed to ensure the proper functioning of the semantic suggestion feature in our TYPO3 extension. These tests focus on verifying the controller's behavior in various scenarios, particularly in handling cache and generating page suggestions.
@@ -465,6 +471,7 @@ To run the unit tests, follow these steps:
 
    ```bash
    ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist --testdox --colors=always
+   
    ```
 
    This command will execute all unit tests and provide a detailed, color-coded output of the results.
