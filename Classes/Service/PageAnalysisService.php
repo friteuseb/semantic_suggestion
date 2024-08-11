@@ -236,12 +236,12 @@ class PageAnalysisService implements LoggerAwareInterface
     protected function preparePageData(array $page): array
     {
         $preparedData = [];
-
+    
         if (!is_array($this->settings['analyzedFields'])) {
             $this->logger?->warning('analyzedFields is not an array', ['settings' => $this->settings]);
             return $preparedData;
         }
-
+    
         foreach ($this->settings['analyzedFields'] as $field => $weight) {
             if ($field === 'content') {
                 try {
@@ -254,26 +254,37 @@ class PageAnalysisService implements LoggerAwareInterface
                     $preparedData['content'] = [
                         'content' => '',
                         'weight' => (float)$weight
-
+                    ];
+                }
+            } elseif (isset($page[$field])) {
+                $preparedData[$field] = [
+                    'content' => $page[$field],
+                    'weight' => (float)$weight
+                ];
+            } else {
+                $preparedData[$field] = [
+                    'content' => '',
+                    'weight' => (float)$weight
                 ];
             }
-        } elseif (isset($page[$field])) {
-            $preparedData[$field] = [
-                'content' => $page[$field],
-                'weight' => (float)$weight
-            ];
-        } else {
-            $preparedData[$field] = [
-                'content' => '',
-                'weight' => (float)$weight
-            ];
         }
+    
+        $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
+    
+        // Intégration de l'analyse NLP si l'extension est présente
+        if (\TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion_nlp')) {
+            try {
+                $nlpAnalyzer = \TYPO3\CMS\Core\Utility\GeneralUtility::makeInstance(\TalanHdf\SemanticSuggestionNlp\NLP\Analyzer::class);
+                $nlpResults = $nlpAnalyzer->analyze($preparedData['content']['content']);
+                $preparedData['nlp'] = $nlpResults;
+            } catch (\Exception $e) {
+                $this->logger?->error('Error during NLP analysis', ['pageId' => $page['uid'], 'exception' => $e->getMessage()]);
+            }
+        }
+    
+        return $preparedData;
     }
 
-    $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
-
-    return $preparedData;
-}
 
 private function getAllSubpages(int $parentId, int $depth = 0): array
 {
@@ -402,6 +413,8 @@ private function getWeightedWords(array $pageData): array
     return $weightedWords;
 }
 
+
+
 private function calculateSimilarity(array $page1, array $page2): array
 {
     $words1 = $this->getWeightedWords($page1);
@@ -425,9 +438,15 @@ private function calculateSimilarity(array $page1, array $page2): array
 
     $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
 
-    // Ajuster la formule pour donner plus d'importance à la récence
     $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
     $finalSimilarity = ($semanticSimilarity * (1 - $recencyWeight)) + ($recencyBoost * $recencyWeight);
+
+    // Intégration de la similarité NLP si disponible
+    if (isset($page1['nlp']) && isset($page2['nlp'])) {
+        $nlpSimilarity = $this->calculateNlpSimilarity($page1['nlp'], $page2['nlp']);
+        $nlpWeight = $this->settings['nlpWeight'] ?? 0.3;
+        $finalSimilarity = ($finalSimilarity * (1 - $nlpWeight)) + ($nlpSimilarity * $nlpWeight);
+    }
 
     $this->logger?->info('Similarity calculation', [
         'page1' => $page1['uid'] ?? 'unknown',
@@ -448,6 +467,32 @@ private function calculateSimilarity(array $page1, array $page2): array
         'recencyBoost' => $recencyBoost,
         'finalSimilarity' => min($finalSimilarity, 1.0)
     ];
+}
+
+private function calculateNlpSimilarity(array $nlp1, array $nlp2): float
+{
+    $similarity = 0.0;
+
+    // Comparaison des mots les plus fréquents
+    if (isset($nlp1['topWords']) && isset($nlp2['topWords'])) {
+        $commonTopWords = array_intersect($nlp1['topWords'], $nlp2['topWords']);
+        $similarity += count($commonTopWords) / max(count($nlp1['topWords']), count($nlp2['topWords']));
+    }
+
+    // Comparaison des entités nommées si disponibles
+    if (isset($nlp1['namedEntities']) && isset($nlp2['namedEntities'])) {
+        $commonEntities = array_intersect($nlp1['namedEntities'], $nlp2['namedEntities']);
+        $similarity += count($commonEntities) / max(count($nlp1['namedEntities']), count($nlp2['namedEntities']));
+    }
+
+    // Comparaison des sentiments si disponibles
+    if (isset($nlp1['sentiment']) && isset($nlp2['sentiment'])) {
+        $similarity += 1 - abs($nlp1['sentiment'] - $nlp2['sentiment']);
+    }
+
+    // Normalisez la similarité finale
+    $numFactors = 3; // Nombre de facteurs considérés (topWords, namedEntities, sentiment)
+    return $similarity / $numFactors;
 }
 
 private function calculateRecencyBoost(array $page1, array $page2): float

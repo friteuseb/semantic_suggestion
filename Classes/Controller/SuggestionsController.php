@@ -71,7 +71,7 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
         $maxSuggestions = isset($this->settings['maxSuggestions']) ? (int)$this->settings['maxSuggestions'] : 5; 
         $depth = isset($this->settings['recursive']) ? (int)$this->settings['recursive'] : 0; 
         $excludePages = GeneralUtility::intExplode(',', $this->settings['excludePages'] ?? '', true);
-  
+    
         $analysisData = $this->pageAnalysisService->analyzePages($parentPageId, $depth);
         $analysisResults = $analysisData['results'] ?? [];
     
@@ -86,13 +86,27 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
             'depth' => $depth
         ]);
     
-        return [
+        $viewData = [
             'currentPageTitle' => $analysisResults[$currentPageId]['title']['content'] ?? 'Current Page',
             'suggestions' => $suggestions,
             'analysisResults' => $analysisResults,
             'proximityThreshold' => $proximityThreshold,
             'maxSuggestions' => $maxSuggestions,
         ];
+    
+        // Ajout des données NLP si l'extension est présente
+        if (\TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion_nlp')) {
+            foreach ($viewData['suggestions'] as &$suggestion) {
+                if (isset($analysisResults[$suggestion['data']['uid']]['nlp'])) {
+                    $suggestion['nlpData'] = $analysisResults[$suggestion['data']['uid']]['nlp'];
+                }
+            }
+            $viewData['nlpEnabled'] = true;
+        } else {
+            $viewData['nlpEnabled'] = false;
+        }
+    
+        return $viewData;
     }
 
     protected function prepareExcerpt(array $pageData, int $excerptLength): string

@@ -114,3 +114,14 @@ module.tx_semanticsuggestion {
     _CSS_DEFAULT_STYLE = <link rel="stylesheet" type="text/css" href="EXT:semantic_suggestion/Resources/Public/Css/SemanticSuggestion.css" media="all">
 }
 
+
+
+
+[extensionLoaded('semantic_suggestion_nlp')]
+plugin.tx_semanticsuggestion_suggestions {
+    settings {
+        enableNlpAnalysis = {$plugin.tx_semanticsuggestion_suggestions.settings.enableNlpAnalysis}
+        nlpScenario = {$plugin.tx_semanticsuggestion_suggestions.settings.nlpScenario}
+    }
+}
+[global]

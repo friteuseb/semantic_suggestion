@@ -43,4 +43,9 @@ defined('TYPO3') or die();
             'groups' => ['pages']
         ];
     }
+    // NLP configuration to check if the sista is loaded
+    if (\TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion_nlp')) {
+        $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['semantic_suggestion']['nlpAnalysis'][] = 
+            \TalanHdf\SemanticSuggestionNlp\Hooks\PageAnalysisHook::class . '->analyze';
+    }
 })();
