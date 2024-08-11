@@ -1,90 +1,66 @@
 <html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers" data-namespace-typo3-fluid="true">
-<f:layout name="Default" />
+<div id="content" class="section">
+    <div class="frame frame-default frame-type-menu_card_dir frame-layout-default frame-size-default frame-height-default frame-background-none frame-space-before-none frame-space-after-none frame-no-backgroundimage" proximity-threshold="{proximityThreshold}">
+        <div class="frame-group-container">
+            <div class="frame-group-inner">
+                <div class="frame-container frame-container-default">
+                    <div class="frame-inner">
+                        <div class="frame-header">
+                            <h2 id="section" class="element-header"></h2>
+                        </div>
 
-<f:section name="content">
-    <f:if condition="{suggestions -> f:count()} > 0">
-        <div class="frame frame-default frame-type-menu_card_dir frame-layout-default frame-size-default frame-height-default frame-background-none frame-space-before-none frame-space-after-none frame-no-backgroundimage"
-             data-proximity-threshold="{proximityThreshold}">
-            <div class="frame-group-container">
-                <div class="frame-group-inner">
-                    <div class="frame-container frame-container-default">
-                        <div class="frame-inner">
-                            <header class="frame-header">
-                                <h2 class="element-header">
-                                    <f:translate key="suggestions.title" />
-                                </h2>
-                            </header>
-                            <div class="card-menu card-menu-align-left card-menu-columns-3 card-menu-Article">
-                                <f:for each="{suggestions}" as="suggestion">
-                                    <div class="card-menu-item" data-proximity="{suggestion.similarity}">
-                                        <div class="card">
-                                            <f:if condition="{suggestion.data.media}">
-                                                <div class="card-img-top">
-                                                    <picture>
-                                                        <source srcset="{f:uri.image(image: suggestion.data.media, width: '410c', height: '280c', cropVariant: 'default')}" media="(min-width: 1400px)" data-crop="default">
-                                                        <source srcset="{f:uri.image(image: suggestion.data.media, width: '332c', height: '226c', cropVariant: 'default')}" media="(min-width: 1200px)" data-crop="default">
-                                                        <source srcset="{f:uri.image(image: suggestion.data.media, width: '434c', height: '280c', cropVariant: 'default')}" media="(min-width: 992px)" data-crop="default">
-                                                        <source srcset="{f:uri.image(image: suggestion.data.media, width: '500c', height: '280c', cropVariant: 'medium')}" media="(min-width: 768px)" data-crop="medium">
-                                                        <source srcset="{f:uri.image(image: suggestion.data.media, width: '535c', height: '280c', cropVariant: 'small')}" media="(max-width: 767px)" data-crop="small">
-                                                        <!--- Fallback -->
-                                                        <f:image image="{suggestion.data.media}"
-                                                                 treatIdAsReference="1"
-                                                                 class="img-fluid"
-                                                                 alt=""
-                                                                 width="410c"
-                                                                 height="280c"
-                                                                 loading="lazy"
-                                                                 additionalAttributes="{fetchPriority: 'low'}"
-                                                        />
-                                                    </picture>
-                                                </div>
-                                            </f:if>
-                                            <div class="card-body">
-                                                <h5 class="card-title">{suggestion.data.title}</h5>
-                                                <f:if condition="{suggestion.excerpt}">
-                                                    <p class="card-text">{suggestion.excerpt -> f:format.raw()}</p>
+                        <div class="card-menu card-menu-align-left card-menu-columns-3 card-menu-Article">
+                            <f:for each="{suggestions}" as="suggestion">
+                                <div class="card-menu-item" proximity="{suggestion.similarity}">
+                                    <div class="card">
+                                        <div class="card-img-top">
+                                        </div>
+
+                                        <div class="card-body">
+                                            <h5 id="suggestion.data.title" class="card-title">{suggestion.data.title}</h5>
+
+                                            <f:format.raw>{suggestion.excerpt}</f:format.raw>
+
+                                            <p class="small">Dernière modification : {suggestion.data.tstamp}</p>
+
+                                            <p class="small">Score de similarité : {suggestion.similarity}</p>
+
+                                            <f:if condition="{nlpEnabled}">
+                                                <f:if condition="{suggestion.nlpData}">
+                                                    <div class="nlp-data small">
+                                                        <h6>Analyse NLP</h6>
+                                                        <f:if condition="{suggestion.nlpData.topWords}">
+                                                            <p>Mots-clés principaux : {suggestion.nlpData.topWords -> f:format.raw()}</p>
+                                                        </f:if>
+                                                        <f:if condition="{suggestion.nlpData.sentiment}">
+                                                            <p>Sentiment : {suggestion.nlpData.sentiment -> f:format.raw()}</p>
+                                                        </f:if>
+                                                    </div>
                                                 </f:if>
-                                                <!-- Ajout des informations de récence et de similarité -->
-                                                <p class="card-info">
-                                                    <small>
-                                                        Dernière modification : 
-                                                        <f:format.date format="d/m/Y H:i">{suggestion.data.tstamp}</f:format.date>
-                                                    </small>
-                                                </p>
-                                                <p class="card-info">
-                                                    <small>
-                                                        Score de similarité : 
-                                                        <f:format.number decimals="4">{suggestion.similarity}</f:format.number>
-                                                    </small>
-                                                </p>
-                                            </div>
-                                            <div class="card-footer">
-                                                <f:link.page pageUid="{suggestion.data.uid}" title="{suggestion.data.title}" class="link-arrow link-arrow--small">
-                                                    <f:translate key="suggestions.readMore" />
-                                                </f:link.page>
-                                            </div>
+                                            </f:if>
+                                        </div>
+
+                                        <div class="card-footer">
                                         </div>
                                     </div>
-                                </f:for>
-                            </div>
+                                </div>
+                            </f:for>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </f:if>
-    <f:if condition="{suggestions -> f:count()} == 0">
-        <div class="frame frame-default frame-type-text frame-layout-default frame-size-default frame-height-default frame-background-none frame-space-before-none frame-space-after-none frame-no-backgroundimage">
-            <div class="frame-group-container">
-                <div class="frame-group-inner">
-                    <div class="frame-container frame-container-default">
-                        <div class="frame-inner">
-                            <p><f:translate key="suggestions.noSuggestionsFound" /></p>
-                        </div>
+    </div>
+
+    <div class="frame frame-default frame-type-text frame-layout-default frame-size-default frame-height-default frame-background-none frame-space-before-none frame-space-after-none frame-no-backgroundimage">
+        <div class="frame-group-container">
+            <div class="frame-group-inner">
+                <div class="frame-container frame-container-default">
+                    <div class="frame-inner">
                     </div>
                 </div>
             </div>
         </div>
-    </f:if>
-</f:section>
+    </div>
+</div>
 </html>
