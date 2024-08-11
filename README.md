@@ -5,7 +5,33 @@
 [![Latest Stable Version](https://img.shields.io/packagist/v/talan-hdf/semantic-suggestion.svg)](https://packagist.org/packages/talan-hdf/semantic-suggestion)
 [![License](https://img.shields.io/packagist/l/talan-hdf/semantic-suggestion.svg)](https://packagist.org/packages/talan-hdf/semantic-suggestion)
 
-> Enhance your TYPO3 website with intelligent content recommendations. This extension analyzes page content to suggest semantically related pages, improving user engagement and navigation.
+> Elevate your TYPO3 website with intelligent, content-driven recommendations
+
+## 🌟 Introduction
+
+The Semantic Suggestion extension revolutionizes the way related content is presented on TYPO3 websites. Moving beyond traditional "more like this" functionalities based on categories and taxonomies, this extension employs advanced semantic analysis to create genuinely relevant content connections.
+
+### Key Benefits:
+
+- 🎯 **Highly Relevant Links**: Automatically generate connections based on actual content similarity, not just predefined categories.
+- ⏱️ **Increased User Engagement**: Keep visitors on your site longer by offering truly related content.
+- 🕸️ **Semantic Cocoon**: Contribute to a high-quality semantic network within your website, enhancing SEO and user navigation.
+- 🤖 **Intelligent Automation**: Reduce manual linking work while improving internal link quality.
+
+### Performance Consideration
+
+While the Semantic Suggestion extension offers powerful capabilities, it's important to note:
+
+- 📊 The similarity calculation process scales exponentially with the number of pages.
+- ⏳ For sites with over 500 pages, the initial calculation may take up to 30 seconds, depending on server capacity.
+- 💡 We recommend using the backend module to assess the caching time for your specific setup.
+- 🔄 The cache is automatically reset when a page or content is modified, ensuring up-to-date similarity calculations.
+
+> 📌 **Pro Tip**: Utilize the backend module to monitor performance and optimize settings for your specific use case.
+
+By leveraging the power of semantic analysis, this extension provides a superior alternative to traditional related content plugins, offering more accurate and valuable content suggestions to your users.
+
+---
 
 ## 📚 Table of Contents
 
@@ -28,9 +54,7 @@
 - [License](#-license)
 - [Support](#-support)
 
-## 🌟 Introduction
 
-Semantic Suggestion analyzes the content of your pages and creates intelligent connections between them. By understanding the context and meaning of your content, it offers visitors related pages that are truly relevant to their interests, improving navigation and content discovery.
 
 ### Frontend View
 ![Frontend view with the same theme](Documentation/Medias/frontend_on_the_same_theme_view.jpg)
