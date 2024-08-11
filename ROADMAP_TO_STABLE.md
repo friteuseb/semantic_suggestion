@@ -16,12 +16,12 @@ The extension is currently in beta, with version 1.0.7 being the latest release.
 
 ### Version 1.0.8 (Planned)
 - [ ] Bug fixes based on user feedback
-- [ ] Further performance optimizations
-- [ ] Enhance documentation
+- [x] Further performance optimizations
+- [x] Enhance documentation
 
 ### Version 1.0.9 (If Necessary)
 - [ ] Additional bug fixes
-- [ ] Minor feature enhancements
+- [x] Minor feature enhancements
 
 ## Phase 2: Preparation for Stability (1.1.0-beta)
 
