@@ -67,7 +67,7 @@ Semantic Suggestion analyzes the content of your pages and creates intelligent c
 <details>
 <summary><strong>Manual Installation</strong></summary>
 
-1. Download the extension from the [TYPO3 Extension Repository (TER)](https://extensions.typo3.org/) or the GitHub repository.
+1. Download the extension from the [TYPO3 Extension Repository (TER)](https://extensions.typo3.org/extension/semantic_suggestion) or the GitHub repository.
 2. Upload the extension file to your TYPO3 installation's `typo3conf/ext/` directory.
 3. In the TYPO3 backend, go to the Extension Manager and activate the "Semantic Suggestion" extension.
 </details>
