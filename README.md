@@ -1,76 +1,80 @@
-# TYPO3 Extension: Semantic Suggestion
+# 🧠 TYPO3 Extension: Semantic Suggestion
 
 [![TYPO3 12](https://img.shields.io/badge/TYPO3-12-orange.svg)](https://get.typo3.org/version/12)
 [![TYPO3 13](https://img.shields.io/badge/TYPO3-13-orange.svg)](https://get.typo3.org/version/13)
 [![Latest Stable Version](https://img.shields.io/packagist/v/talan-hdf/semantic-suggestion.svg)](https://packagist.org/packages/talan-hdf/semantic-suggestion)
 [![License](https://img.shields.io/packagist/l/talan-hdf/semantic-suggestion.svg)](https://packagist.org/packages/talan-hdf/semantic-suggestion)
 
-This extension provides a plugin for TYPO3 v12 that suggests semantically related pages. Semantic suggestion enhances user experience by automatically recommending relevant content, increasing engagement and time spent on your website.
+> Enhance your TYPO3 website with intelligent content recommendations. This extension analyzes page content to suggest semantically related pages, improving user engagement and navigation.
 
-## Table of Contents
+## 📚 Table of Contents
 
-1. [Introduction](#introduction)
-2. [Features](#features)
-3. [Requirements](#requirements)
-4. [Installation](#installation)
-5. [Configuration](#configuration)
-6. [Usage](#usage)
-7. [Backend Module](#backend-module)
-8. [Similarity Logic](#similarity-logic)
-9. [Display Customization](#display-customization)
-10. [Multilingual Support](#multilingual-support)
-11. [Debugging and Maintenance](#debugging-and-maintenance)
-12. [Security](#security)
-13. [Performance](#performance)
-14. [File Structure and Logic](#file-structure-and-logic)
-15. [Unit Tests](#unit-tests)
-16. [Contributing](#contributing)
-17. [License](#license)
-18. [Support](#support)
+- [Introduction](#-introduction)
+- [Features](#-features)
+- [Requirements](#-requirements)
+- [Installation](#-installation)
+- [Configuration](#-configuration)
+- [Usage](#-usage)
+- [Backend Module](#-backend-module)
+- [Similarity Logic](#-similarity-logic)
+- [Display Customization](#-display-customization)
+- [Multilingual Support](#-multilingual-support)
+- [Debugging and Maintenance](#-debugging-and-maintenance)
+- [Security](#-security)
+- [Performance](#-performance)
+- [File Structure](#-file-structure)
+- [Unit Tests](#-unit-tests)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Support](#-support)
 
-## Introduction
+## 🌟 Introduction
 
 Semantic Suggestion analyzes the content of your pages and creates intelligent connections between them. By understanding the context and meaning of your content, it offers visitors related pages that are truly relevant to their interests, improving navigation and content discovery.
 
 ### Frontend View
 ![Frontend view with the same theme](Documentation/Medias/frontend_on_the_same_theme_view.jpg)
 
-## Features
+## 🚀 Features
 
-- Analyzes subpages of a specified parent page
-- Displays title, associated media, and enhanced text excerpt of suggested pages
-- Configurable via TypoScript
-- Allows setting the parent page ID, proximity threshold, and search depth
-- Optimized performance by storing proximity scores in the database and updating them periodically
-- Built-in multilingual support
-- Improved compatibility with various TYPO3 content structures, including Bootstrap Package
-- Option to exclude specific pages from analysis and suggestions
+- 🔍 Analyzes subpages of a specified parent page
+- 📊 Displays title, associated media, and enhanced text excerpt of suggested pages
+- ⚙️ Highly configurable via TypoScript
+- 🎛 Customizable parent page ID, proximity threshold, and search depth
+- 💾 Optimized performance with database caching of proximity scores
+- 🌐 Built-in multilingual support
+- 🧩 Improved compatibility with various TYPO3 content structures, including Bootstrap Package
+- 🚫 Option to exclude specific pages from analysis and suggestions
 
-## Requirements
+## 🛠 Requirements
 
 - TYPO3 12.0.0-13.9.99
 - PHP 8.0 or higher
 
-## Installation
+## 💻 Installation
 
-### Composer Installation (recommended)
+<details>
+<summary><strong>Composer Installation (recommended)</strong></summary>
 
 1. Install the extension via composer:
-   ```
+   ```bash
    composer require talan-hdf/semantic-suggestion
    ```
 
 2. Activate the extension in the TYPO3 Extension Manager
+</details>
 
-### Manual Installation
+<details>
+<summary><strong>Manual Installation</strong></summary>
 
 1. Download the extension from the [TYPO3 Extension Repository (TER)](https://extensions.typo3.org/) or the GitHub repository.
 2. Upload the extension file to your TYPO3 installation's `typo3conf/ext/` directory.
 3. In the TYPO3 backend, go to the Extension Manager and activate the "Semantic Suggestion" extension.
+</details>
 
-## Configuration
+## ⚙️ Configuration
 
-Edit your TypoScript setup and adjust the following parameters:
+Edit your TypoScript setup to configure the extension:
 
 ```typoscript
 plugin.tx_semanticsuggestion {
@@ -96,24 +100,18 @@ plugin.tx_semanticsuggestion {
 
 ### Weight System for Analyzed Fields
 
-The `analyzedFields` section allows you to configure the importance of different content fields in the similarity calculation. Here's how the weight system works:
+The `analyzedFields` section allows you to configure the importance of different content fields in the similarity calculation:
 
-- Weights can be any positive number.
-- A weight of 1.0 is considered standard importance.
-- Weights greater than 1.0 increase a field's importance.
-- Weights less than 1.0 decrease a field's importance.
-- There is no strict maximum; you can use values like 3.0 or higher for fields you consider extremely important.
+| Weight | Importance |
+|--------|------------|
+| 0.5    | Half as important as standard |
+| 1.0    | Standard importance |
+| 1.5    | 50% more important than standard |
+| 2.0    | Twice as important as standard |
+| 3.0+   | Significantly more important than standard |
 
-Example weight ranges:
-- 0.5: Half as important as standard
-- 1.0: Standard importance
-- 1.5: 50% more important than standard
-- 2.0: Twice as important as standard
-- 3.0 and above: Significantly more important than standard
-
-Adjust these weights based on your specific content structure and similarity requirements. For example, if titles are crucial for determining similarity in your case, you might increase the title weight to 2.0 or higher.
-
-### Configuration Parameters
+<details>
+<summary><strong>Configuration Parameters Explained</strong></summary>
 
 - `parentPageId`: The ID of the parent page from which the analysis starts
 - `proximityThreshold`: The minimum similarity threshold for displaying a suggestion (0.0 to 1.0)
@@ -122,79 +120,63 @@ Adjust these weights based on your specific content structure and similarity req
 - `recursive`: The search depth in the page tree (0 = only direct children)
 - `excludePages`: Comma-separated list of page UIDs to exclude from analysis and suggestions
 - `recencyWeight`: Weight of recency in similarity calculation (0-1) 
+</details>
 
-## The Weight of Recency in Similarity Calculation (0-1)
+### The Weight of Recency in Similarity Calculation (0-1)
 
-The recency weight is a parameter that determines how much importance is given to the publication or modification date of a page when calculating its similarity to other pages. This weight ranges from 0 to 1, where:
+The `recencyWeight` parameter determines the importance of publication or modification date in similarity calculations:
 
-* **0:** Recency has no impact on similarity calculations.
-* **1:** Recency has the maximum impact on similarity calculations.
+- **0:** Recency has no impact
+- **1:** Recency has maximum impact
 
-### How it works
+<details>
+<summary><strong>How Recency Weight Works</strong></summary>
 
-1. The extension calculates a base similarity score between pages based on their content.
-2. It then calculates a recency boost based on how recently the pages were published or modified.
-3. The final similarity score is a combination of the content similarity and the recency boost, weighted by the recency weight.
+1. Base similarity score is calculated from content
+2. Recency boost is calculated based on publication/modification dates
+3. Final similarity is a weighted combination of content similarity and recency boost
 
-### Formula
-
+Formula:
 ```
 finalSimilarity = (contentSimilarity * (1 - recencyWeight)) + (recencyBoost * recencyWeight)
 ```
 
-### Why use recency weight
+Choosing the right value:
+- Low (0.1-0.3): Slightly favor recent content
+- Medium (0.4-0.6): Balance between content similarity and recency
+- High (0.7-0.9): Strongly favor recent content
 
-* **Relevance:** Recent content is often more relevant to users.
-* **Freshness:** It helps promote newer content without completely disregarding content similarity.
-* **Balance:** It allows you to find a balance between content relevance and timeliness.
+Consider your specific use case:
+- News website: Higher recency weight
+- Educational resource: Lower recency weight
+- General blog: Medium recency weight
+</details>
 
-### How to configure
 
-In your TypoScript setup, you can set the `recencyWeight` like this:
+## 🖥 Usage
 
-```typo3_typoscript
-plugin.tx_semanticsuggestion_suggestions {
-    settings {
-        recencyWeight = 0.3
-    }
-}
-```
+### As a Plugin
 
-### Choosing the right value
+Insert the "Semantic Suggestions" plugin on the desired page using the TYPO3 backend.
 
-* **Low values (e.g., 0.1-0.3):** Slightly favor recent content while maintaining a strong emphasis on content similarity.
-* **Medium values (e.g., 0.4-0.6):** Balance between content similarity and recency.
-* **High values (e.g., 0.7-0.9):** Strongly favor recent content, potentially at the expense of content similarity.
+### In Fluid Templates
 
-### Consider your specific use case
-
-* **News website:** Higher recency weight to promote fresh content.
-* **Educational resource:** Lower recency weight to focus on content relevance.
-* **General blog:** Medium recency weight for a balance of relevance and freshness.
-
-## Usage
-
-Insert the plugin "Semantic Suggestions" on the desired page using the TYPO3 backend.
 To add the plugin directly in your Fluid template, use:
 
 ```html
 <f:cObject typescriptObjectPath="lib.semantic_suggestion" />
 ```
 
-## Integration in Fluid Templates with custom Viewhelper
+### Integration with Custom ViewHelper
 
-The Semantic Suggestion extension now offers a custom ViewHelper for easy integration into your Fluid templates. This provides a flexible way to display semantic suggestions directly in your pages.
+The Semantic Suggestion extension offers a custom ViewHelper for flexible integration into your Fluid templates.
 
-### Using the SuggestionsViewHelper
-
-1. First, declare the namespace for the ViewHelper at the top of your Fluid template:
-
+1. Declare the namespace:
    ```html
    {namespace semanticSuggestion=TalanHdf\SemanticSuggestion\ViewHelpers}
    ```
 
-2. You can then use the ViewHelper in your template as follows:
-
+2. Use the ViewHelper:
    ```html
    <semanticSuggestion:suggestions 
        pageUid="{data.uid}" 
@@ -202,155 +184,198 @@ The Semantic Suggestion extension now offers a custom ViewHelper for easy integr
        proximityThreshold="0.3" 
        maxSuggestions="5" 
        depth="1">
-       <!-- Your custom rendering here -->
+       <!-- Custom rendering here -->
    </semanticSuggestion:suggestions>
    ```
 
-   The ViewHelper accepts the following arguments:
-   - `pageUid` (required): The UID of the current page
-   - `parentPageId` (optional, default: 0): The parent page ID to start the analysis from
-   - `proximityThreshold` (optional, default: 0.3): The threshold for considering pages as similar
-   - `maxSuggestions` (optional, default: 5): The maximum number of suggestions to display
-   - `depth` (optional, default: 0): The depth of the page tree to analyze
+<details>
+<summary><strong>ViewHelper Parameters</strong></summary>
 
-3. Inside the ViewHelper tags, you can customize how the suggestions are rendered. Here's an example:
+- `pageUid` (required): The UID of the current page
+- `parentPageId` (optional, default: 0): The parent page ID to start the analysis from
+- `proximityThreshold` (optional, default: 0.3): The threshold for considering pages as similar
+- `maxSuggestions` (optional, default: 5): The maximum number of suggestions to display
+- `depth` (optional, default: 0): The depth of the page tree to analyze
+</details>
 
-   ```html
-   <semanticSuggestion:suggestions pageUid="{data.uid}" parentPageId="1" proximityThreshold="0.3" maxSuggestions="5" depth="1">
-       <f:if condition="{suggestions}">
-           <f:then>
-               <ul>
-                   <f:for each="{suggestions}" as="suggestion">
-                       <li>
-                           <f:link.page pageUid="{suggestion.data.uid}">
-                               {suggestion.data.title}
-                           </f:link.page>
-                           <p>Similarity: {suggestion.similarity -> f:format.number(decimals: 2)}</p>
-                       </li>
-                   </f:for>
-               </ul>
-           </f:then>
-           <f:else>
-               <p>No related pages found.</p>
-           </f:else>
-       </f:if>
-   </semanticSuggestion:suggestions>
-   ```
+<details>
+<summary><strong>Example Custom Rendering</strong></summary>
 
-   This example creates an unordered list of related pages, displaying the title and similarity score for each suggestion.
+```html
+<semanticSuggestion:suggestions pageUid="{data.uid}" parentPageId="1" proximityThreshold="0.3" maxSuggestions="5" depth="1">
+    <f:if condition="{suggestions}">
+        <f:then>
+            <ul>
+                <f:for each="{suggestions}" as="suggestion">
+                    <li>
+                        <f:link.page pageUid="{suggestion.data.uid}">
+                            {suggestion.data.title}
+                        </f:link.page>
+                        <p>Similarity: {suggestion.similarity -> f:format.number(decimals: 2)}</p>
+                    </li>
+                </f:for>
+            </ul>
+        </f:then>
+        <f:else>
+            <p>No related pages found.</p>
+        </f:else>
+    </f:if>
+</semanticSuggestion:suggestions>
+```
+</details>
 
-### Benefits of Using the ViewHelper
+#### Benefits of Using the ViewHelper
 
-1. **Flexibility**: You can easily customize the output directly in your Fluid templates.
-2. **Performance**: The ViewHelper handles caching and efficient data retrieval internally.
-3. **Ease of Use**: No need to modify controllers or create new templates - simply add the ViewHelper where you want the suggestions to appear.
-4. **Configurability**: All major parameters can be adjusted directly in the template, allowing for easy customization per page or section.
+1. **Flexibility**: Easily customize output in Fluid templates
+2. **Performance**: Efficient caching and data retrieval
+3. **Ease of Use**: No need to modify controllers or create new templates
+4. **Configurability**: Adjust parameters directly in the template
 
-Remember to clear the TYPO3 cache after adding the ViewHelper to your templates for the changes to take effect.
+Remember to clear the TYPO3 cache after adding the ViewHelper to your templates.
 
-## Backend Module
+## 🎛 Backend Module
 
 ![Backend module](Documentation/Medias/backend_module.png)
 
-The Semantic Suggestion extension now includes a powerful backend module that provides comprehensive insights into the semantic relationships between your pages. This module offers the following features:
+The Semantic Suggestion extension includes a powerful backend module providing comprehensive insights into semantic relationships between your pages.
 
-- **Similarity Analysis**: Visualize the semantic similarity between pages in your TYPO3 installation.
-- **Top Similar Pairs**: Quickly identify the most semantically related page pairs.
-- **Distribution of Similarity Scores**: Get a clear overview of how similarity is distributed across your content.
-- **Configurable Analysis**: Set custom parameters such as parent page ID, analysis depth, and similarity thresholds.
-- **Visual Representation**: Utilize progress bars and charts for an intuitive understanding of the data.
-- **Detailed Statistics**: View in-depth statistics about page similarities and content relationships.
+### Features
 
-To access the module, navigate to the backend and look for "Semantic Suggestion" under the Web menu. This tool is invaluable for content managers and editors looking to optimize content structure, improve internal linking, and understand the thematic relationships within their website.
+- 📊 **Similarity Analysis**: Visualize semantic similarity between pages
+- 🔝 **Top Similar Pairs**: Quickly identify most related page pairs
+- 📈 **Distribution of Similarity Scores**: Overview of similarity across content
+- ⚙️ **Configurable Analysis**: Set custom parameters (parent page ID, depth, thresholds)
+- 📊 **Visual Representation**: Intuitive charts and progress bars
+- 📑 **Detailed Statistics**: In-depth page similarity and content relationship data
 
-Note: The effectiveness of the semantic analysis depends on the quality and quantity of your content. For best results, ensure your pages have meaningful titles, descriptions, and content.
+Access the module under the "Web" menu in the TYPO3 backend.
 
-##  Backend Module - Performance Metrics
+> 💡 **Tip**: The effectiveness of semantic analysis depends on content quality and quantity. Ensure your pages have meaningful titles, descriptions, and content for best results.
 
-The Semantic Suggestion extension provides, through the backend module, performance metrics to help you understand and optimize its operation. Here's an explanation of each metric:
+### Performance Metrics
 
-![Backend module](Documentation/Medias/backend_module_performance_metrics.jpg)
+![Backend module performance metrics](Documentation/Medias/backend_module_performance_metrics.jpg)
 
-### Execution Time (seconds)
+The backend module provides crucial performance metrics to help optimize the extension's operation:
 
-**Calculation:** This is the total time taken to perform the semantic analysis, including page retrieval, similarity calculations, and caching operations.
+<details>
+<summary><strong>Execution Time (seconds)</strong></summary>
 
-**Interpretation:** 
-- A lower value indicates faster execution.
-- If consistently high, consider optimizing your content structure or increasing the caching duration.
-- Note: When results are from cache, this value may appear as 0.00 seconds.
+- **What**: Total time for semantic analysis, including page retrieval, calculations, and caching
+- **Interpretation**: 
+  - Lower is better
+  - High values may indicate need for content structure optimization or increased caching
+  - 0.00 seconds typically means results were cached
+</details>
 
-### Total Pages Analyzed
+<details>
+<summary><strong>Total Pages Analyzed</strong></summary>
 
-**Calculation:** The total number of pages included in the semantic analysis.
+- **What**: Number of pages included in the semantic analysis
+- **Interpretation**: 
+  - Depends on page tree structure and configured analysis depth
+  - Higher numbers may increase accuracy but also execution time
+</details>
 
-**Interpretation:**
-- This number depends on your page tree structure and the configured depth of analysis.
-- A higher number may lead to more accurate suggestions but can increase execution time.
+<details>
+<summary><strong>Similarity Calculations</strong></summary>
 
-### Similarity Calculations
+- **What**: Total number of page-to-page similarity comparisons
+- **Calculation**: Typically `n * (n-1) / 2`, where `n` is the number of pages analyzed
+- **Interpretation**: 
+  - Higher numbers indicate more comprehensive analysis
+  - May impact performance with large page sets
+</details>
 
-**Calculation:** The total number of page-to-page similarity comparisons performed.
+<details>
+<summary><strong>Results from Cache</strong></summary>
 
-**Interpretation:**
-- This is typically calculated as `n * (n-1) / 2`, where `n` is the number of pages analyzed.
-- A higher number indicates more comprehensive analysis but may impact performance.
+- **What**: Indicates whether results were retrieved from cache (Yes/No)
+- **Interpretation**: 
+  - "Yes" means faster execution (cached results)
+  - "No" indicates a fresh analysis was performed
+  - Frequent "No" results might suggest too frequent cache clearing or rapidly changing content
+</details>
 
-### Results from Cache
+#### Optimizing Performance
 
-**Calculation:** A boolean indicator (Yes/No) showing whether the results were retrieved from cache.
+1. **Caching**: Adjust caching configuration to match your update frequency
+2. **Analysis Depth**: Balance comprehensiveness with performance
+3. **Excluded Pages**: Use `excludePages` setting to omit irrelevant pages
+4. **Content Structure**: Organize content to minimize analyzed pages without compromising quality
 
-**Interpretation:**
-- "Yes" indicates that the results were retrieved from cache, resulting in faster execution.
-- "No" means a fresh analysis was performed.
-- Frequent "No" results might indicate that your cache is being cleared too often or that your content is changing frequently.
+Monitor these metrics to fine-tune the extension's configuration for your specific use case.
 
-### Optimizing Performance
+## 🧮 Similarity Logic
 
-1. **Caching:** Ensure your caching configuration is appropriate for your update frequency.
-2. **Analysis Depth:** Adjust the analysis depth to balance between comprehensive results and performance.
-3. **Excluded Pages:** Use the `excludePages` setting to omit irrelevant pages from analysis.
-4. **Content Structure:** Organize your content to minimize the number of pages that need to be analyzed without compromising suggestion quality.
+The extension employs a custom similarity calculation to determine related pages:
 
-By monitoring these metrics, you can fine-tune the extension's configuration to achieve the best balance between performance and suggestion accuracy for your specific use case.
+1. **Data Gathering**: Collects title, description, keywords, and content for each subpage of the specified parent page.
+2. **Similarity Calculation**: Compares page pairs using a word intersection and union method. The similarity score is the ratio of common words to total unique words, weighted by field importance.
+3. **Proximity Threshold**: Only pages with similarity scores above the configured threshold are considered related and displayed.
+4. **Caching Scores**: Calculated scores are stored in `tx_semanticsuggestion_scores` table for performance optimization. These are updated periodically or when page content changes.
 
-## Similarity Logic
+## 🎨 Display Customization
 
-The extension uses a custom similarity calculation to determine related pages. Here is an overview of the logic:
+Customize the display of suggestions by overriding the Fluid template (List.html). Configure your own template paths in TypoScript:
 
-1. **Data Gathering**: For each subpage of the specified parent page, the extension gathers the title, description, keywords, and content.
-2. **Similarity Calculation**: The extension compares each pair of pages by calculating a similarity score based on the intersection and union of their words. The similarity score is the ratio of the number of common words to the total number of unique words, weighted by the importance of each field.
-3. **Proximity Threshold**: Only pages with a similarity score above the configured threshold are considered related and displayed.
-4. **Caching Scores**: To optimize performance, the calculated scores are stored in a database table `tx_semanticsuggestion_scores`. These scores are periodically updated or when the page content changes.
+```typoscript
+plugin.tx_semanticsuggestion {
+    view {
+        templateRootPaths.10 = EXT:your_extension/Resources/Private/Templates/
+    }
+}
+```
 
-## Display Customization
+## 🌐 Multilingual Support
 
-The Fluid template (List.html) can be customized to adapt the display of suggestions to your needs. You can override this template by configuring your own template paths in TypoScript.
+The extension fully supports TYPO3's multilingual structure, analyzing and suggesting pages in the current site language.
 
-## Multilingual Support
+## 🐛 Debugging and Maintenance
 
-The extension supports TYPO3's multilingual structure. It analyzes and suggests pages in the current site language.
+The Semantic Suggestion extension utilizes TYPO3's logging system for comprehensive debugging and maintenance:
 
-## Debugging and Maintenance
+- 📝 Configure logging to get detailed information about the analysis and suggestion process
+- 🔍 Monitor extension behavior and performance
+- 🚀 Optimize based on logged data
 
-The extension uses TYPO3's logging system. You can configure logging to get more information about the analysis and suggestion process.
+<details>
+<summary><strong>Configuring Logging</strong></summary>
 
-## Security
+Add the following to your `typo3conf/AdditionalConfiguration.php`:
 
-- Protection against SQL injections through the use of TYPO3's secure query mechanisms (QueryBuilder)
-- Protection against XSS attacks thanks to automatic output escaping in Fluid templates
-- Access control restricted to users with appropriate permissions
+```php
+$GLOBALS['TYPO3_CONF_VARS']['LOG']['TalanHdf']['SemanticSuggestion']['writerConfiguration'] = [
+    \TYPO3\CMS\Core\Log\LogLevel::DEBUG => [
+        \TYPO3\CMS\Core\Log\Writer\FileWriter::class => [
+            'logFile' => 'typo3temp/logs/semantic_suggestion.log'
+        ],
+    ],
+];
+```
 
-## Performance
+This configuration will log all debug-level and above messages to `semantic_suggestion.log`.
+</details>
 
-- Storage of similarity scores in the database to avoid repeated calculations
-- Periodic update of scores or when page content changes
-- Optimized content retrieval process for improved performance with large numbers of pages
-- Efficient handling of excluded pages to reduce unnecessary calculations
-- Improved caching mechanisms for faster retrieval of analysis results
-- Batch processing of page analysis to manage server load effectively
+## 🔒 Security
 
-## File Structure and Logic
+The Semantic Suggestion extension implements several security measures:
+
+- 🛡️ Protection against SQL injections through TYPO3's secure query mechanisms (QueryBuilder)
+- 🔐 XSS attack prevention via automatic output escaping in Fluid templates
+- 🚫 Access control restricted to users with appropriate permissions
+
+## ⚡ Performance
+
+Optimized for efficient operation, even with large numbers of pages:
+
+- 💾 Caching of similarity scores in the database
+- 🔄 Periodic score updates and refresh on content changes
+- 🚀 Optimized content retrieval process
+- 🎯 Efficient handling of excluded pages
+- ⚖️ Batch processing of page analysis for server load management
+
+## 📁 File Structure and Logic
 
 ```
 semantic_suggestion/
@@ -428,140 +453,80 @@ semantic_suggestion/
 └── phpunit.xml.dist
 ```
 
-## Unit Tests
+## 🧪 Unit Tests
 
-The Semantic Suggestion extension includes a comprehensive suite of unit tests to ensure the reliability and correctness of its core functionalities. These tests are crucial for maintaining the quality of the extension and facilitating future development.
+The Semantic Suggestion extension includes a comprehensive suite of unit tests to ensure reliability and correctness of core functionalities.
 
 ### Test Coverage
 
-Our unit tests cover the following key areas:
+1. **Page Data Preparation**: Validates correct data preparation and weighting
+2. **Page Analysis**: Verifies overall analysis process and caching mechanisms
+3. **Similarity Calculation**: Ensures accuracy of page similarity calculations
+4. **Common Keywords Detection**: Tests functionality for finding shared keywords
+5. **Relevance Determination**: Validates logic for determining relevance based on similarity scores
+6. **Performance Testing**: Evaluates handling of large datasets
+7. **Cache Handling**: Verifies proper use of caching for improved performance
+8. **Edge Case Handling**: Tests behavior with empty pages and extremely large content
+9. **Content Size Limits**: Checks application of appropriate size limits to different fields
 
-1. **Page Data Preparation**: Ensures that page data is correctly prepared and weighted for analysis.
-2. **Page Analysis**: Verifies the overall page analysis process, including caching mechanisms.
-3. **Similarity Calculation**: Tests the accuracy of similarity calculations between different pages.
-4. **Common Keywords Detection**: Checks the functionality for finding common keywords between pages.
-5. **Relevance Determination**: Validates the logic for determining the relevance level based on similarity scores.
-6. **Performance Testing**: Evaluates the service's ability to handle large datasets efficiently.
-7. **Cache Handling**: Verifies proper use of caching mechanisms for improved performance.
-8. **Edge Case Handling**: Tests the service's behavior with empty pages and extremely large content.
-9. **Content Size Limits**: Checks if appropriate size limits are applied to different fields.
+### Running Tests
 
-### List of Test Functions
-
-1. **setUp()**: Initializes mocks and test environment.
-2. **testPreparePageData()**: Verifies correct page data preparation and weighting.
-3. **testAnalyzePages()**: Ensures expected results and proper cache usage.
-4. **testCalculateSimilarity()**: Checks consistency of similarity calculations.
-5. **testFindCommonKeywords()**: Validates common keyword detection.
-6. **testDetermineRelevance()**: Confirms accurate relevance determination.
-7. **testPerformanceWithLargeDataset()**: Evaluates efficiency with large datasets.
-8. **testAnalyzePagesWithCacheHit()**: Verifies correct cache usage.
-9. **testPageWithoutContent()**: Ensures proper handling of empty pages.
-10. **testPageWithVeryLargeContent()**: Checks handling of large text volumes.
-11. **testContentSizeLimits()**: Validates content size limit enforcement.
-
-## Unit Tests for SuggestionsController
-
-### Running the Tests
-
-To run the unit tests, follow these steps:
+To run the unit tests:
 
 1. Ensure you have a development environment set up with DDEV.
 2. Open a terminal and navigate to your project root.
-3. Run the following command:
+3. Execute the following command:
 
-   ```bash
-   ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist --testdox --colors=always
-   ```
+```bash
+ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist --testdox --colors=always
+```
 
-   This command will execute all unit tests and provide a detailed, color-coded output of the results.
+For specific tests, add the `--filter` option:
 
-4. To run a specific test, you can add the test method name to the command:
+```bash
+ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist --filter testMethodName
+```
 
-   ```bash
-   ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist --filter testMethodName
-   ```
+### Interpreting Results
 
-   Replace `testMethodName` with the name of the specific test you want to run (e.g., `testCalculateSimilarity`).
+- ✅ Green checkmarks: Passed tests
+- ❌ Red crosses: Failed tests
+- ⚠️ Yellow exclamation marks: Risky or incomplete tests
 
-### Interpreting Test Results
+Detailed output helps quickly identify and address any issues.
 
-- Green checkmarks (✔) indicate passed tests.
-- Red crosses (✘) indicate failed tests.
-- Yellow exclamation marks (⚠) indicate risky or incomplete tests.
+> 💡 **Tip**: Regular test execution is recommended, especially after code changes, to ensure continued functionality and catch regressions early.
 
-The test output will provide detailed information about any failures or issues, helping you quickly identify and address problems.
+## 🤝 Contributing
 
-### Overview
-The unit tests for the `SuggestionsController` are designed to ensure the proper functioning of the semantic suggestion feature in our TYPO3 extension. These tests focus on verifying the controller's behavior in various scenarios, particularly in handling cache and generating page suggestions.
+We welcome contributions to the Semantic Suggestion extension! Here's how you can contribute:
 
-### Test Objectives
+1. 🍴 Fork the repository
+2. 🌿 Create a new branch for your feature or bug fix
+3. 🛠️ Make your changes and commit them with clear messages
+4. 🚀 Push your changes to your fork
+5. 📬 Submit a pull request to the main repository
 
-1. **Cache Handling**
-   - Verify that the controller correctly uses cached data when available.
-   - Ensure that the controller generates new suggestions when cache is not available.
+Please adhere to existing coding standards and include appropriate tests for your changes.
 
-2. **Page Analysis Integration**
-   - Test the integration between the controller and the `PageAnalysisService`.
-   - Confirm that page analysis results are correctly processed and passed to the view.
+## 📄 License
 
-3. **View Interaction**
-   - Validate that the controller correctly assigns data to the view.
-   - Ensure that the assigned data matches the expected format and content.
+This project is licensed under the GNU General Public License v2.0 or later. See the [LICENSE](LICENSE) file for full details.
 
-4. **Response Generation**
-   - Verify that the controller always returns a valid `ResponseInterface` object.
+## 🆘 Support
 
-5. **Error Handling**
-   - Test the controller's behavior in edge cases and error scenarios.
+For support and further information:
 
-### Key Test Cases
+👤 **Contact**:
+   Wolfangel Cyril  
+   Email: cyril.wolfangel@gmail.com
 
-1. **Cache Hit Scenario**
-   - Checks if the controller retrieves and uses cached suggestions correctly.
+🐛 **Bug Reports and Feature Requests**:
+   Use the [GitHub issue tracker](https://github.com/your-username/semantic-suggestion/issues)
 
-2. **Cache Miss Scenario**
-   - Verifies that the controller generates new suggestions when cache is empty.
-   - Ensures proper interaction with `PageAnalysisService` for fresh data.
+📚 **Documentation and Updates**:
+   Visit our [GitHub repository](https://github.com/your-username/semantic-suggestion)
 
-3. **Data Assignment to View**
-   - Tests if the correct data is assigned to the view in both cache hit and miss scenarios.
+---
 
-4. **Response Validation**
-   - Confirms that all controller actions return a valid HTTP response.
-
-### Benefits
-
-- Ensures reliability of the semantic suggestion feature.
-- Facilitates easier maintenance and future development.
-- Helps catch potential issues early in the development cycle.
-- Provides documentation of expected controller behavior.
-
-Regular execution of these tests is recommended, especially after making changes to the codebase, to ensure continued functionality and to catch any regressions early in the development process.
-
-## Contributing
-
-Contributions to the Semantic Suggestion extension are welcome! Here's how you can contribute:
-
-1. Fork the repository
-2. Create a new branch for your feature or bug fix
-3. Make your changes and commit them with a clear commit message
-4. Push your changes to your fork
-5. Submit a pull request to the main repository
-
-Please make sure to follow the existing coding standards and include appropriate tests for your changes.
-
-## License
-
-This project is licensed under the GNU General Public License v2.0 or later. See the [LICENSE](LICENSE) file for more details.
-
-## Support
-
-For support and further information, please contact:
-
-Wolfangel Cyril  
-Email: cyril.wolfangel@gmail.com
-
-For bug reports and feature requests, please use the [GitHub issue tracker](https://github.com/your-username/semantic-suggestion/issues).
-
-For additional documentation and updates, visit our [GitHub repository](https://github.com/your-username/semantic-suggestion).
+📘 [Full Documentation](https://github.com/talan-hdf/semantic-suggestion/wiki) | 🐛 [Report Bug](https://github.com/talan-hdf/semantic-suggestion/issues) | 💡 [Request Feature](https://github.com/talan-hdf/semantic-suggestion/issues)
