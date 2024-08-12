@@ -19,21 +19,42 @@
                                         <div class="card-body">
                                             <h5 id="suggestion.data.title" class="card-title">{suggestion.data.title}</h5>
 
-                                            <f:format.raw>{suggestion.excerpt}</f:format.raw>
-
-                                            <p class="small">Dernière modification : {suggestion.data.tstamp}</p>
-
-                                            <p class="small">Score de similarité : {suggestion.similarity}</p>
+                                            <f:if condition="{suggestion.excerpt}">
+                                                <p class="card-text">{suggestion.excerpt -> f:format.raw()}</p>
+                                            </f:if>
+                                            <!-- Ajout des informations de récence et de similarité -->
+                                            <p class="card-info">
+                                                <small>
+                                                    Dernière modification : 
+                                                    <f:format.date format="d/m/Y H:i">{suggestion.data.tstamp}</f:format.date>
+                                                </small>
+                                            </p>
+                                            <p class="card-info">
+                                                <small>
+                                                    Score de similarité : 
+                                                    <f:format.number decimals="4">{suggestion.similarity}</f:format.number>
+                                                </small>
+                                            </p>
 
                                             <f:if condition="{nlpEnabled}">
                                                 <f:if condition="{suggestion.nlpData}">
-                                                    <div class="nlp-data small">
+                                                    <div class="nlp-data">
                                                         <h6>Analyse NLP</h6>
                                                         <f:if condition="{suggestion.nlpData.topWords}">
-                                                            <p>Mots-clés principaux : {suggestion.nlpData.topWords -> f:format.raw()}</p>
+                                                            <p><strong>Mots-clés principaux :</strong> 
+                                                                <f:for each="{suggestion.nlpData.topWords}" as="word" iteration="iterator">
+                                                                    {word}{f:if(condition: iterator.isLast, else: ', ')}
+                                                                </f:for>
+                                                            </p>
                                                         </f:if>
                                                         <f:if condition="{suggestion.nlpData.sentiment}">
-                                                            <p>Sentiment : {suggestion.nlpData.sentiment -> f:format.raw()}</p>
+                                                            <p><strong>Sentiment :</strong> {suggestion.nlpData.sentiment -> f:format.raw()}</p>
+                                                        </f:if>
+                                                        <f:if condition="{suggestion.nlpData.wordCount}">
+                                                            <p><strong>Nombre de mots :</strong> {suggestion.nlpData.wordCount}</p>
+                                                        </f:if>
+                                                        <f:if condition="{suggestion.nlpData.uniqueWordCount}">
+                                                            <p><strong>Mots uniques :</strong> {suggestion.nlpData.uniqueWordCount}</p>
                                                         </f:if>
                                                     </div>
                                                 </f:if>
@@ -41,6 +62,7 @@
                                         </div>
 
                                         <div class="card-footer">
+                                            <f:link.page pageUid="{suggestion.data.uid}" class="btn btn-primary">Voir la page</f:link.page>
                                         </div>
                                     </div>
                                 </div>

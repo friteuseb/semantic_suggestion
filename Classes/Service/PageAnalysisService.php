@@ -274,9 +274,13 @@ class PageAnalysisService implements LoggerAwareInterface
         // Intégration de l'analyse NLP si l'extension est présente
         if (\TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion_nlp')) {
             try {
-                $nlpAnalyzer = \TYPO3\CMS\Core\Utility\GeneralUtility::makeInstance(\TalanHdf\SemanticSuggestionNlp\NLP\Analyzer::class);
-                $nlpResults = $nlpAnalyzer->analyze($preparedData['content']['content']);
-                $preparedData['nlp'] = $nlpResults;
+                if (class_exists(\TalanHdf\SemanticSuggestionNlp\NLP\Analyzer::class)) {
+                    $nlpAnalyzer = \TYPO3\CMS\Core\Utility\GeneralUtility::makeInstance(\TalanHdf\SemanticSuggestionNlp\NLP\Analyzer::class);
+                    $nlpResults = $nlpAnalyzer->analyze($preparedData['content']['content']);
+                    $preparedData['nlp'] = $nlpResults;
+                } else {
+                    $this->logger?->warning('NLP Analyzer class not found', ['pageId' => $page['uid']]);
+                }
             } catch (\Exception $e) {
                 $this->logger?->error('Error during NLP analysis', ['pageId' => $page['uid'], 'exception' => $e->getMessage()]);
             }
@@ -285,7 +289,7 @@ class PageAnalysisService implements LoggerAwareInterface
         return $preparedData;
     }
 
-
+    
 private function getAllSubpages(int $parentId, int $depth = 0): array
 {
     $allPages = [];
