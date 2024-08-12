@@ -23,6 +23,7 @@ class SuggestionsViewHelper extends AbstractViewHelper
     public function render()
     {
         if ($this->pageAnalysisService === null) {
+            // FIXME: GeneralUtility::getContainer() is marked internal and should not be used
             $container = GeneralUtility::getContainer();
             $this->pageAnalysisService = $container->get(PageAnalysisService::class);
         }
@@ -54,8 +55,12 @@ class SuggestionsViewHelper extends AbstractViewHelper
             $similarities = $analysisResults[$currentPageId]['similarities'];
             arsort($similarities);
             foreach ($similarities as $pageId => $similarity) {
-                if (count($suggestions) >= $maxSuggestions) break;
-                if ($similarity['score'] < $threshold) continue;
+                if (count($suggestions) >= $maxSuggestions) {
+                    break;
+                }
+                if ($similarity['score'] < $threshold) {
+                    continue;
+                }
                 
                 $pageData = $pageRepository->getPage($pageId);
                 $suggestions[$pageId] = [

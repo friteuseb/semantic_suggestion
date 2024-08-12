@@ -17,16 +17,11 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
 {
     use LoggerAwareTrait;
 
-    protected PageAnalysisService $pageAnalysisService;
-    protected FileRepository $fileRepository;
-
     public function __construct(
-        PageAnalysisService $pageAnalysisService, 
-        FileRepository $fileRepository,
+        protected PageAnalysisService $pageAnalysisService,
+        protected FileRepository $fileRepository,
         LoggerInterface $logger
     ) {
-        $this->pageAnalysisService = $pageAnalysisService;
-        $this->fileRepository = $fileRepository;
         $this->setLogger($logger);
     }
 
@@ -66,10 +61,10 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
     
     protected function generateSuggestions(int $currentPageId): array
     {
-        $parentPageId = isset($this->settings['parentPageId']) ? (int)$this->settings['parentPageId'] : 0; 
-        $proximityThreshold = isset($this->settings['proximityThreshold']) ? (float)$this->settings['proximityThreshold'] : 0.3; 
-        $maxSuggestions = isset($this->settings['maxSuggestions']) ? (int)$this->settings['maxSuggestions'] : 5; 
-        $depth = isset($this->settings['recursive']) ? (int)$this->settings['recursive'] : 0; 
+        $parentPageId = isset($this->settings['parentPageId']) ? (int)$this->settings['parentPageId'] : 0;
+        $proximityThreshold = isset($this->settings['proximityThreshold']) ? (float)$this->settings['proximityThreshold'] : 0.3;
+        $maxSuggestions = isset($this->settings['maxSuggestions']) ? (int)$this->settings['maxSuggestions'] : 5;
+        $depth = isset($this->settings['recursive']) ? (int)$this->settings['recursive'] : 0;
         $excludePages = GeneralUtility::intExplode(',', $this->settings['excludePages'] ?? '', true);
   
         $analysisData = $this->pageAnalysisService->analyzePages($parentPageId, $depth);
@@ -129,7 +124,9 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
             $similarities = $analysisResults[$currentPageId]['similarities'];
             arsort($similarities);
             foreach ($similarities as $pageId => $similarity) {
-                if (count($suggestions) >= $maxSuggestions) break;
+                if (count($suggestions) >= $maxSuggestions) {
+                    break;
+                }
                 if ($similarity['score'] < $threshold || in_array($pageId, $excludePages)) {
                     $this->logger->debug('Page excluded', ['pageId' => $pageId, 'reason' => $similarity['score'] < $threshold ? 'below threshold' : 'in exclude list']);
                     continue;
@@ -146,7 +143,7 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
                     'aboveThreshold' => true,
                     'data' => $pageData,
                     'excerpt' => $excerpt,
-                    'recency' => $recencyScore
+                    'recency' => $recencyScore // FIXME: undefined variable
                 ];
                 $suggestions[$pageId]['data']['media'] = $this->getPageMedia($pageId);
                 
@@ -160,7 +157,7 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
         return $suggestions;
     }
 
-    protected function getPageMedia(int $pageId)
+    protected function getPageMedia(int $pageId): ?\TYPO3\CMS\Core\Resource\FileReference
     {
         $fileObjects = $this->fileRepository->findByRelation('pages', 'media', $pageId);
         return !empty($fileObjects) ? $fileObjects[0] : null;

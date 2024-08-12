@@ -17,22 +17,18 @@ class PageAnalysisService implements LoggerAwareInterface
 {
     use LoggerAwareTrait;
 
-    protected $context;
-    protected $configurationManager;
     protected $settings;
     protected $cache;
     protected $connectionPool;
     protected $queryBuilder;
 
     public function __construct(
-        Context $context,
-        ConfigurationManagerInterface $configurationManager,
+        protected Context $context,
+        protected ConfigurationManagerInterface $configurationManager,
         ?CacheManager $cacheManager = null,
         $dbConnection = null,
         ?LoggerInterface $logger = null
     ) {
-        $this->context = $context;
-        $this->configurationManager = $configurationManager;
 
         if ($logger) {
             $this->setLogger($logger);
@@ -64,41 +60,59 @@ class PageAnalysisService implements LoggerAwareInterface
             }
         } else {
             $this->cache = new class implements FrontendInterface {
-                private $data = [];
-                public function set($entryIdentifier, $data, array $tags = [], $lifetime = null) {
+                private array $data = [];
+                private array $settings = [];
+                public function set($entryIdentifier, $data, array $tags = [], $lifetime = null)
+                {
                     $this->data[$entryIdentifier] = $data;
                 }
-                public function get($entryIdentifier) {
+                public function get($entryIdentifier)
+                {
                     return $this->data[$entryIdentifier] ?? false;
                 }
-                public function has($entryIdentifier) {
+                public function has($entryIdentifier)
+                {
                     return isset($this->data[$entryIdentifier]);
                 }
-                public function remove($entryIdentifier) {
+                public function remove($entryIdentifier)
+                {
                     unset($this->data[$entryIdentifier]);
                 }
-                public function flush() {
+                public function flush()
+                {
                     $this->data = [];
                 }
-                public function flushByTag($tag) {}
-                public function flushByTags(array $tags) {}
-                public function collectGarbage() {}
-                public function isValidEntryIdentifier($identifier) {
+                public function flushByTag($tag)
+                {
+                }
+                public function flushByTags(array $tags)
+                {
+                }
+                public function collectGarbage()
+                {
+                }
+                public function isValidEntryIdentifier($identifier)
+                {
                     return is_string($identifier);
                 }
-                public function isValidTag($tag) {
+                public function isValidTag($tag)
+                {
                     return is_string($tag);
                 }
-                public function getIdentifier() {
+                public function getIdentifier()
+                {
                     return 'fallback_cache';
                 }
-                public function getBackend() {
+                public function getBackend()
+                {
                     return null;
                 }
-                public function getSettings(): array {
+                public function getSettings(): array
+                {
                     return $this->settings;
                 }
-                public function setSettings(array $settings): void {
+                public function setSettings(array $settings): void
+                {
                     $this->settings = $settings;
                 }
             };
@@ -116,14 +130,14 @@ class PageAnalysisService implements LoggerAwareInterface
 
         
     }
-    public function setSettings(array $settings): void                                                                                        
-      {                                                                                                                                         
-          $this->settings = array_merge($this->settings, $settings);                                                                            
-          if (!isset($this->settings['recencyWeight'])) {                                                                                       
-              $this->settings['recencyWeight'] = 0.2; // Valeur par défaut                                                                      
-          }                                                                                                                                     
-          $this->settings['recencyWeight'] = max(0, min(1, (float)$this->settings['recencyWeight'])); // Assurez-vous que la valeur est entre 0 et 1                                                                                                                                      
-      }     
+    public function setSettings(array $settings): void
+    {
+        $this->settings = array_merge($this->settings, $settings);
+        if (!isset($this->settings['recencyWeight'])) {
+            $this->settings['recencyWeight'] = 0.2; // Valeur par défaut
+        }
+        $this->settings['recencyWeight'] = max(0, min(1, (float)$this->settings['recencyWeight'])); // Assurez-vous que la valeur est entre 0 et 1
+    }
 
     protected function getQueryBuilder(string $table = 'pages'): QueryBuilder
     {
@@ -143,6 +157,7 @@ class PageAnalysisService implements LoggerAwareInterface
 
     public function getCacheManager(): ?CacheManager
     {
+        // FIXME: property does not exist
         return $this->cacheManager;
     }
 
@@ -198,6 +213,7 @@ class PageAnalysisService implements LoggerAwareInterface
                     }
                 }
             }
+            unset($pageData);
     
         } catch (\Exception $e) {
             $this->logger?->error('Error during page analysis', ['exception' => $e->getMessage()]);
@@ -256,260 +272,254 @@ class PageAnalysisService implements LoggerAwareInterface
                         'weight' => (float)$weight
 
                 ];
+                }
+            } elseif (isset($page[$field])) {
+                $preparedData[$field] = [
+                    'content' => $page[$field],
+                    'weight' => (float)$weight
+                ];
+            } else {
+                $preparedData[$field] = [
+                    'content' => '',
+                    'weight' => (float)$weight
+                ];
             }
-        } elseif (isset($page[$field])) {
-            $preparedData[$field] = [
-                'content' => $page[$field],
-                'weight' => (float)$weight
-            ];
-        } else {
-            $preparedData[$field] = [
-                'content' => '',
-                'weight' => (float)$weight
-            ];
         }
+
+        $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
+
+        return $preparedData;
     }
 
-    $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
+    private function getAllSubpages(int $parentId, int $depth = 0): array
+    {
+        $allPages = [];
+        $queue = [[$parentId, 0]];
 
-    return $preparedData;
-}
+        while (!empty($queue)) {
+            [$currentId, $currentDepth] = array_shift($queue);
 
-private function getAllSubpages(int $parentId, int $depth = 0): array
-{
-    $allPages = [];
-    $queue = [[$parentId, 0]];
-
-    while (!empty($queue)) {
-        [$currentId, $currentDepth] = array_shift($queue);
-
-        if ($depth !== -1 && $currentDepth > $depth) {
-            continue;
-        }
-
-        $pages = $this->getSubpages($currentId);
-        $allPages = array_merge($allPages, $pages);
-
-        foreach ($pages as $page) {
-            $queue[] = [$page['uid'], $currentDepth + 1];
-        }
-    }
-
-    return $allPages;
-}
-
-protected function getSubpages(int $parentId): array
-{
-    if ($this->logger) {
-        $this->logger->info('Fetching subpages', ['parentId' => $parentId]);
-    }
-
-    try {
-        $queryBuilder = $this->getQueryBuilder();
-        $languageUid = $this->getCurrentLanguageUid();
-
-        if ($this->logger) {
-            $this->logger->info('Current language UID: ' . $languageUid);
-        }
-
-        $fieldsToSelect = ['uid', 'title', 'description', 'keywords', 'abstract', 'crdate'];
-
-        $tableColumns = $queryBuilder->getConnection()->getSchemaManager()->listTableColumns('pages');
-        $existingColumns = array_keys($tableColumns);
-        $fieldsToSelect = array_intersect($fieldsToSelect, $existingColumns);
-
-        if ($this->logger) {
-            $this->logger->debug('Fields to select', ['fields' => $fieldsToSelect]);
-        }
-
-        $result = $queryBuilder
-            ->select(...$fieldsToSelect)
-            ->addSelectLiteral(
-                '(SELECT MAX(tstamp) FROM tt_content WHERE tt_content.pid = pages.uid AND tt_content.deleted = 0 AND tt_content.hidden = 0)'
-            )
-            ->from('pages')
-            ->where(
-                $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($parentId, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->eq('hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->in('sys_language_uid', $queryBuilder->createNamedParameter([$languageUid, -1], Connection::PARAM_INT_ARRAY))
-            )
-            ->executeQuery()
-            ->fetchAllAssociative();
-
-        foreach ($result as &$page) {
-            $page['content_modified_at'] = $page['MAX(tstamp)'] ?? $page['crdate'] ?? time();
-            unset($page['MAX(tstamp)']);
-        }
-
-        if ($this->logger) {
-            $this->logger->info('Subpages fetched successfully', ['count' => count($result)]);
-            $this->logger->debug('Fetched subpages', ['subpages' => $result]);
-        }
-
-        return $result;
-    } catch (\Exception $e) {
-        $this->logger?->error('Error fetching subpages', ['exception' => $e->getMessage()]);
-        throw $e;
-    }
-}
-
-protected function getPageContent(int $pageId): string
-{
-    try {
-        $queryBuilder = $this->getQueryBuilder();
-        $languageUid = $this->getCurrentLanguageUid();
-
-        $content = $queryBuilder
-            ->select('bodytext')
-            ->from('tt_content')
-            ->where(
-                $queryBuilder->expr()->eq('tt_content.pid', $queryBuilder->createNamedParameter($pageId, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->eq('tt_content.hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->eq('tt_content.deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->in('tt_content.sys_language_uid', $queryBuilder->createNamedParameter([$languageUid, -1], Connection::PARAM_INT_ARRAY))
-            )
-            ->executeQuery()
-            ->fetchAllAssociative();
-
-        return implode(' ', array_column($content, 'bodytext'));
-    } catch (\Exception $e) {
-        $this->logger?->error('Error fetching page content', ['pageId' => $pageId, 'exception' => $e->getMessage()]);
-        throw $e;
-    }
-}
-
-private function getWeightedWords(array $pageData): array
-{
-    $weightedWords = [];
-
-    foreach ($pageData as $field => $data) {
-        if (!isset($data['content']) || !is_string($data['content'])) {
-            continue;
-        }
-
-        $words = str_word_count(strtolower($data['content']), 1);
-        $weight = $data['weight'] ?? 1.0;
-
-        foreach ($words as $word) {
-            if (!isset($weightedWords[$word])) {
-                $weightedWords[$word] = 0;
+            if ($depth !== -1 && $currentDepth > $depth) {
+                continue;
             }
-            $weightedWords[$word] += $weight;
+
+            $pages = $this->getSubpages($currentId);
+            $allPages = array_merge($allPages, $pages);
+
+            foreach ($pages as $page) {
+                $queue[] = [$page['uid'], $currentDepth + 1];
+            }
+        }
+
+        return $allPages;
+    }
+
+    protected function getSubpages(int $parentId): array
+    {
+        $this->logger?->info('Fetching subpages', ['parentId' => $parentId]);
+
+        try {
+            $queryBuilder = $this->getQueryBuilder();
+            $languageUid = $this->getCurrentLanguageUid();
+
+            $this->logger?->info('Current language UID: ' . $languageUid);
+
+            $fieldsToSelect = ['uid', 'title', 'description', 'keywords', 'abstract', 'crdate'];
+
+            $tableColumns = $queryBuilder->getConnection()->getSchemaManager()->listTableColumns('pages');
+            $existingColumns = array_keys($tableColumns);
+            $fieldsToSelect = array_intersect($fieldsToSelect, $existingColumns);
+
+            $this->logger?->debug('Fields to select', ['fields' => $fieldsToSelect]);
+
+            $result = $queryBuilder
+                ->select(...$fieldsToSelect)
+                ->addSelectLiteral(
+                    '(SELECT MAX(tstamp) FROM tt_content WHERE tt_content.pid = pages.uid AND tt_content.deleted = 0 AND tt_content.hidden = 0)'
+                )
+                ->from('pages')
+                ->where(
+                    $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($parentId, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->eq('hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->in('sys_language_uid', $queryBuilder->createNamedParameter([$languageUid, -1], Connection::PARAM_INT_ARRAY))
+                )
+                ->executeQuery()
+                ->fetchAllAssociative();
+
+            foreach ($result as &$page) {
+                $page['content_modified_at'] = $page['MAX(tstamp)'] ?? $page['crdate'] ?? time();
+                unset($page['MAX(tstamp)']);
+            }
+            unset($page);
+
+            if ($this->logger) {
+                $this->logger->info('Subpages fetched successfully', ['count' => count($result)]);
+                $this->logger->debug('Fetched subpages', ['subpages' => $result]);
+            }
+
+            return $result;
+        } catch (\Exception $e) {
+            $this->logger?->error('Error fetching subpages', ['exception' => $e->getMessage()]);
+            throw $e;
         }
     }
 
-    return $weightedWords;
-}
+    protected function getPageContent(int $pageId): string
+    {
+        try {
+            $queryBuilder = $this->getQueryBuilder();
+            $languageUid = $this->getCurrentLanguageUid();
 
-private function calculateSimilarity(array $page1, array $page2): array
-{
-    $words1 = $this->getWeightedWords($page1);
-    $words2 = $this->getWeightedWords($page2);
+            $content = $queryBuilder
+                ->select('bodytext')
+                ->from('tt_content')
+                ->where(
+                    $queryBuilder->expr()->eq('tt_content.pid', $queryBuilder->createNamedParameter($pageId, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->eq('tt_content.hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->eq('tt_content.deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->in('tt_content.sys_language_uid', $queryBuilder->createNamedParameter([$languageUid, -1], Connection::PARAM_INT_ARRAY))
+                )
+                ->executeQuery()
+                ->fetchAllAssociative();
 
-    $intersection = array_intersect_key($words1, $words2);
-    $union = $words1 + $words2;
+            return implode(' ', array_column($content, 'bodytext'));
+        } catch (\Exception $e) {
+            $this->logger?->error('Error fetching page content', ['pageId' => $pageId, 'exception' => $e->getMessage()]);
+            throw $e;
+        }
+    }
 
-    $intersectionSum = array_sum($intersection);
-    $unionSum = array_sum($union);
+    private function getWeightedWords(array $pageData): array
+    {
+        $weightedWords = [];
 
-    if ($unionSum === 0) {
+        foreach ($pageData as $field => $data) {
+            if (!isset($data['content']) || !is_string($data['content'])) {
+                continue;
+            }
+
+            $words = str_word_count(strtolower($data['content']), 1);
+            $weight = $data['weight'] ?? 1.0;
+
+            foreach ($words as $word) {
+                if (!isset($weightedWords[$word])) {
+                    $weightedWords[$word] = 0;
+                }
+                $weightedWords[$word] += $weight;
+            }
+        }
+
+        return $weightedWords;
+    }
+
+    private function calculateSimilarity(array $page1, array $page2): array
+    {
+        $words1 = $this->getWeightedWords($page1);
+        $words2 = $this->getWeightedWords($page2);
+
+        $intersection = array_intersect_key($words1, $words2);
+        $union = $words1 + $words2;
+
+        $intersectionSum = array_sum($intersection);
+        $unionSum = array_sum($union);
+
+        if ($unionSum === 0) {
+            return [
+                'semanticSimilarity' => 0.0,
+                'recencyBoost' => 0.0,
+                'finalSimilarity' => 0.0
+            ];
+        }
+
+        $semanticSimilarity = min($intersectionSum / $unionSum, 1.0);
+
+        $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
+
+        // Ajuster la formule pour donner plus d'importance à la récence
+        $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
+        $finalSimilarity = ($semanticSimilarity * (1 - $recencyWeight)) + ($recencyBoost * $recencyWeight);
+
+        $this->logger?->info('Similarity calculation', [
+            'page1' => $page1['uid'] ?? 'unknown',
+            'page2' => $page2['uid'] ?? 'unknown',
+            'semanticSimilarity' => $semanticSimilarity,
+            'recencyBoost' => $recencyBoost,
+            'finalSimilarity' => $finalSimilarity,
+            'fieldScores' => [
+                'title' => $this->calculateFieldSimilarity($page1['title'] ?? [], $page2['title'] ?? []),
+                'description' => $this->calculateFieldSimilarity($page1['description'] ?? [], $page2['description'] ?? []),
+                'keywords' => $this->calculateFieldSimilarity($page1['keywords'] ?? [], $page2['keywords'] ?? []),
+                'content' => $this->calculateFieldSimilarity($page1['content'] ?? [], $page2['content'] ?? []),
+            ]
+        ]);
+
         return [
-            'semanticSimilarity' => 0.0,
-            'recencyBoost' => 0.0,
-            'finalSimilarity' => 0.0
+            'semanticSimilarity' => $semanticSimilarity,
+            'recencyBoost' => $recencyBoost,
+            'finalSimilarity' => min($finalSimilarity, 1.0)
         ];
     }
 
-    $semanticSimilarity = min($intersectionSum / $unionSum, 1.0);
-
-    $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
-
-    // Ajuster la formule pour donner plus d'importance à la récence
-    $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
-    $finalSimilarity = ($semanticSimilarity * (1 - $recencyWeight)) + ($recencyBoost * $recencyWeight);
-
-    $this->logger?->info('Similarity calculation', [
-        'page1' => $page1['uid'] ?? 'unknown',
-        'page2' => $page2['uid'] ?? 'unknown',
-        'semanticSimilarity' => $semanticSimilarity, 
-        'recencyBoost' => $recencyBoost,
-        'finalSimilarity' => $finalSimilarity,
-        'fieldScores' => [
-            'title' => $this->calculateFieldSimilarity($page1['title'] ?? [], $page2['title'] ?? []),
-            'description' => $this->calculateFieldSimilarity($page1['description'] ?? [], $page2['description'] ?? []),
-            'keywords' => $this->calculateFieldSimilarity($page1['keywords'] ?? [], $page2['keywords'] ?? []),
-            'content' => $this->calculateFieldSimilarity($page1['content'] ?? [], $page2['content'] ?? []),
-        ]
-    ]);
-
-    return [
-        'semanticSimilarity' => $semanticSimilarity,
-        'recencyBoost' => $recencyBoost,
-        'finalSimilarity' => min($finalSimilarity, 1.0)
-    ];
-}
-
-private function calculateRecencyBoost(array $page1, array $page2): float
-{
-    $now = time();
-    $maxAge = 30 * 24 * 3600; // 30 jours en secondes
-    $age1 = min($now - ($page1['content_modified_at'] ?? $now), $maxAge);
-    $age2 = min($now - ($page2['content_modified_at'] ?? $now), $maxAge);
+    private function calculateRecencyBoost(array $page1, array $page2): float
+    {
+        $now = time();
+        $maxAge = 30 * 24 * 3600; // 30 jours en secondes
+        $age1 = min($now - ($page1['content_modified_at'] ?? $now), $maxAge);
+        $age2 = min($now - ($page2['content_modified_at'] ?? $now), $maxAge);
     
-    // Normaliser les âges entre 0 et 1
-    $normalizedAge1 = 1 - ($age1 / $maxAge);
-    $normalizedAge2 = 1 - ($age2 / $maxAge);
+        // Normaliser les âges entre 0 et 1
+        $normalizedAge1 = 1 - ($age1 / $maxAge);
+        $normalizedAge2 = 1 - ($age2 / $maxAge);
     
-    // Calculer la différence de récence
-    return abs($normalizedAge1 - $normalizedAge2);
-}
-
-private function calculateFieldSimilarity($field1, $field2): float
-{if (!isset($field1['content']) || !isset($field2['content'])) {
-    return 0.0;
-}
-
-$words1 = str_word_count(strtolower($field1['content']), 1);
-$words2 = str_word_count(strtolower($field2['content']), 1);
-$intersection = array_intersect($words1, $words2);
-$union = array_unique(array_merge($words1, $words2));
-
-return count($union) > 0 ? count($intersection) / count($union) : 0.0;
-}
-
-private function findCommonKeywords(array $page1, array $page2): array
-{
-$keywords1 = isset($page1['keywords']['content']) ? array_map('trim', explode(',', strtolower($page1['keywords']['content']))) : [];
-$keywords2 = isset($page2['keywords']['content']) ? array_map('trim', explode(',', strtolower($page2['keywords']['content']))) : [];
-
-return array_intersect($keywords1, $keywords2);
-}
-
-private function determineRelevance($similarity): string
-{
-    if (is_array($similarity)) {
-        $similarityValue = $similarity['finalSimilarity'] ?? 0;
-    } else {
-        $similarityValue = (float)$similarity;
+        // Calculer la différence de récence
+        return abs($normalizedAge1 - $normalizedAge2);
     }
 
-    if ($similarityValue > 0.7) {
-        return 'High';
-    } elseif ($similarityValue > 0.4) {
-        return 'Medium';
-    } else {
-        return 'Low';
-    }
-}
+    private function calculateFieldSimilarity($field1, $field2): float
+    {
+        if (!isset($field1['content'], $field2['content'])) {
+            return 0.0;
+        }
 
-private function getCurrentLanguageUid(): int
-{
-try {
-    return (int)$this->context->getAspect('language')->getId();
-} catch (\Exception $e) {
-    $this->logger?->warning('Failed to get language from context, defaulting to 0', ['exception' => $e]);
-    return 0;
-}
-}
+        $words1 = str_word_count(strtolower($field1['content']), 1);
+        $words2 = str_word_count(strtolower($field2['content']), 1);
+        $intersection = array_intersect($words1, $words2);
+        $union = array_unique(array_merge($words1, $words2));
+
+        return count($union) > 0 ? count($intersection) / count($union) : 0.0;
+    }
+
+    private function findCommonKeywords(array $page1, array $page2): array
+    {
+        $keywords1 = isset($page1['keywords']['content']) ? array_map('trim', explode(',', strtolower($page1['keywords']['content']))) : [];
+        $keywords2 = isset($page2['keywords']['content']) ? array_map('trim', explode(',', strtolower($page2['keywords']['content']))) : [];
+
+        return array_intersect($keywords1, $keywords2);
+    }
+
+    private function determineRelevance($similarity): string
+    {
+        if (is_array($similarity)) {
+            $similarityValue = $similarity['finalSimilarity'] ?? 0;
+        } else {
+            $similarityValue = (float)$similarity;
+        }
+
+        return match (true) {
+            $similarityValue > 0.7 => 'High',
+            $similarityValue > 0.4 => 'Medium',
+            default => 'Low'
+        };
+    }
+
+    private function getCurrentLanguageUid(): int
+    {
+        try {
+            return (int)$this->context->getAspect('language')->getId();
+        } catch (\Exception $e) {
+            $this->logger?->warning('Failed to get language from context, defaulting to 0', ['exception' => $e]);
+            return 0;
+        }
+    }
 }
