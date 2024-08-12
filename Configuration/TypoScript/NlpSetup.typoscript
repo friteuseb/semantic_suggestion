@@ -1,0 +1,14 @@
+[globalVar = LIT:1 = {$plugin.tx_semanticsuggestion.settings.enableNlpAnalysis}]
+    plugin.tx_semanticsuggestion {
+        settings {
+            enableNlpAnalysis = {$plugin.tx_semanticsuggestion.settings.enableNlpAnalysis}
+            nlpScenario = {$plugin.tx_semanticsuggestion.settings.nlpScenario}
+        }
+    }
+
+    page.60 = TEXT
+    page.60.value = <h2>NLP Activated 2</h2>
+[global]
+
+page.50 = TEXT
+page.50.value = <h2>NLP Activated</h2>

@@ -271,19 +271,25 @@ class PageAnalysisService implements LoggerAwareInterface
     
         $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
     
-        // Intégration de l'analyse NLP si l'extension est présente
+        // Logging détaillé pour l'intégration NLP
+        $this->logger?->info('Checking NLP integration');
         if (\TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion_nlp')) {
+            $this->logger?->info('semantic_suggestion_nlp is loaded');
             try {
                 if (class_exists(\TalanHdf\SemanticSuggestionNlp\NLP\Analyzer::class)) {
+                    $this->logger?->info('Analyzer class exists');
                     $nlpAnalyzer = \TYPO3\CMS\Core\Utility\GeneralUtility::makeInstance(\TalanHdf\SemanticSuggestionNlp\NLP\Analyzer::class);
                     $nlpResults = $nlpAnalyzer->analyze($preparedData['content']['content']);
                     $preparedData['nlp'] = $nlpResults;
+                    $this->logger?->info('NLP analysis completed', ['results' => $nlpResults]);
                 } else {
-                    $this->logger?->warning('NLP Analyzer class not found', ['pageId' => $page['uid']]);
+                    $this->logger?->warning('Analyzer class does not exist', ['class' => \TalanHdf\SemanticSuggestionNlp\NLP\Analyzer::class]);
                 }
             } catch (\Exception $e) {
-                $this->logger?->error('Error during NLP analysis', ['pageId' => $page['uid'], 'exception' => $e->getMessage()]);
+                $this->logger?->error('Error during NLP analysis', ['pageId' => $page['uid'], 'exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             }
+        } else {
+            $this->logger?->info('semantic_suggestion_nlp is not loaded');
         }
     
         return $preparedData;
