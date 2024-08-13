@@ -152,9 +152,9 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
                 $pageData = $pageRepository->getPage($pageId);
                 $pageData['tt_content'] = $this->getPageContents($pageId);
                 $excerpt = $this->prepareExcerpt($pageData, (int)($this->settings['excerptLength'] ?? 150));
-
-                // Calcul du score de récence (à ajuster selon vos besoins)
-                $recencyScore = $this->calculateRecencyScore($pageData['tstamp']);  
+    
+                // Calcul du score de récence
+                $recencyScore = $this->calculateRecencyScore($pageData['tstamp']);
                 
                 $suggestions[$pageId] = [
                     'similarity' => $similarity['score'],
