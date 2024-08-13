@@ -181,27 +181,32 @@ Consider your specific use case:
 
 ### As a Plugin
 
-Insert the "Semantic Suggestions" plugin on the desired page using the TYPO3 backend.
+1. In the TYPO3 backend, go to the page where you want to display semantic suggestions.
+2. Add a new content element and select "Plugins" > "Semantic Suggestions".
+3. Configure the plugin settings as needed in the plugin's flexform.
 
 ### In Fluid Templates
 
 To add the plugin directly in your Fluid template, use:
 
 ```html
-  <f:cObject typoscriptObjectPath='lib.semantic_suggestion' />
-
+<f:cObject typoscriptObjectPath='lib.semantic_suggestion' />
 ```
+
+This method uses the TypoScript configuration and is suitable for simple integrations.
 
 ### Integration with Custom ViewHelper
 
-The Semantic Suggestion extension offers a custom ViewHelper for flexible integration into your Fluid templates.
+For more flexibility and control, use our custom ViewHelper in your Fluid templates.
 
-1. Declare the namespace:
+1. Declare the namespace at the top of your Fluid template:
    ```html
-   {namespace semanticSuggestion=TalanHdf\SemanticSuggestion\ViewHelpers}
+   <html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+         xmlns:semanticSuggestion="http://typo3.org/ns/TalanHdf/SemanticSuggestion/ViewHelpers"
+         data-namespace-typo3-fluid="true">
    ```
 
-2. Use the ViewHelper:
+2. Use the ViewHelper in your template:
    ```html
    <semanticSuggestion:suggestions 
        pageUid="{data.uid}" 
@@ -216,11 +221,14 @@ The Semantic Suggestion extension offers a custom ViewHelper for flexible integr
 <details>
 <summary><strong>ViewHelper Parameters</strong></summary>
 
-- `pageUid` (required): The UID of the current page
-- `parentPageId` (optional, default: 0): The parent page ID to start the analysis from
-- `proximityThreshold` (optional, default: 0.3): The threshold for considering pages as similar
-- `maxSuggestions` (optional, default: 5): The maximum number of suggestions to display
-- `depth` (optional, default: 0): The depth of the page tree to analyze
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| pageUid | int | Yes | - | The UID of the current page |
+| parentPageId | int | No | 0 | The parent page ID to start the analysis from |
+| proximityThreshold | float | No | 0.3 | The threshold for considering pages as similar (0.0 to 1.0) |
+| maxSuggestions | int | No | 5 | The maximum number of suggestions to display |
+| depth | int | No | 0 | The depth of the page tree to analyze (0 = unlimited) |
+
 </details>
 
 <details>
@@ -230,19 +238,22 @@ The Semantic Suggestion extension offers a custom ViewHelper for flexible integr
 <semanticSuggestion:suggestions pageUid="{data.uid}" parentPageId="1" proximityThreshold="0.3" maxSuggestions="5" depth="1">
     <f:if condition="{suggestions}">
         <f:then>
-            <ul>
+            <ul class="semantic-suggestions-list">
                 <f:for each="{suggestions}" as="suggestion">
-                    <li>
-                        <f:link.page pageUid="{suggestion.data.uid}">
+                    <li class="suggestion-item">
+                        <f:link.page pageUid="{suggestion.data.uid}" class="suggestion-link">
                             {suggestion.data.title}
                         </f:link.page>
-                        <p>Similarity: {suggestion.similarity -> f:format.number(decimals: 2)}</p>
+                        <p class="similarity-score">Similarity: {suggestion.similarity -> f:format.number(decimals: 2)}</p>
+                        <f:if condition="{suggestion.commonKeywords}">
+                            <p class="common-keywords">Common Keywords: {suggestion.commonKeywords}</p>
+                        </f:if>
                     </li>
                 </f:for>
             </ul>
         </f:then>
         <f:else>
-            <p>No related pages found.</p>
+            <p class="no-suggestions">No related pages found.</p>
         </f:else>
     </f:if>
 </semanticSuggestion:suggestions>
@@ -251,12 +262,22 @@ The Semantic Suggestion extension offers a custom ViewHelper for flexible integr
 
 #### Benefits of Using the ViewHelper
 
-1. **Flexibility**: Easily customize output in Fluid templates
-2. **Performance**: Efficient caching and data retrieval
-3. **Ease of Use**: No need to modify controllers or create new templates
-4. **Configurability**: Adjust parameters directly in the template
+1. **Flexibility**: Easily customize the output directly in your Fluid templates.
+2. **Performance**: Efficient caching and data retrieval mechanisms are built-in.
+3. **Ease of Use**: No need to modify controllers or create new templates for different display options.
+4. **Configurability**: Adjust parameters directly in the template to fit various use cases.
+5. **Consistency**: Ensures a consistent way of displaying semantic suggestions across your site.
 
-Remember to clear the TYPO3 cache after adding the ViewHelper to your templates.
+#### Best Practices
+
+- Always provide a fallback content when no suggestions are found.
+- Use CSS classes for styling to keep your markup clean and maintainable.
+- Adjust the `proximityThreshold` based on your content to balance between relevance and quantity of suggestions.
+- Regularly review and update your semantic suggestions to ensure they remain relevant.
+
+Remember to clear the TYPO3 cache after adding or modifying the ViewHelper usage in your templates.
+
+For more advanced usage and integration scenarios, refer to our [detailed documentation](link-to-your-detailed-docs).
 
 ## 🎛 Backend Module
 
