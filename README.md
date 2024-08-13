@@ -277,7 +277,8 @@ For more flexibility and control, use our custom ViewHelper in your Fluid templa
 
 Remember to clear the TYPO3 cache after adding or modifying the ViewHelper usage in your templates.
 
-For more advanced usage and integration scenarios, refer to our [detailed documentation](link-to-your-detailed-docs).
+
+
 
 ## 🎛 Backend Module
 
