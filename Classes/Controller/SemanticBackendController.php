@@ -40,11 +40,17 @@ class SemanticBackendController extends ActionController
         $maxSuggestions = (int)($extensionConfig['maxSuggestions'] ?? 5);
         $excludePages = GeneralUtility::intExplode(',', $extensionConfig['excludePages'] ?? '', true);
     
+        // Vérifier si l'analyse NLP est activée
+        $nlpEnabled = \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion_nlp');
+        $nlpConfig = $nlpEnabled ? GeneralUtility::makeInstance(\TYPO3\CMS\Core\Configuration\ExtensionConfiguration::class)->get('semantic_suggestion_nlp') : [];
+        $nlpEnabled = $nlpEnabled && ($nlpConfig['enableNlpAnalysis'] ?? false);
+    
         $analysisData = $this->pageAnalysisService->analyzePages($parentPageId, $depth);
     
         $analysisResults = [];
         $performanceMetrics = [];
         $statistics = [];
+        $nlpStatistics = [];
     
         if (is_array($analysisData) && isset($analysisData['results']) && is_array($analysisData['results'])) {
             $analysisResults = $analysisData['results'];
@@ -55,26 +61,15 @@ class SemanticBackendController extends ActionController
             }
     
             $statistics = $this->calculateStatistics($analysisResults, $proximityThreshold);
+            
+            if ($nlpEnabled) {
+                $nlpStatistics = $this->calculateNlpStatistics($analysisResults);
+            }
         } else {
             $this->addFlashMessage(
                 'The analysis did not return valid results. Please check your configuration and try again.',
                 'Analysis Error',
                 \TYPO3\CMS\Core\Messaging\AbstractMessage::ERROR
-            );
-        }
-    
-        if (isset($analysisData['metrics']) && is_array($analysisData['metrics'])) {
-            $performanceMetrics = [
-                'executionTime' => $analysisData['metrics']['executionTime'] ?? 0,
-                'totalPages' => $analysisData['metrics']['totalPages'] ?? 0,
-                'similarityCalculations' => $analysisData['metrics']['similarityCalculations'] ?? 0,
-                'fromCache' => isset($analysisData['metrics']['fromCache']) ? ($analysisData['metrics']['fromCache'] ? 'Yes' : 'No') : 'Unknown',
-            ];
-        } else {
-            $this->addFlashMessage(
-                'Performance metrics are not available.',
-                'Metrics Unavailable',
-                \TYPO3\CMS\Core\Messaging\AbstractMessage::WARNING
             );
         }
     
@@ -87,12 +82,13 @@ class SemanticBackendController extends ActionController
             'statistics' => $statistics,
             'analysisResults' => $analysisResults,
             'performanceMetrics' => $performanceMetrics,
+            'nlpEnabled' => $nlpEnabled,
+            'nlpStatistics' => $nlpStatistics,
         ]);
     
         $moduleTemplate->setContent($this->view->render());
         return $moduleTemplate->renderResponse();
     }
-    
     
     private function calculateStatistics(array $analysisResults, float $proximityThreshold): array
 {
@@ -143,6 +139,52 @@ class SemanticBackendController extends ActionController
         'topSimilarPages' => arsort($pagesSimilarityCount) ? array_slice($pagesSimilarityCount, 0, 5, true) : [],
     ];
 }
+
+private function calculateNlpStatistics(array $analysisResults): array
+{
+    $totalWordCount = 0;
+    $totalUniqueWordCount = 0;
+    $totalComplexity = 0;
+    $allTopWords = [];
+    $allSuggestions = [];
+
+    foreach ($analysisResults as $pageData) {
+        if (isset($pageData['nlp'])) {
+            $nlpData = $pageData['nlp'];
+            $totalWordCount += $nlpData['wordCount'] ?? 0;
+            $totalUniqueWordCount += $nlpData['uniqueWordCount'] ?? 0;
+            $totalComplexity += $nlpData['textComplexity'] ?? 0;
+            
+            if (isset($nlpData['topWords'])) {
+                foreach ($nlpData['topWords'] as $word => $count) {
+                    if (!isset($allTopWords[$word])) {
+                        $allTopWords[$word] = 0;
+                    }
+                    $allTopWords[$word] += $count;
+                }
+            }
+
+            if (isset($nlpData['suggestions'])) {
+                $allSuggestions = array_merge($allSuggestions, $nlpData['suggestions']);
+            }
+        }
+    }
+
+    $pageCount = count($analysisResults);
+    
+    arsort($allTopWords);
+    $allTopWords = array_slice($allTopWords, 0, 10, true);
+
+    return [
+        'averageWordCount' => $pageCount > 0 ? $totalWordCount / $pageCount : 0,
+        'averageUniqueWordCount' => $pageCount > 0 ? $totalUniqueWordCount / $pageCount : 0,
+        'averageComplexity' => $pageCount > 0 ? $totalComplexity / $pageCount : 0,
+        'topWords' => $allTopWords,
+        'commonSuggestions' => array_slice(array_count_values($allSuggestions), 0, 5, true),
+    ];
+}
+
+
 
 
 }
