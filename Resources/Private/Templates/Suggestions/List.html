@@ -35,6 +35,17 @@
                                                     <f:format.number decimals="4">{suggestion.similarity}</f:format.number>
                                                 </small>
                                             </p>
+                                            
+                                            <f:if condition="{nlpEnabled}">
+                                                <f:for each="{suggestions}" as="suggestion">
+                                                    <f:if condition="{suggestion.nlpData}">
+                                                        <div>
+                                                            <h4>NLP Data for {suggestion.data.title}</h4>
+                                                            <f:debug>{suggestion.nlpData}</f:debug>
+                                                        </div>
+                                                    </f:if>
+                                                </f:for>
+                                            </f:if>
 
                                             <f:if condition="{nlpEnabled}">
                                                 <f:if condition="{suggestion.nlpData}">

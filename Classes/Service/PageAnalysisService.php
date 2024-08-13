@@ -271,22 +271,28 @@ class PageAnalysisService implements LoggerAwareInterface
     
         $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
     
-        // Logging détaillé pour l'intégration NLP
         $this->logger?->info('Checking NLP integration');
         if (\TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion_nlp')) {
             $this->logger?->info('semantic_suggestion_nlp is loaded');
-            try {
-                if (class_exists(\TalanHdf\SemanticSuggestionNlp\NLP\Analyzer::class)) {
-                    $this->logger?->info('Analyzer class exists');
-                    $nlpAnalyzer = \TYPO3\CMS\Core\Utility\GeneralUtility::makeInstance(\TalanHdf\SemanticSuggestionNlp\NLP\Analyzer::class);
-                    $nlpResults = $nlpAnalyzer->analyze($preparedData['content']['content']);
-                    $preparedData['nlp'] = $nlpResults;
-                    $this->logger?->info('NLP analysis completed', ['results' => $nlpResults]);
-                } else {
-                    $this->logger?->warning('Analyzer class does not exist', ['class' => \TalanHdf\SemanticSuggestionNlp\NLP\Analyzer::class]);
+    
+            // Appel du hook NLP 
+            if (isset($GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['semantic_suggestion']['nlpAnalysis'])) {
+                foreach ($GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['semantic_suggestion']['nlpAnalysis'] as $hookClassAndMethod) {
+                    [$hookClass, $hookMethod] = explode('->', $hookClassAndMethod);
+                    $hookInstance = GeneralUtility::makeInstance($hookClass);
+                    if (method_exists($hookInstance, $hookMethod)) {
+                        $analyzeParams = [
+                            'pageId' => $page['uid'],
+                            'content' => $preparedData['content']['content'],
+                            'analysis' => []
+                        ];
+                        $hookInstance->$hookMethod($analyzeParams);
+                    
+                        // Récupérer les résultats NLP
+                        $preparedData['nlp'] = $analyzeParams['analysis']['nlp'] ?? [];
+                        $this->logger?->info('NLP analysis completed', ['results' => $preparedData['nlp']]);
+                    }
                 }
-            } catch (\Exception $e) {
-                $this->logger?->error('Error during NLP analysis', ['pageId' => $page['uid'], 'exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             }
         } else {
             $this->logger?->info('semantic_suggestion_nlp is not loaded');

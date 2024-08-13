@@ -1,4 +1,4 @@
-[globalVar = LIT:1 = {$plugin.tx_semanticsuggestion.settings.enableNlpAnalysis}]
+[globalVar = {$plugin.tx_semanticsuggestion.settings.enableNlpAnalysis} == 1]
     plugin.tx_semanticsuggestion {
         settings {
             enableNlpAnalysis = {$plugin.tx_semanticsuggestion.settings.enableNlpAnalysis}
