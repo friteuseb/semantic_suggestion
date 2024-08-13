@@ -69,13 +69,14 @@
 
     <div class="semantic-analysis-container">
         <h1>Semantic Suggestion Analysis</h1>
+        
+        <f:if condition="{nlpEnabled}">
+            <div class="alert alert-info">
+                <strong>NLP Analysis Enabled:</strong> The results include Natural Language Processing analysis.
+            </div>
+        </f:if>
 
         <div class="stat-card">
-
-
-
-
-
             <h3>Configuration &amp; General Statistics</h3>
             <div class="stat-grid">
                 <div class="stat-item">
@@ -98,10 +99,12 @@
                     <div class="stat-value">{statistics.totalPages}</div>
                     <div class="stat-label">Total Validated Pages Analyzed</div>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-value">{statistics.averageSimilarity -> f:format.number(decimals: 2)}</div>
-                    <div class="stat-label">Average Similarity Score</div>
-                </div>
+                <f:if condition="{!nlpEnabled}">
+                    <div class="stat-item">
+                        <div class="stat-value">{statistics.averageSimilarity -> f:format.number(decimals: 2)}</div>
+                        <div class="stat-label">Average Similarity Score</div>
+                    </div>
+                </f:if>
                 <div class="stat-item">
                     <div class="stat-value">{excludePages}</div>
                     <div class="stat-label">Excluded Pages</div>
@@ -109,121 +112,170 @@
             </div>
         </div>
 
-    
-
-        <div class="stat-card">
-            <h3>Performance Metrics</h3>
-            <div class="stat-grid">
-                <div class="stat-item">
-                    <div class="stat-value">{performanceMetrics.executionTime -> f:format.number(decimals: 2)}</div>
-                    <div class="stat-label">Execution Time (seconds)</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value">{performanceMetrics.totalPages}</div>
-                    <div class="stat-label">Total Pages Analyzed</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value">{performanceMetrics.similarityCalculations}</div>
-                    <div class="stat-label">Similarity Calculations</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value">{performanceMetrics.fromCache}</div>
-                    <div class="stat-label">Results from Cache</div>
+        <f:if condition="{nlpEnabled}">
+            <div class="stat-card">
+                <h3>NLP Statistics</h3>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <div class="stat-value">{nlpStatistics.averageWordCount -> f:format.number(decimals: 0)}</div>
+                        <div class="stat-label">Average Word Count</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{nlpStatistics.averageUniqueWordCount -> f:format.number(decimals: 0)}</div>
+                        <div class="stat-label">Average Unique Word Count</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{nlpStatistics.averageComplexity -> f:format.number(decimals: 2)}</div>
+                        <div class="stat-label">Average Text Complexity</div>
+                    </div>
                 </div>
             </div>
-        </div>
-
-        
-        <div class="stat-card">
-            <h3>Top 5 Most Similar Page Pairs</h3>
-            <table class="compact-table">
-                <thead>
-                    <tr>
-                        <th>Page 1</th>
-                        <th>Page 2</th>
-                        <th>Similarity Score</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <f:for each="{statistics.topSimilarPairs}" as="pair">
+            <div class="stat-card">
+                <h3>Top 10 Words Across All Pages</h3>
+                <table class="table">
+                    <thead>
                         <tr>
-                            <td>{analysisResults.{pair.page1}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pair.page1})</td>
-                            <td>{analysisResults.{pair.page2}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pair.page2})</td>
-                            <td>
-                                <div class="progress-bar">
-                                    <div class="progress-bar-fill" style="width: {pair.score * 100}%;"></div>
-                                </div>
-                                {pair.score -> f:format.number(decimals: 2)}
-                            </td>
+                            <th>Word</th>
+                            <th>Count</th>
                         </tr>
+                    </thead>
+                    <tbody>
+                        <f:for each="{nlpStatistics.topWords}" as="count" key="word">
+                            <tr>
+                                <td>{word}</td>
+                                <td>{count}</td>
+                            </tr>
+                        </f:for>
+                    </tbody>
+                </table>
+            </div>
+            <div class="stat-card">
+                <h3>Common NLP Suggestions</h3>
+                <ul>
+                    <f:for each="{nlpStatistics.commonSuggestions}" as="count" key="suggestion">
+                        <li>{suggestion} (Occurrence: {count})</li>
                     </f:for>
-                </tbody>
-            </table>
-        </div>
-     
-        <div class="stat-card">
-            <h3>Distribution of Similarity Scores</h3>
-            <table class="compact-table">
-                <thead>
-                    <tr>
-                        <th>Score Range</th>
-                        <th>Count</th>
-                        <th>Distribution</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <f:variable name="totalCount" value="0" />
-                    <f:for each="{statistics.distributionScores}" as="count">
-                        <f:variable name="totalCount" value="{totalCount + count}" />
-                    </f:for>
-                    
-                    <f:for each="{statistics.distributionScores}" as="count" key="range">
+                </ul>
+            </div>
+        </f:if>
+
+        <f:if condition="{!nlpEnabled}">
+            <div class="stat-card">
+                <h3>Performance Metrics</h3>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <div class="stat-value">{performanceMetrics.executionTime -> f:format.number(decimals: 2)}</div>
+                        <div class="stat-label">Execution Time (seconds)</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{performanceMetrics.totalPages}</div>
+                        <div class="stat-label">Total Pages Analyzed</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{performanceMetrics.similarityCalculations}</div>
+                        <div class="stat-label">Similarity Calculations</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{performanceMetrics.fromCache}</div>
+                        <div class="stat-label">Results from Cache</div>
+                    </div>
+                </div>
+            </div>
+
+            
+            <div class="stat-card">
+                <h3>Top 5 Most Similar Page Pairs</h3>
+                <table class="compact-table">
+                    <thead>
                         <tr>
-                            <td>{range}</td>
-                            <td>{count}</td>
-                            <td>
-                                <f:if condition="{totalCount} > 0">
-                                    <f:then>
-                                        <f:variable name="percentage" value="{count / totalCount * 100}" />
-                                        <div class="progress-bar">
-                                            <div class="progress-bar-fill" style="width: {percentage}%;"></div>
-                                        </div>
-                                        {percentage -> f:format.number(decimals: 1)}%
-                                    </f:then>
-                                    <f:else>
-                                        <div class="progress-bar">
-                                            <div class="progress-bar-fill" style="width: 0%;"></div>
-                                        </div>
-                                        0%
-                                    </f:else>
-                                </f:if>
-                            </td>
+                            <th>Page 1</th>
+                            <th>Page 2</th>
+                            <th>Similarity Score</th>
                         </tr>
-                    </f:for>
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody>
+                        <f:for each="{statistics.topSimilarPairs}" as="pair">
+                            <tr>
+                                <td>{analysisResults.{pair.page1}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pair.page1})</td>
+                                <td>{analysisResults.{pair.page2}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pair.page2})</td>
+                                <td>
+                                    <div class="progress-bar">
+                                        <div class="progress-bar-fill" style="width: {pair.score * 100}%;"></div>
+                                    </div>
+                                    {pair.score -> f:format.number(decimals: 2)}
+                                </td>
+                            </tr>
+                        </f:for>
+                    </tbody>
+                </table>
+            </div>
+         
+            <div class="stat-card">
+                <h3>Distribution of Similarity Scores</h3>
+                <table class="compact-table">
+                    <thead>
+                        <tr>
+                            <th>Score Range</th>
+                            <th>Count</th>
+                            <th>Distribution</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <f:variable name="totalCount" value="0" />
+                        <f:for each="{statistics.distributionScores}" as="count">
+                            <f:variable name="totalCount" value="{totalCount + count}" />
+                        </f:for>
+                        
+                        <f:for each="{statistics.distributionScores}" as="count" key="range">
+                            <tr>
+                                <td>{range}</td>
+                                <td>{count}</td>
+                                <td>
+                                    <f:if condition="{totalCount} > 0">
+                                        <f:then>
+                                            <f:variable name="percentage" value="{count / totalCount * 100}" />
+                                            <div class="progress-bar">
+                                                <div class="progress-bar-fill" style="width: {percentage}%;"></div>
+                                            </div>
+                                            {percentage -> f:format.number(decimals: 1)}%
+                                        </f:then>
+                                        <f:else>
+                                            <div class="progress-bar">
+                                                <div class="progress-bar-fill" style="width: 0%;"></div>
+                                            </div>
+                                            0%
+                                        </f:else>
+                                    </f:if>
+                                </td>
+                            </tr>
+                        </f:for>
+                    </tbody>
+                </table>
+            </div>
 
 
-        <div class="stat-card">
-            <h3>Top 5 Pages with Most Similarities</h3>
-            <table class="compact-table">
-                <thead>
-                    <tr>
-                        <th>Page</th>
-                        <th>Number of Significant Similarities</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <f:for each="{statistics.topSimilarPages}" as="count" key="pageId">
+            <div class="stat-card">
+                <h3>Top 5 Pages with Most Similarities</h3>
+                <table class="compact-table">
+                    <thead>
                         <tr>
-                            <td>{analysisResults.{pageId}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pageId})</td>
-                            <td>{count}</td>
+                            <th>Page</th>
+                            <th>Number of Significant Similarities</th>
                         </tr>
-                    </f:for>
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody>
+                        <f:for each="{statistics.topSimilarPages}" as="count" key="pageId">
+                            <tr>
+                                <td>{analysisResults.{pageId}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pageId})</td>
+                                <td>{count}</td>
+                            </tr>
+                        </f:for>
+                    </tbody>
+                </table>
+            </div>
+        </f:if>    
     </div>
 </f:section>
 </html>
+
+        
