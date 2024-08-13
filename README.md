@@ -1,5 +1,14 @@
 # 🧠 TYPO3 Extension: Semantic Suggestion
 
+## Join Our Community on Slack
+
+We have a dedicated Slack channel where you can ask questions, discuss new features, and provide feedback on the extension. Join us to stay updated and participate in the conversation!
+
+[Join the Slack Channel](https://typo3.slack.com/archives/C07HFM4364Q)
+
+We look forward to seeing you there and engaging with you!
+
+
 [![TYPO3 12](https://img.shields.io/badge/TYPO3-12-orange.svg)](https://get.typo3.org/version/12)
 [![TYPO3 13](https://img.shields.io/badge/TYPO3-13-orange.svg)](https://get.typo3.org/version/13)
 [![Latest Stable Version](https://img.shields.io/packagist/v/talan-hdf/semantic-suggestion.svg)](https://packagist.org/packages/talan-hdf/semantic-suggestion)
