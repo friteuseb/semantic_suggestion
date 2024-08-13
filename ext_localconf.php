@@ -33,14 +33,8 @@ defined('TYPO3') or die();
     if (\TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion_nlp')) {
         $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['semantic_suggestion']['nlpAnalysis'][] = 
             \TalanHdf\SemanticSuggestionNlp\Hooks\PageAnalysisHook::class . '->analyze';
-        
-        $typoscriptPath = \TYPO3\CMS\Core\Utility\GeneralUtility::getFileAbsFileName('EXT:semantic_suggestion/Configuration/TypoScript/NlpSetup.typoscript');
-        if (file_exists($typoscriptPath)) {
-            \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::addTypoScriptSetup(
-                '@import "' . $typoscriptPath . '"'
-            );
-        }
     }
+    
 
     \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::addTypoScriptConstants(
         '@import "EXT:semantic_suggestion/Configuration/TypoScript/constants.typoscript"'
