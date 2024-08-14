@@ -4,7 +4,7 @@ defined('TYPO3') or die();
 (static function() {
     // Register a Fluid namespace for your extension's ViewHelpers
     // This allows you to easily use them in Fluid templates
-    $GLOBALS['TYPO3_CONF_VARS']['SYS']['fluid']['namespaces']['semanticSuggestion'] = ['TalanHdf\\SemanticSuggestion\\ViewHelpers'];
+    // $GLOBALS['TYPO3_CONF_VARS']['SYS']['fluid']['namespaces']['semanticSuggestion'] = ['TalanHdf\\SemanticSuggestion\\ViewHelpers'];
 
     // Configure an Extbase plugin named "Suggestions"
     // Associates the 'list' action of the SuggestionsController to this plugin
