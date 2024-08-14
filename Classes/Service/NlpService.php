@@ -3,14 +3,30 @@ namespace TalanHdf\SemanticSuggestion\Service;
 
 use TYPO3\CMS\Core\SingletonInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use NlpTools\Tokenizers\WhitespaceTokenizer;
+use NlpTools\Similarity\CosineSimilarity;
+use NlpTools\Similarity\JaccardIndex;
+use NlpTools\Stemmers\PorterStemmer;
+use NlpTools\Classifiers\MultinomialNBClassifier;
+use NlpTools\Models\FeatureBasedNB;
+use NlpTools\Documents\TrainingSet;
+use NlpTools\Documents\TokensDocument;
 
 class NlpService implements SingletonInterface
 {
     protected $enabled;
+    protected $tokenizer;
+    protected $stemmer;
+    protected $cosineSimilarity;
+    protected $jaccardIndex;
 
     public function __construct()
     {
         $this->enabled = (bool)($GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['semantic_suggestion']['enableNlp'] ?? false);
+        $this->tokenizer = new WhitespaceTokenizer();
+        $this->stemmer = new PorterStemmer();
+        $this->cosineSimilarity = new CosineSimilarity();
+        $this->jaccardIndex = new JaccardIndex();
     }
 
     public function isEnabled(): bool
@@ -29,43 +45,37 @@ class NlpService implements SingletonInterface
             'namedEntities' => $this->extractNamedEntities($content),
             'sentiment' => $this->analyzeSentiment($content),
             'category' => $this->classifyText($content),
+            'readabilityScore' => $this->calculateReadabilityScore($content),
         ];
     }
 
     protected function extractKeywords(string $content): array
     {
-        // Implémentation simple de l'extraction de mots-clés
-        $words = str_word_count(strtolower($content), 1);
-        $wordCounts = array_count_values($words);
-        arsort($wordCounts);
-        return array_slice(array_keys($wordCounts), 0, 5);
+        $tokens = $this->tokenizer->tokenize($content);
+        $stemmedTokens = array_map([$this->stemmer, 'stem'], $tokens);
+        $wordFrequency = array_count_values($stemmedTokens);
+        arsort($wordFrequency);
+        return array_slice(array_keys($wordFrequency), 0, 5);
     }
 
     protected function extractNamedEntities(string $content): array
     {
-        // Implémentation simple de l'extraction d'entités nommées
-        // Vous pouvez améliorer cela avec une bibliothèque NLP plus avancée
-        $entities = [];
-        if (preg_match_all('/[A-Z][a-z]+ (?:[A-Z][a-z]+)+/', $content, $matches)) {
-            $entities = array_unique($matches[0]);
-        }
-        return array_slice($entities, 0, 5);
+        // Note: nlp-tools doesn't have a built-in NER, so we'll use a simple regex approach
+        // For a more robust NER, consider using additional libraries or APIs
+        preg_match_all('/\b(?:[A-Z][a-z]+ ){1,}\b/', $content, $matches);
+        return array_slice(array_unique($matches[0]), 0, 5);
     }
 
     protected function analyzeSentiment(string $content): string
     {
-        // Implémentation simple de l'analyse de sentiment
+        // For sentiment analysis, we'd need to train a classifier
+        // This is a simplified version using keyword matching
         $positiveWords = ['good', 'great', 'excellent', 'amazing', 'wonderful'];
         $negativeWords = ['bad', 'poor', 'terrible', 'awful', 'horrible'];
         
-        $positiveCount = 0;
-        $negativeCount = 0;
-        
-        $words = str_word_count(strtolower($content), 1);
-        foreach ($words as $word) {
-            if (in_array($word, $positiveWords)) $positiveCount++;
-            if (in_array($word, $negativeWords)) $negativeCount++;
-        }
+        $tokens = $this->tokenizer->tokenize(strtolower($content));
+        $positiveCount = count(array_intersect($tokens, $positiveWords));
+        $negativeCount = count(array_intersect($tokens, $negativeWords));
         
         if ($positiveCount > $negativeCount) return 'positive';
         if ($negativeCount > $positiveCount) return 'negative';
@@ -74,7 +84,8 @@ class NlpService implements SingletonInterface
 
     protected function classifyText(string $content): string
     {
-        // Implémentation simple de la classification de texte
+        // For text classification, we'd need to train a classifier
+        // This is a simplified version using keyword matching
         $categories = [
             'Technology' => ['computer', 'software', 'internet', 'digital', 'tech'],
             'Science' => ['research', 'experiment', 'theory', 'scientific', 'discovery'],
@@ -82,13 +93,11 @@ class NlpService implements SingletonInterface
             'Entertainment' => ['movie', 'music', 'celebrity', 'film', 'concert']
         ];
         
-        $scores = array_fill_keys(array_keys($categories), 0);
-        $words = str_word_count(strtolower($content), 1);
+        $tokens = $this->tokenizer->tokenize(strtolower($content));
+        $scores = [];
         
-        foreach ($words as $word) {
-            foreach ($categories as $category => $keywords) {
-                if (in_array($word, $keywords)) $scores[$category]++;
-            }
+        foreach ($categories as $category => $keywords) {
+            $scores[$category] = count(array_intersect($tokens, $keywords));
         }
         
         arsort($scores);
@@ -101,18 +110,32 @@ class NlpService implements SingletonInterface
             return 0.0;
         }
 
-        $keywordSimilarity = $this->calculateJaccardSimilarity($nlpData1['keywords'], $nlpData2['keywords']);
-        $entitySimilarity = $this->calculateJaccardSimilarity($nlpData1['namedEntities'], $nlpData2['namedEntities']);
+        $keywordSimilarity = $this->jaccardIndex->similarity($nlpData1['keywords'], $nlpData2['keywords']);
+        $entitySimilarity = $this->jaccardIndex->similarity($nlpData1['namedEntities'], $nlpData2['namedEntities']);
         $sentimentSimilarity = $nlpData1['sentiment'] === $nlpData2['sentiment'] ? 1.0 : 0.0;
         $categorySimilarity = $nlpData1['category'] === $nlpData2['category'] ? 1.0 : 0.0;
 
         return ($keywordSimilarity + $entitySimilarity + $sentimentSimilarity + $categorySimilarity) / 4;
     }
 
-    protected function calculateJaccardSimilarity(array $set1, array $set2): float
+    protected function calculateReadabilityScore(string $content): float
     {
-        $intersection = count(array_intersect($set1, $set2));
-        $union = count(array_unique(array_merge($set1, $set2)));
-        return $union > 0 ? $intersection / $union : 0.0;
+        $sentences = preg_split('/[.!?]+/', $content);
+        $wordCount = str_word_count($content);
+        $syllableCount = $this->countSyllables($content);
+        
+        $averageWordsPerSentence = $wordCount / count($sentences);
+        $averageSyllablesPerWord = $syllableCount / $wordCount;
+        
+        // Flesch-Kincaid Grade Level
+        return 0.39 * $averageWordsPerSentence + 11.8 * $averageSyllablesPerWord - 15.59;
+    }
+
+    protected function countSyllables(string $word): int
+    {
+        $word = strtolower($word);
+        $word = preg_replace('/(?:[^laeiouy]es|ed|[^laeiouy]e)$/', '', $word);
+        $word = preg_replace('/^y/', '', $word);
+        return max(1, preg_match_all('/[aeiouy]{1,2}/', $word));
     }
 }

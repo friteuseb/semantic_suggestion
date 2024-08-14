@@ -26,6 +26,8 @@ plugin.tx_semanticsuggestion_suggestions {
         excludePages = {$plugin.tx_semanticsuggestion_suggestions.settings.excludePages}
         excerptLength = {$plugin.tx_semanticsuggestion_suggestions.settings.excerptLength}
         recencyWeight = {$plugin.tx_semanticsuggestion_suggestions.settings.recencyWeight}
+        nlpWeight = 0.3
+
     
         analyzedFields {
             title = {$plugin.tx_semanticsuggestion_suggestions.settings.analyzedFields.title}

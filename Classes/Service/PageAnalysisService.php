@@ -12,6 +12,7 @@ use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+use TalanHdf\SemanticSuggestion\Service\NlpService;
 
 class PageAnalysisService implements LoggerAwareInterface
 {
@@ -25,6 +26,8 @@ class PageAnalysisService implements LoggerAwareInterface
     protected $queryBuilder;
     protected $nlpService;
 
+
+        
     public function __construct(
         Context $context,
         ConfigurationManagerInterface $configurationManager,
@@ -172,10 +175,16 @@ class PageAnalysisService implements LoggerAwareInterface
         foreach ($this->settings['analyzedFields'] as $field => $weight) {
             if ($field === 'content') {
                 try {
+                    $content = $this->getPageContent($page['uid']);
                     $preparedData['content'] = [
-                        'content' => $this->getPageContent($page['uid']),
+                        'content' => $content,
                         'weight' => (float)$weight
                     ];
+                    
+                    // Ajout de l'analyse NLP pour le contenu
+                    if ($this->nlpService->isEnabled()) {
+                        $preparedData['content']['nlp'] = $this->nlpService->analyzeContent($content);
+                    }
                 } catch (\Exception $e) {
                     $this->logger?->error('Error fetching page content', ['pageId' => $page['uid'], 'exception' => $e->getMessage()]);
                     $preparedData['content'] = [
@@ -188,6 +197,11 @@ class PageAnalysisService implements LoggerAwareInterface
                     'content' => $page[$field],
                     'weight' => (float)$weight
                 ];
+                
+                // Ajout de l'analyse NLP pour les autres champs
+                if ($this->nlpService->isEnabled() && in_array($field, ['title', 'description', 'keywords'])) {
+                    $preparedData[$field]['nlp'] = $this->nlpService->analyzeContent($page[$field]);
+                }
             } else {
                 $preparedData[$field] = [
                     'content' => '',
@@ -332,45 +346,53 @@ class PageAnalysisService implements LoggerAwareInterface
     {
         $words1 = $this->getWeightedWords($page1);
         $words2 = $this->getWeightedWords($page2);
-
+    
         $intersection = array_intersect_key($words1, $words2);
         $union = $words1 + $words2;
-
+    
         $intersectionSum = array_sum($intersection);
         $unionSum = array_sum($union);
-
+    
         if ($unionSum === 0) {
             return [
                 'semanticSimilarity' => 0.0,
                 'recencyBoost' => 0.0,
+                'nlpSimilarity' => 0.0,
                 'finalSimilarity' => 0.0
             ];
         }
-
+    
         $semanticSimilarity = min($intersectionSum / $unionSum, 1.0);
-
         $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
-
+        
+        $nlpSimilarity = 0.0;
+        if ($this->nlpService->isEnabled()) {
+            $nlpData1 = $page1['content']['nlp'] ?? [];
+            $nlpData2 = $page2['content']['nlp'] ?? [];
+            $nlpSimilarity = $this->nlpService->calculateNlpSimilarity($nlpData1, $nlpData2);
+        }
+    
         $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
-        $finalSimilarity = ($semanticSimilarity * (1 - $recencyWeight)) + ($recencyBoost * $recencyWeight);
-
+        $nlpWeight = $this->settings['nlpWeight'] ?? 0.3;
+        $semanticWeight = 1 - $recencyWeight - $nlpWeight;
+    
+        $finalSimilarity = ($semanticSimilarity * $semanticWeight) + 
+                           ($recencyBoost * $recencyWeight) + 
+                           ($nlpSimilarity * $nlpWeight);
+    
         $this->logger?->info('Similarity calculation', [
             'page1' => $page1['uid'] ?? 'unknown',
             'page2' => $page2['uid'] ?? 'unknown',
             'semanticSimilarity' => $semanticSimilarity, 
             'recencyBoost' => $recencyBoost,
-            'finalSimilarity' => $finalSimilarity,
-            'fieldScores' => [
-                'title' => $this->calculateFieldSimilarity($page1['title'] ?? [], $page2['title'] ?? []),
-                'description' => $this->calculateFieldSimilarity($page1['description'] ?? [], $page2['description'] ?? []),
-                'keywords' => $this->calculateFieldSimilarity($page1['keywords'] ?? [], $page2['keywords'] ?? []),
-                'content' => $this->calculateFieldSimilarity($page1['content'] ?? [], $page2['content'] ?? []),
-            ]
+            'nlpSimilarity' => $nlpSimilarity,
+            'finalSimilarity' => $finalSimilarity
         ]);
-
+    
         return [
             'semanticSimilarity' => $semanticSimilarity,
             'recencyBoost' => $recencyBoost,
+            'nlpSimilarity' => $nlpSimilarity,
             'finalSimilarity' => min($finalSimilarity, 1.0)
         ];
     }
