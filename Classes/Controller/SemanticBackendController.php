@@ -73,7 +73,21 @@ class SemanticBackendController extends ActionController
             );
         }
     
-        $moduleTemplate->assignMultiple([
+        if (isset($analysisData['metrics']) && is_array($analysisData['metrics'])) {
+            $performanceMetrics = [
+                'executionTime' => $analysisData['metrics']['executionTime'] ?? 0,
+                'totalPages' => $analysisData['metrics']['totalPages'] ?? 0,
+                'similarityCalculations' => $analysisData['metrics']['similarityCalculations'] ?? 0,
+                'fromCache' => isset($analysisData['metrics']['fromCache']) ? ($analysisData['metrics']['fromCache'] ? 'Yes' : 'No') : 'Unknown',
+            ];
+        } else {
+            $this->addFlashMessage(
+                'Performance metrics are not available.',
+                'Metrics Unavailable',
+                \TYPO3\CMS\Core\Messaging\AbstractMessage::WARNING
+            );
+        }    
+                $moduleTemplate->assignMultiple([
             'parentPageId' => $parentPageId,
             'depth' => $depth,
             'proximityThreshold' => $proximityThreshold,
