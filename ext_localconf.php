@@ -29,6 +29,13 @@ defined('TYPO3') or die();
         '@import "EXT:semantic_suggestion/Configuration/TypoScript/setup.typoscript"'
     );
 
+
+    // Import the TypoScript file 'constants.typoscript' into the global TypoScript configuration
+    // This file likely contains constants used by your extension
+    \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::addTypoScriptConstants(
+        '@import "EXT:semantic_suggestion/Configuration/TypoScript/constants.typoscript"'
+    );
+
     // Configure a cache named 'semantic_suggestion' if it doesn't already exist
     // Uses a variable frontend and a file backend
     // Default cache lifetime is 86400 seconds (1 day)
@@ -51,9 +58,4 @@ defined('TYPO3') or die();
             \TalanHdf\SemanticSuggestionNlp\Hooks\PageAnalysisHook::class . '->analyze';
     }
 
-    // Import the TypoScript file 'constants.typoscript' into the global TypoScript configuration
-    // This file likely contains constants used by your extension
-    \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::addTypoScriptConstants(
-        '@import "EXT:semantic_suggestion/Configuration/TypoScript/constants.typoscript"'
-    );
 })();

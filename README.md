@@ -204,6 +204,38 @@ To add the plugin directly in your Fluid template, use:
 
 This method uses the TypoScript configuration and is suitable for simple integrations.
 
+### TypoScript Integration
+
+You can also integrate the Semantic Suggestions plugin using TypoScript. Add the following TypoScript setup to your configuration:
+
+```typoscript
+lib.semantic_suggestion = USER
+lib.semantic_suggestion {
+    userFunc = TYPO3\CMS\Extbase\Core\Bootstrap->run
+    extensionName = SemanticSuggestion
+    pluginName = Suggestions
+    vendorName = TalanHdf
+    controller = Suggestions
+    action = list
+}
+```
+
+Then, you can use it in your TypoScript template like this:
+
+```typoscript
+page.10 = < lib.semantic_suggestion
+```
+
+Or in specific content elements:
+
+```typoscript
+tt_content.semantic_suggestion = COA
+tt_content.semantic_suggestion {
+    10 = < lib.semantic_suggestion
+}
+```
+
+Remember to include your TypoScript template in your site configuration or page setup.
 
 ## 🎛 Backend Module
 
