@@ -287,20 +287,17 @@ class PageAnalysisService implements LoggerAwareInterface
                             'analysis' => []
                         ];
                         $hookInstance->$hookMethod($analyzeParams);
-                    
+                        
                         // Récupérer les résultats NLP
                         $preparedData['nlp'] = $analyzeParams['analysis']['nlp'] ?? [];
-                        $this->logger?->info('NLP analysis completed', ['results' => $preparedData['nlp']]);
                     }
                 }
             }
-        } else {
-            $this->logger?->info('semantic_suggestion_nlp is not loaded');
+        
+            return $preparedData;
         }
-    
-        return $preparedData;
-    }
 
+    }
     
 private function getAllSubpages(int $parentId, int $depth = 0): array
 {
