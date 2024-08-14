@@ -95,7 +95,6 @@ tt_content.list.20.semanticsuggestion_suggestions =< plugin.tx_semanticsuggestio
 # Backend module configuration
 module.tx_semanticsuggestion {
     view {
-        # Template paths for the backend module
         templateRootPaths {
             0 = EXT:semantic_suggestion/Resources/Private/Templates/
             1 = {$module.tx_semanticsuggestion.view.templateRootPath}
@@ -112,13 +111,43 @@ module.tx_semanticsuggestion {
     # Custom CSS for the backend module
     _CSS_DEFAULT_STYLE >
     _CSS_DEFAULT_STYLE = <link rel="stylesheet" type="text/css" href="EXT:semantic_suggestion/Resources/Public/Css/SemanticSuggestion.css" media="all">
+
 }
 
-# Frontend Plugin
-plugin.tx_semanticsuggestion_suggestions {
+[extension.loaded('semantic_suggestion_nlp') == 1]
+module.tx_semanticsuggestion {
     view {
-        templateRootPaths.0 = EXT:semantic_suggestion/Resources/Private/Templates/
-        partialRootPaths.0 = EXT:semantic_suggestion/Resources/Private/Partials/
-        layoutRootPaths.0 = EXT:semantic_suggestion/Resources/Private/Layouts/
+        partialRootPaths {
+            20 = EXT:semantic_suggestion_nlp/Resources/Private/Partials/
+        }
     }
 }
+[global]
+
+# Configuration similaire pour le plugin frontend si nécessaire
+plugin.tx_semanticsuggestion {
+    view {
+        templateRootPaths {
+            0 = EXT:semantic_suggestion/Resources/Private/Templates/
+            1 = {$plugin.tx_semanticsuggestion.view.templateRootPath}
+        }
+        partialRootPaths {
+            0 = EXT:semantic_suggestion/Resources/Private/Partials/
+            1 = {$plugin.tx_semanticsuggestion.view.partialRootPath}
+        }
+        layoutRootPaths {
+            0 = EXT:semantic_suggestion/Resources/Private/Layouts/
+            1 = {$plugin.tx_semanticsuggestion.view.layoutRootPath}
+        }
+    }
+}
+
+[extension.loaded('semantic_suggestion_nlp') == 1]
+plugin.tx_semanticsuggestion {
+    view {
+        partialRootPaths {
+            20 = EXT:semantic_suggestion_nlp/Resources/Private/Partials/
+        }
+    }
+}
+[global]

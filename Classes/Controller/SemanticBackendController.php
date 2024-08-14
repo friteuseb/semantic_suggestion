@@ -112,6 +112,8 @@ class SemanticBackendController extends ActionController
     $moduleTemplate->setContent($this->view->render());
     return $moduleTemplate->renderResponse();
 }
+
+
     
     private function calculateStatistics(array $analysisResults, float $proximityThreshold): array
 {

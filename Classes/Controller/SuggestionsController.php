@@ -54,6 +54,14 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
                 }
             }
     
+            // Vérifier si l'extension NLP est activée et utiliser le template approprié
+            $nlpEnabled = \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion_nlp');
+            if ($nlpEnabled) {
+                $this->view->setTemplatePathAndFilename(
+                    GeneralUtility::getFileAbsFileName('EXT:semantic_suggestion_nlp/Resources/Private/Templates/Suggestions/NlpList.html')
+                );
+            }
+    
             $this->view->assignMultiple($viewData);
     
         } catch (\Exception $e) {
@@ -96,16 +104,20 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
     
         // Ajout des données NLP si l'extension est présente
         if (\TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion_nlp')) {
+            $nlpAnalyzer = GeneralUtility::makeInstance(\TalanHdf\SemanticSuggestionNlp\NLP\Analyzer::class);
             foreach ($viewData['suggestions'] as &$suggestion) {
-                if (isset($analysisResults[$suggestion['data']['uid']]['nlp'])) {
-                    $suggestion['nlpData'] = $analysisResults[$suggestion['data']['uid']]['nlp'];
-                }
+                $pageUid = $suggestion['data']['uid'];
+                $suggestion['nlpData'] = $nlpAnalyzer->getPageNlpData($pageUid);
+                $suggestion['nlpSimilarity'] = $nlpAnalyzer->calculateNlpSimilarity(
+                    $nlpAnalyzer->getPageNlpData($currentPageId),
+                    $suggestion['nlpData']
+                );
             }
             $viewData['nlpEnabled'] = true;
         } else {
             $viewData['nlpEnabled'] = false;
         }
-    
+
         return $viewData;
     }
 
