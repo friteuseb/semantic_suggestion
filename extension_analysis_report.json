@@ -1,0 +1,987 @@
+{
+    "composer": {
+        "name": "talan-hdf\/semantic-suggestion",
+        "description": "TYPO3 extension for suggesting semantically related pages",
+        "version": "1.0.9",
+        "type": "typo3-cms-extension",
+        "require": {
+            "typo3\/cms-core": "^12.0 || ^13.0"
+        },
+        "autoload": {
+            "psr-4": {
+                "TalanHdf\\SemanticSuggestion\\": "Classes\/"
+            }
+        },
+        "extra": {
+            "typo3\/cms": {
+                "extension-key": "semantic_suggestion"
+            }
+        }
+    },
+    "other_files": [
+        "semantic_suggestion\/.env",
+        "semantic_suggestion\/.gitignore",
+        "semantic_suggestion\/.phpunit.cache\/test-results",
+        "semantic_suggestion\/.phpunit.result.cache",
+        "semantic_suggestion\/CHANGELOG.md",
+        "semantic_suggestion\/Documentation\/Index.rst",
+        "semantic_suggestion\/Documentation\/Installation\/Index.rst",
+        "semantic_suggestion\/Documentation\/Introduction\/Index.rst",
+        "semantic_suggestion\/Documentation\/Medias\/backend_module.png",
+        "semantic_suggestion\/Documentation\/Medias\/backend_module_performance_metrics.jpg",
+        "semantic_suggestion\/Documentation\/Medias\/fluid_List_template.png",
+        "semantic_suggestion\/Documentation\/Medias\/frontend_on_the_same_theme_view.jpg",
+        "semantic_suggestion\/Documentation\/Medias\/frontend_plugin.png",
+        "semantic_suggestion\/Documentation\/Medias\/include_lib_fluid_template.png",
+        "semantic_suggestion\/Documentation\/Medias\/include_typoscript_fluid_templarte.png",
+        "semantic_suggestion\/IMPROVEMENTS.MD",
+        "semantic_suggestion\/LICENSE",
+        "semantic_suggestion\/README.md",
+        "semantic_suggestion\/ROADMAP_TO_STABLE.md",
+        "semantic_suggestion\/Resources\/Private\/Language\/locallang.xlf",
+        "semantic_suggestion\/Resources\/Private\/Language\/locallang_be.xlf",
+        "semantic_suggestion\/Resources\/Private\/Language\/locallang_mod.xlf",
+        "semantic_suggestion\/Resources\/Private\/Language\/locallang_semanticproximity.xlf",
+        "semantic_suggestion\/Resources\/Public\/Css\/SemanticSuggestion.css",
+        "semantic_suggestion\/Resources\/Public\/Icons\/Extension.svg",
+        "semantic_suggestion\/Resources\/Public\/Icons\/module-semantic-suggestion.svg",
+        "semantic_suggestion\/Resources\/Public\/Icons\/user_mod_semanticproximity.svg",
+        "semantic_suggestion\/composer.json",
+        "semantic_suggestion\/ext_conf_template.txt",
+        "semantic_suggestion\/extension_analysis_report.json",
+        "semantic_suggestion\/extension_report.json",
+        "semantic_suggestion\/phpunit.xml.dist"
+    ],
+    "php_files": [
+        {
+            "path": "semantic_suggestion\/Classes\/Controller\/SemanticBackendController.php",
+            "namespace": "TalanHdf\\SemanticSuggestion\\Controller",
+            "uses": [
+                "Psr\\Http\\Message\\ResponseInterface",
+                "TYPO3\\CMS\\Backend\\Template\\ModuleTemplateFactory",
+                "TYPO3\\CMS\\Extbase\\Mvc\\Controller\\ActionController",
+                "TalanHdf\\SemanticSuggestion\\Service\\PageAnalysisService",
+                "TYPO3\\CMS\\Extbase\\Configuration\\ConfigurationManagerInterface",
+                "TYPO3\\CMS\\Core\\Utility\\GeneralUtility"
+            ],
+            "classes": [
+                null
+            ],
+            "interfaces": [],
+            "traits": [],
+            "functions": [],
+            "constants": [],
+            "hooks": [],
+            "plugins": []
+        },
+        {
+            "path": "semantic_suggestion\/Classes\/Controller\/SuggestionsController.php",
+            "namespace": "TalanHdf\\SemanticSuggestion\\Controller",
+            "uses": [
+                "Psr\\Http\\Message\\ResponseInterface",
+                "TYPO3\\CMS\\Core\\Utility\\GeneralUtility",
+                "TYPO3\\CMS\\Extbase\\Mvc\\Controller\\ActionController",
+                "TalanHdf\\SemanticSuggestion\\Service\\PageAnalysisService",
+                "TYPO3\\CMS\\Core\\Resource\\FileRepository",
+                "TYPO3\\CMS\\Core\\Domain\\Repository\\PageRepository",
+                "TYPO3\\CMS\\Frontend\\ContentObject\\ContentObjectRenderer",
+                "TYPO3\\CMS\\Core\\Cache\\CacheManager",
+                "Psr\\Log\\LoggerAwareInterface",
+                "Psr\\Log\\LoggerAwareTrait",
+                "Psr\\Log\\LoggerInterface",
+                "LoggerAwareTrait"
+            ],
+            "classes": [
+                null
+            ],
+            "interfaces": [],
+            "traits": [],
+            "functions": [],
+            "constants": [],
+            "hooks": [],
+            "plugins": []
+        },
+        {
+            "path": "semantic_suggestion\/Classes\/Hooks\/DataHandlerHook.php",
+            "namespace": "TalanHdf\\SemanticSuggestion\\Hooks",
+            "uses": [
+                "TYPO3\\CMS\\Core\\DataHandling\\DataHandler",
+                "TYPO3\\CMS\\Core\\Utility\\GeneralUtility",
+                "TYPO3\\CMS\\Core\\Cache\\CacheManager"
+            ],
+            "classes": [
+                null
+            ],
+            "interfaces": [],
+            "traits": [],
+            "functions": [],
+            "constants": [],
+            "hooks": [],
+            "plugins": []
+        },
+        {
+            "path": "semantic_suggestion\/Classes\/Service\/PageAnalysisService.php",
+            "namespace": "TalanHdf\\SemanticSuggestion\\Service",
+            "uses": [
+                "TYPO3\\CMS\\Core\\Context\\Context",
+                "TYPO3\\CMS\\Extbase\\Configuration\\ConfigurationManagerInterface",
+                "TYPO3\\CMS\\Core\\Utility\\GeneralUtility",
+                "TYPO3\\CMS\\Core\\Database\\ConnectionPool",
+                "TYPO3\\CMS\\Core\\Database\\Connection",
+                "TYPO3\\CMS\\Core\\Cache\\CacheManager",
+                "Psr\\Log\\LoggerInterface",
+                "Psr\\Log\\LoggerAwareInterface",
+                "Psr\\Log\\LoggerAwareTrait",
+                "TYPO3\\CMS\\Core\\Cache\\Frontend\\FrontendInterface",
+                "TYPO3\\CMS\\Core\\Database\\Query\\QueryBuilder",
+                "LoggerAwareTrait"
+            ],
+            "classes": [
+                null
+            ],
+            "interfaces": [],
+            "traits": [],
+            "functions": [],
+            "constants": [],
+            "hooks": [],
+            "plugins": []
+        },
+        {
+            "path": "semantic_suggestion\/Configuration\/Backend\/Modules.php",
+            "namespace": "",
+            "uses": [],
+            "classes": [],
+            "interfaces": [],
+            "traits": [],
+            "functions": [],
+            "constants": [],
+            "hooks": [],
+            "plugins": []
+        },
+        {
+            "path": "semantic_suggestion\/Configuration\/Backend\/Routes.php",
+            "namespace": "",
+            "uses": [],
+            "classes": [],
+            "interfaces": [],
+            "traits": [],
+            "functions": [],
+            "constants": [],
+            "hooks": [],
+            "plugins": []
+        },
+        {
+            "path": "semantic_suggestion\/Configuration\/TCA\/Overrides\/sys_template.php",
+            "namespace": "",
+            "uses": [
+                "TYPO3\\CMS\\Core\\Utility\\ExtensionManagementUtility"
+            ],
+            "classes": [],
+            "interfaces": [],
+            "traits": [],
+            "functions": [],
+            "constants": [],
+            "hooks": [],
+            "plugins": []
+        },
+        {
+            "path": "semantic_suggestion\/Configuration\/TCA\/Overrides\/tt_content.php",
+            "namespace": "",
+            "uses": [],
+            "classes": [],
+            "interfaces": [],
+            "traits": [],
+            "functions": [],
+            "constants": [],
+            "hooks": [],
+            "plugins": []
+        },
+        {
+            "path": "semantic_suggestion\/Tests\/Integration\/Service\/PageAnalysisServiceIntegrationTest.php",
+            "namespace": "TalanHdf\\SemanticSuggestion\\Tests\\Integration\\Service",
+            "uses": [
+                "TYPO3\\TestingFramework\\Core\\Functional\\FunctionalTestCase",
+                "TalanHdf\\SemanticSuggestion\\Service\\PageAnalysisService",
+                "TYPO3\\CMS\\Core\\Utility\\GeneralUtility",
+                "Symfony\\Component\\Dotenv\\Dotenv"
+            ],
+            "classes": [
+                null
+            ],
+            "interfaces": [],
+            "traits": [],
+            "functions": [],
+            "constants": [],
+            "hooks": [],
+            "plugins": []
+        },
+        {
+            "path": "semantic_suggestion\/Tests\/Unit\/Controller\/SuggestionsControllerTest.php",
+            "namespace": "TalanHdf\\SemanticSuggestion\\Tests\\Unit\\Controller",
+            "uses": [
+                "PHPUnit\\Framework\\TestCase",
+                "TalanHdf\\SemanticSuggestion\\Controller\\SuggestionsController",
+                "TalanHdf\\SemanticSuggestion\\Service\\PageAnalysisService",
+                "TYPO3\\CMS\\Core\\Resource\\FileRepository",
+                "TYPO3\\CMS\\Core\\Cache\\CacheManager",
+                "TYPO3\\CMS\\Core\\Cache\\Frontend\\FrontendInterface",
+                "TYPO3\\CMS\\Core\\Domain\\Repository\\PageRepository",
+                "Psr\\Log\\LoggerInterface",
+                "TYPO3\\CMS\\Core\\Utility\\GeneralUtility",
+                "Psr\\Http\\Message\\ResponseInterface",
+                "TYPO3\\CMS\\Frontend\\ContentObject\\ContentObjectRenderer",
+                "TYPO3\\CMS\\Frontend\\ContentObject\\ContentObjectFactory",
+                "TYPO3\\CMS\\Core\\Http\\ServerRequest",
+                "TYPO3\\CMS\\Frontend\\ContentObject\\AbstractContentObject"
+            ],
+            "classes": [
+                null
+            ],
+            "interfaces": [],
+            "traits": [],
+            "functions": [],
+            "constants": [],
+            "hooks": [],
+            "plugins": []
+        },
+        {
+            "path": "semantic_suggestion\/Tests\/Unit\/Service\/PageAnalysisServiceTest.php",
+            "namespace": "TalanHdf\\SemanticSuggestion\\Tests\\Unit\\Service",
+            "uses": [
+                "PHPUnit\\Framework\\TestCase",
+                "TalanHdf\\SemanticSuggestion\\Service\\PageAnalysisService",
+                "TYPO3\\CMS\\Core\\Context\\Context",
+                "TYPO3\\CMS\\Core\\Context\\LanguageAspect",
+                "TYPO3\\CMS\\Extbase\\Configuration\\ConfigurationManagerInterface",
+                "TYPO3\\CMS\\Core\\Cache\\CacheManager",
+                "TYPO3\\CMS\\Core\\Cache\\Frontend\\FrontendInterface",
+                "TYPO3\\CMS\\Core\\Database\\ConnectionPool",
+                "TYPO3\\CMS\\Core\\Database\\Query\\QueryBuilder",
+                "TYPO3\\CMS\\Core\\Database\\Connection",
+                "Psr\\Log\\LoggerInterface",
+                "Doctrine\\DBAL\\Result",
+                "($queryBuilderMock) {\n            static $callCount = 0"
+            ],
+            "classes": [
+                null
+            ],
+            "interfaces": [],
+            "traits": [],
+            "functions": [],
+            "constants": [],
+            "hooks": [],
+            "plugins": []
+        },
+        {
+            "path": "semantic_suggestion\/Tests\/UnitTestsBootstrap.php",
+            "namespace": "",
+            "uses": [],
+            "classes": [],
+            "interfaces": [],
+            "traits": [],
+            "functions": [
+                {
+                    "name": "",
+                    "namespace": ""
+                }
+            ],
+            "constants": [],
+            "hooks": [],
+            "plugins": []
+        },
+        {
+            "path": "semantic_suggestion\/ext_emconf.php",
+            "namespace": "",
+            "uses": [],
+            "classes": [],
+            "interfaces": [],
+            "traits": [],
+            "functions": [],
+            "constants": [],
+            "hooks": [],
+            "plugins": []
+        },
+        {
+            "path": "semantic_suggestion\/ext_localconf.php",
+            "namespace": "",
+            "uses": [],
+            "classes": [],
+            "interfaces": [],
+            "traits": [],
+            "functions": [
+                {
+                    "name": "",
+                    "namespace": ""
+                }
+            ],
+            "constants": [],
+            "hooks": [],
+            "plugins": []
+        },
+        {
+            "path": "semantic_suggestion\/ext_tables.php",
+            "namespace": "",
+            "uses": [],
+            "classes": [],
+            "interfaces": [],
+            "traits": [],
+            "functions": [
+                {
+                    "name": "",
+                    "namespace": ""
+                }
+            ],
+            "constants": [],
+            "hooks": [],
+            "plugins": []
+        }
+    ],
+    "configuration_files": [
+        {
+            "path": "semantic_suggestion\/Configuration\/Services.yaml",
+            "size": 848,
+            "lines": 27,
+            "note": "YAML extension not available. Install php-yaml for detailed analysis."
+        }
+    ],
+    "typoscript_files": [
+        {
+            "path": "semantic_suggestion\/Configuration\/TypoScript\/constants.typoscript",
+            "size": 3774,
+            "lines": 57,
+            "objects": [
+                "templateRootPath",
+                "partialRootPath",
+                "layoutRootPath",
+                "storagePid",
+                "parentPageId",
+                "proximityThreshold",
+                "maxSuggestions",
+                "recursive",
+                "excludePages",
+                "excerptLength",
+                "recencyWeight",
+                "enableNlpAnalysis",
+                "title",
+                "description",
+                "keywords",
+                "abstract",
+                "content",
+                "templateRootPath",
+                "partialRootPath",
+                "layoutRootPath"
+            ],
+            "includes": []
+        },
+        {
+            "path": "semantic_suggestion\/Configuration\/TypoScript\/setup.typoscript",
+            "size": 5470,
+            "lines": 116,
+            "objects": [
+                "0",
+                "1",
+                "0",
+                "1",
+                "0",
+                "1",
+                "storagePid",
+                "parentPageId",
+                "proximityThreshold",
+                "maxSuggestions",
+                "recursive",
+                "excludePages",
+                "excerptLength",
+                "recencyWeight",
+                "title",
+                "description",
+                "keywords",
+                "abstract",
+                "content",
+                "lib.semantic_suggestion",
+                "userFunc",
+                "extensionName",
+                "pluginName",
+                "vendorName",
+                "view",
+                "persistence",
+                "settings",
+                "tt_content.list.20.semanticsuggestion_suggestions",
+                "0",
+                "1",
+                "0",
+                "1",
+                "20",
+                "0",
+                "1",
+                "_CSS_DEFAULT_STYLE"
+            ],
+            "includes": []
+        }
+    ],
+    "template_files": [
+        {
+            "path": "semantic_suggestion\/Resources\/Private\/Layouts\/Default.html",
+            "size": 195,
+            "lines": 5,
+            "viewhelpers": [
+                "f"
+            ],
+            "sections": []
+        },
+        {
+            "path": "semantic_suggestion\/Resources\/Private\/Partials\/NlpStatistics.html",
+            "size": 3704,
+            "lines": 66,
+            "viewhelpers": [
+                "f"
+            ],
+            "sections": []
+        },
+        {
+            "path": "semantic_suggestion\/Resources\/Private\/Templates\/SemanticBackend\/Index.html",
+            "size": 9243,
+            "lines": 238,
+            "viewhelpers": [
+                "f"
+            ],
+            "sections": [
+                "content"
+            ]
+        },
+        {
+            "path": "semantic_suggestion\/Resources\/Private\/Templates\/SemanticBackend\/List.html",
+            "size": 328,
+            "lines": 11,
+            "viewhelpers": [
+                "f"
+            ],
+            "sections": [
+                "content"
+            ]
+        },
+        {
+            "path": "semantic_suggestion\/Resources\/Private\/Templates\/Suggestions\/List.html",
+            "size": 5951,
+            "lines": 83,
+            "viewhelpers": [
+                "f"
+            ],
+            "sections": []
+        }
+    ],
+    "xml_files": [
+        {
+            "path": "semantic_suggestion\/Tests\/Fixtures\/pages.xml",
+            "size": 552,
+            "lines": 23,
+            "root_element": "dataset",
+            "namespaces": []
+        }
+    ],
+    "critical_files": {
+        "ext_emconf.php": {
+            "status": "Present",
+            "size": 503,
+            "last_modified": "2024-08-10 00:42:33"
+        },
+        "ext_localconf.php": {
+            "status": "Present",
+            "size": 3186,
+            "last_modified": "2024-08-14 10:30:31"
+        },
+        "ext_tables.php": {
+            "status": "Present",
+            "size": 606,
+            "last_modified": "2024-08-07 20:16:53"
+        },
+        "Configuration\/TCA\/Overrides\/pages.php": {
+            "status": "Missing"
+        },
+        "Configuration\/TypoScript\/setup.typoscript": {
+            "status": "Present",
+            "size": 5470,
+            "last_modified": "2024-08-14 16:29:46"
+        },
+        "Configuration\/TypoScript\/constants.typoscript": {
+            "status": "Present",
+            "size": 3774,
+            "last_modified": "2024-08-13 22:29:00"
+        },
+        "composer.json": {
+            "status": "Present",
+            "size": 638,
+            "last_modified": "2024-08-13 22:31:26"
+        },
+        "ext_icon.png": {
+            "status": "Missing"
+        },
+        "Documentation\/Index.rst": {
+            "status": "Present",
+            "size": 887,
+            "last_modified": "2024-08-10 00:42:33"
+        },
+        "Resources\/Private\/Language\/locallang.xlf": {
+            "status": "Present",
+            "size": 748,
+            "last_modified": "2024-08-07 20:16:53"
+        }
+    },
+    "extension_structure": {
+        "0": {
+            "name": ".env",
+            "size": 149,
+            "last_modified": "2024-08-10 00:42:33"
+        },
+        "1": {
+            "name": ".gitignore",
+            "size": 748,
+            "last_modified": "2024-08-10 00:42:33"
+        },
+        ".phpunit.cache": [
+            {
+                "name": "test-results",
+                "size": 4357,
+                "last_modified": "2024-08-10 09:59:51"
+            }
+        ],
+        "2": {
+            "name": ".phpunit.result.cache",
+            "size": 761,
+            "last_modified": "2024-08-10 00:42:33"
+        },
+        "3": {
+            "name": "CHANGELOG.md",
+            "size": 5835,
+            "last_modified": "2024-08-11 19:19:34"
+        },
+        "Classes": {
+            "Controller": [
+                {
+                    "name": "SemanticBackendController.php",
+                    "size": 8553,
+                    "last_modified": "2024-08-14 10:31:31"
+                },
+                {
+                    "name": "SuggestionsController.php",
+                    "size": 10410,
+                    "last_modified": "2024-08-14 16:29:46"
+                }
+            ],
+            "Hooks": [
+                {
+                    "name": "DataHandlerHook.php",
+                    "size": 1828,
+                    "last_modified": "2024-08-10 01:15:10"
+                }
+            ],
+            "Service": [
+                {
+                    "name": "PageAnalysisService.php",
+                    "size": 21911,
+                    "last_modified": "2024-08-14 16:29:46"
+                }
+            ]
+        },
+        "Configuration": {
+            "Backend": [
+                {
+                    "name": "Modules.php",
+                    "size": 733,
+                    "last_modified": "2024-08-13 22:31:26"
+                },
+                {
+                    "name": "Routes.php",
+                    "size": 219,
+                    "last_modified": "2024-08-13 22:31:26"
+                }
+            ],
+            "0": {
+                "name": "Services.yaml",
+                "size": 848,
+                "last_modified": "2024-08-14 10:30:31"
+            },
+            "TCA": {
+                "Overrides": [
+                    {
+                        "name": "sys_template.php",
+                        "size": 238,
+                        "last_modified": "2024-08-07 20:16:53"
+                    },
+                    {
+                        "name": "tt_content.php",
+                        "size": 169,
+                        "last_modified": "2024-08-13 22:31:26"
+                    }
+                ]
+            },
+            "TypoScript": [
+                {
+                    "name": "constants.typoscript",
+                    "size": 3774,
+                    "last_modified": "2024-08-13 22:29:00"
+                },
+                {
+                    "name": "setup.typoscript",
+                    "size": 5470,
+                    "last_modified": "2024-08-14 16:29:46"
+                }
+            ]
+        },
+        "Documentation": {
+            "0": {
+                "name": "Index.rst",
+                "size": 887,
+                "last_modified": "2024-08-10 00:42:33"
+            },
+            "Installation": [
+                {
+                    "name": "Index.rst",
+                    "size": 1001,
+                    "last_modified": "2024-08-07 20:16:53"
+                }
+            ],
+            "Introduction": [
+                {
+                    "name": "Index.rst",
+                    "size": 903,
+                    "last_modified": "2024-08-07 20:16:53"
+                }
+            ],
+            "Medias": [
+                {
+                    "name": "backend_module.png",
+                    "size": 161353,
+                    "last_modified": "2024-08-10 00:42:33"
+                },
+                {
+                    "name": "backend_module_performance_metrics.jpg",
+                    "size": 18543,
+                    "last_modified": "2024-08-10 00:42:33"
+                },
+                {
+                    "name": "fluid_List_template.png",
+                    "size": 227202,
+                    "last_modified": "2024-08-10 00:42:33"
+                },
+                {
+                    "name": "frontend_on_the_same_theme_view.jpg",
+                    "size": 194499,
+                    "last_modified": "2024-08-10 00:42:33"
+                },
+                {
+                    "name": "frontend_plugin.png",
+                    "size": 24429,
+                    "last_modified": "2024-08-10 00:42:33"
+                },
+                {
+                    "name": "include_lib_fluid_template.png",
+                    "size": 73200,
+                    "last_modified": "2024-08-10 00:42:33"
+                },
+                {
+                    "name": "include_typoscript_fluid_templarte.png",
+                    "size": 18229,
+                    "last_modified": "2024-08-10 00:42:33"
+                }
+            ]
+        },
+        "4": {
+            "name": "IMPROVEMENTS.MD",
+            "size": 2222,
+            "last_modified": "2024-08-10 00:42:33"
+        },
+        "5": {
+            "name": "LICENSE",
+            "size": 1431,
+            "last_modified": "2024-08-07 20:16:53"
+        },
+        "6": {
+            "name": "README.md",
+            "size": 19748,
+            "last_modified": "2024-08-14 10:31:31"
+        },
+        "7": {
+            "name": "ROADMAP_TO_STABLE.md",
+            "size": 1998,
+            "last_modified": "2024-08-11 19:19:34"
+        },
+        "Resources": {
+            "Private": {
+                "Language": [
+                    {
+                        "name": "locallang.xlf",
+                        "size": 748,
+                        "last_modified": "2024-08-07 20:16:53"
+                    },
+                    {
+                        "name": "locallang_be.xlf",
+                        "size": 816,
+                        "last_modified": "2024-08-07 20:16:53"
+                    },
+                    {
+                        "name": "locallang_mod.xlf",
+                        "size": 719,
+                        "last_modified": "2024-08-07 20:16:53"
+                    },
+                    {
+                        "name": "locallang_semanticproximity.xlf",
+                        "size": 663,
+                        "last_modified": "2024-08-07 20:16:53"
+                    }
+                ],
+                "Layouts": [
+                    {
+                        "name": "Default.html",
+                        "size": 195,
+                        "last_modified": "2024-08-07 20:16:53"
+                    }
+                ],
+                "Partials": [
+                    {
+                        "name": "NlpStatistics.html",
+                        "size": 3704,
+                        "last_modified": "2024-08-14 16:29:46"
+                    }
+                ],
+                "Templates": {
+                    "SemanticBackend": [
+                        {
+                            "name": "Index.html",
+                            "size": 9243,
+                            "last_modified": "2024-08-14 16:29:46"
+                        },
+                        {
+                            "name": "List.html",
+                            "size": 328,
+                            "last_modified": "2024-08-07 20:16:53"
+                        }
+                    ],
+                    "Suggestions": [
+                        {
+                            "name": "List.html",
+                            "size": 5951,
+                            "last_modified": "2024-08-14 16:29:46"
+                        }
+                    ]
+                }
+            },
+            "Public": {
+                "Css": [
+                    {
+                        "name": "SemanticSuggestion.css",
+                        "size": 1640,
+                        "last_modified": "2024-08-07 20:16:53"
+                    }
+                ],
+                "Icons": [
+                    {
+                        "name": "Extension.svg",
+                        "size": 386,
+                        "last_modified": "2024-08-07 20:16:53"
+                    },
+                    {
+                        "name": "module-semantic-suggestion.svg",
+                        "size": 232,
+                        "last_modified": "2024-08-07 20:16:53"
+                    },
+                    {
+                        "name": "user_mod_semanticproximity.svg",
+                        "size": 242,
+                        "last_modified": "2024-08-07 20:16:53"
+                    }
+                ]
+            }
+        },
+        "Tests": {
+            "Fixtures": [
+                {
+                    "name": "pages.xml",
+                    "size": 552,
+                    "last_modified": "2024-08-08 23:41:20"
+                }
+            ],
+            "Integration": {
+                "Service": [
+                    {
+                        "name": "PageAnalysisServiceIntegrationTest.php",
+                        "size": 3862,
+                        "last_modified": "2024-08-09 10:08:16"
+                    }
+                ]
+            },
+            "Unit": {
+                "Controller": [
+                    {
+                        "name": "SuggestionsControllerTest.php",
+                        "size": 12508,
+                        "last_modified": "2024-08-10 15:32:45"
+                    }
+                ],
+                "Service": [
+                    {
+                        "name": "PageAnalysisServiceTest.php",
+                        "size": 24895,
+                        "last_modified": "2024-08-10 18:36:35"
+                    }
+                ]
+            },
+            "0": {
+                "name": "UnitTestsBootstrap.php",
+                "size": 4390,
+                "last_modified": "2024-08-10 17:52:16"
+            }
+        },
+        "8": {
+            "name": "composer.json",
+            "size": 638,
+            "last_modified": "2024-08-13 22:31:26"
+        },
+        "9": {
+            "name": "ext_conf_template.txt",
+            "size": 576,
+            "last_modified": "2024-08-07 20:16:53"
+        },
+        "10": {
+            "name": "ext_emconf.php",
+            "size": 503,
+            "last_modified": "2024-08-10 00:42:33"
+        },
+        "11": {
+            "name": "ext_localconf.php",
+            "size": 3186,
+            "last_modified": "2024-08-14 10:30:31"
+        },
+        "12": {
+            "name": "ext_tables.php",
+            "size": 606,
+            "last_modified": "2024-08-07 20:16:53"
+        },
+        "13": {
+            "name": "extension_analysis_report.json",
+            "size": 33647,
+            "last_modified": "2024-08-14 22:40:09"
+        },
+        "14": {
+            "name": "extension_report.json",
+            "size": 9113,
+            "last_modified": "2024-08-10 14:34:28"
+        },
+        "15": {
+            "name": "phpunit.xml.dist",
+            "size": 1208,
+            "last_modified": "2024-08-10 18:01:56"
+        }
+    },
+    "configuration": {
+        "TCA": {
+            "Overrides": {
+                "sys_template.php": {
+                    "path": "semantic_suggestion\/Configuration\/TCA\/Overrides\/sys_template.php",
+                    "size": 238,
+                    "lines": 11,
+                    "variables": [],
+                    "functions": []
+                },
+                "tt_content.php": {
+                    "path": "semantic_suggestion\/Configuration\/TCA\/Overrides\/tt_content.php",
+                    "size": 169,
+                    "lines": 8,
+                    "variables": [],
+                    "functions": []
+                }
+            }
+        },
+        "Services": {
+            "path": "semantic_suggestion\/Configuration\/Services.yaml",
+            "size": 848,
+            "lines": 27,
+            "note": "YAML extension not available. Install php-yaml for detailed analysis."
+        },
+        "TypoScript": {
+            "constants.typoscript": {
+                "path": "semantic_suggestion\/Configuration\/TypoScript\/constants.typoscript",
+                "size": 3774,
+                "lines": 57,
+                "objects": [
+                    "templateRootPath",
+                    "partialRootPath",
+                    "layoutRootPath",
+                    "storagePid",
+                    "parentPageId",
+                    "proximityThreshold",
+                    "maxSuggestions",
+                    "recursive",
+                    "excludePages",
+                    "excerptLength",
+                    "recencyWeight",
+                    "enableNlpAnalysis",
+                    "title",
+                    "description",
+                    "keywords",
+                    "abstract",
+                    "content",
+                    "templateRootPath",
+                    "partialRootPath",
+                    "layoutRootPath"
+                ],
+                "includes": []
+            },
+            "setup.typoscript": {
+                "path": "semantic_suggestion\/Configuration\/TypoScript\/setup.typoscript",
+                "size": 5470,
+                "lines": 116,
+                "objects": [
+                    "0",
+                    "1",
+                    "0",
+                    "1",
+                    "0",
+                    "1",
+                    "storagePid",
+                    "parentPageId",
+                    "proximityThreshold",
+                    "maxSuggestions",
+                    "recursive",
+                    "excludePages",
+                    "excerptLength",
+                    "recencyWeight",
+                    "title",
+                    "description",
+                    "keywords",
+                    "abstract",
+                    "content",
+                    "lib.semantic_suggestion",
+                    "userFunc",
+                    "extensionName",
+                    "pluginName",
+                    "vendorName",
+                    "view",
+                    "persistence",
+                    "settings",
+                    "tt_content.list.20.semanticsuggestion_suggestions",
+                    "0",
+                    "1",
+                    "0",
+                    "1",
+                    "20",
+                    "0",
+                    "1",
+                    "_CSS_DEFAULT_STYLE"
+                ],
+                "includes": []
+            }
+        }
+    },
+    "dependencies": {
+        "require": {
+            "typo3\/cms-core": "^12.0 || ^13.0"
+        },
+        "typo3": {
+            "depends": {
+                "typo3": "12.0.0-13.99.99"
+            },
+            "conflicts": [],
+            "suggests": []
+        }
+    }
+}

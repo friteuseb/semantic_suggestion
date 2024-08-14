@@ -41,3 +41,19 @@
 
 ## 8. Créate unit and functionnal tests
 
+
+
+## Autres améliorations à prévoir avec NLP
+
+Extraction de Mots-Clés et d'Entités Nommées: Utilisez des techniques NLP pour extraire automatiquement les mots-clés les plus pertinents et les entités nommées (personnes, lieux, organisations) de vos articles. Cela vous permettra de créer une représentation plus riche du contenu de chaque article.
+
+Analyse de Sentiment: Évaluez le sentiment général de chaque article (positif, négatif, neutre). Cela pourrait être utile pour suggérer des articles ayant un ton similaire.
+
+Classification de Texte: Classez automatiquement vos articles dans des catégories prédéfinies ou générées dynamiquement. Cela facilitera la recherche d'articles similaires au sein d'une même catégorie.
+
+Historique de Navigation: Tenez compte de l'historique de navigation des utilisateurs pour leur proposer des articles similaires à ceux qu'ils ont déjà consultés.
+Profils Utilisateurs: Collectez des informations sur les intérêts des utilisateurs (par exemple, via des catégories d'articles favoris) pour leur proposer des suggestions plus personnalisées.
+
+Explication des Suggestions: Fournissez des explications sur les raisons pour lesquelles un article est suggéré (par exemple, "Cet article est suggéré car il partage des mots-clés similaires et aborde un sujet connexe"). Cela aidera les utilisateurs à comprendre la pertinence des suggestions et à leur faire confiance.
+
+Similarité Cosinus: Calculez la similarité entre les vecteurs de mots-clés ou d'entités nommées de vos articles. Cette approche simple et efficace permet de trouver des articles ayant un vocabulaire similaire.
