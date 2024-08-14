@@ -52,42 +52,8 @@
                                                     Score de similarité : 
                                                     <f:format.number decimals="4">{suggestion.similarity}</f:format.number>
                                                 </small>
-                                            </p>
-                                            
-                                            <f:if condition="{nlpEnabled}">
-                                                <f:for each="{suggestions}" as="suggestion">
-                                                    <f:if condition="{suggestion.nlpData}">
-                                                        <div>
-                                                            <h4>NLP Data for {suggestion.data.title}</h4>
-                                                            <f:debug>{suggestion.nlpData}</f:debug>
-                                                        </div>
-                                                    </f:if>
-                                                </f:for>
-                                            </f:if>
-
-                                            <f:if condition="{nlpEnabled}">
-                                                <f:if condition="{suggestion.nlpData}">
-                                                    <div class="nlp-data">
-                                                        <h6>Analyse NLP</h6>
-                                                        <f:if condition="{suggestion.nlpData.topWords}">
-                                                            <p><strong>Mots-clés principaux :</strong> 
-                                                                <f:for each="{suggestion.nlpData.topWords}" as="word" iteration="iterator">
-                                                                    {word}{f:if(condition: iterator.isLast, else: ', ')}
-                                                                </f:for>
-                                                            </p>
-                                                        </f:if>
-                                                        <f:if condition="{suggestion.nlpData.sentiment}">
-                                                            <p><strong>Sentiment :</strong> {suggestion.nlpData.sentiment -> f:format.raw()}</p>
-                                                        </f:if>
-                                                        <f:if condition="{suggestion.nlpData.wordCount}">
-                                                            <p><strong>Nombre de mots :</strong> {suggestion.nlpData.wordCount}</p>
-                                                        </f:if>
-                                                        <f:if condition="{suggestion.nlpData.uniqueWordCount}">
-                                                            <p><strong>Mots uniques :</strong> {suggestion.nlpData.uniqueWordCount}</p>
-                                                        </f:if>
-                                                    </div>
-                                                </f:if>
-                                            </f:if>
+                                            </p>                                       
+                                       
                                         </div>
 
                                         <div class="card-footer">
