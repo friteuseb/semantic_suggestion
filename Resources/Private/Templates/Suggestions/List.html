@@ -14,6 +14,23 @@
                                 <div class="card-menu-item" proximity="{suggestion.similarity}">
                                     <div class="card">
                                         <div class="card-img-top">
+                                            <picture>
+                                                <source srcset="{f:uri.image(image: suggestion.data.media, width: '410c', height: '280c', cropVariant: 'default')}" media="(min-width: 1400px)" data-crop="default">
+                                                <source srcset="{f:uri.image(image: suggestion.data.media, width: '332c', height: '226c', cropVariant: 'default')}" media="(min-width: 1200px)" data-crop="default">
+                                                <source srcset="{f:uri.image(image: suggestion.data.media, width: '434c', height: '280c', cropVariant: 'default')}" media="(min-width: 992px)" data-crop="default">
+                                                <source srcset="{f:uri.image(image: suggestion.data.media, width: '500c', height: '280c', cropVariant: 'medium')}" media="(min-width: 768px)" data-crop="medium">
+                                                <source srcset="{f:uri.image(image: suggestion.data.media, width: '535c', height: '280c', cropVariant: 'small')}" media="(max-width: 767px)" data-crop="small">
+                                                <!--- Fallback -->
+                                                <f:image image="{suggestion.data.media}"
+                                                         treatIdAsReference="1"
+                                                         class="img-fluid"
+                                                         alt=""
+                                                         width="410c"
+                                                         height="280c"
+                                                         loading="lazy"
+                                                         additionalAttributes="{fetchPriority: 'low'}"
+                                                />
+                                            </picture>
                                         </div>
 
                                         <div class="card-body">

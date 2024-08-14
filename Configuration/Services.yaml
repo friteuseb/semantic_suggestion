@@ -23,3 +23,8 @@ services:
 
   TalanHdf\SemanticSuggestion\Controller\SemanticBackendController:
     tags: ['backend.controller']
+
+  TalanHdf\SemanticSuggestion\ViewHelpers\SuggestionsViewHelper:
+    public: true
+    tags: ['viewhelper']
+    autowire: true
