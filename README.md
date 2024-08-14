@@ -188,11 +188,6 @@ Consider your specific use case:
 
 ## 🖥 Usage
 
-### As a Plugin
-
-1. In the TYPO3 backend, go to the page where you want to display semantic suggestions.
-2. Add a new content element and select "Plugins" > "Semantic Suggestions".
-3. Configure the plugin settings as needed in the plugin's flexform.
 
 ### In Fluid Templates
 
