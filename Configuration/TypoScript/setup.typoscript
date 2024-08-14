@@ -102,7 +102,8 @@ module.tx_semanticsuggestion {
         partialRootPaths {
             0 = EXT:semantic_suggestion/Resources/Private/Partials/
             1 = {$module.tx_semanticsuggestion.view.partialRootPath}
-        }
+            20 = EXT:semantic_suggestion_nlp/Resources/Private/Partials/
+       }
         layoutRootPaths {
             0 = EXT:semantic_suggestion/Resources/Private/Layouts/
             1 = {$module.tx_semanticsuggestion.view.layoutRootPath}
@@ -113,41 +114,3 @@ module.tx_semanticsuggestion {
     _CSS_DEFAULT_STYLE = <link rel="stylesheet" type="text/css" href="EXT:semantic_suggestion/Resources/Public/Css/SemanticSuggestion.css" media="all">
 
 }
-
-[extension.loaded('semantic_suggestion_nlp') == 1]
-module.tx_semanticsuggestion {
-    view {
-        partialRootPaths {
-            20 = EXT:semantic_suggestion_nlp/Resources/Private/Partials/
-        }
-    }
-}
-[global]
-
-# Configuration similaire pour le plugin frontend si nécessaire
-plugin.tx_semanticsuggestion {
-    view {
-        templateRootPaths {
-            0 = EXT:semantic_suggestion/Resources/Private/Templates/
-            1 = {$plugin.tx_semanticsuggestion.view.templateRootPath}
-        }
-        partialRootPaths {
-            0 = EXT:semantic_suggestion/Resources/Private/Partials/
-            1 = {$plugin.tx_semanticsuggestion.view.partialRootPath}
-        }
-        layoutRootPaths {
-            0 = EXT:semantic_suggestion/Resources/Private/Layouts/
-            1 = {$plugin.tx_semanticsuggestion.view.layoutRootPath}
-        }
-    }
-}
-
-[extension.loaded('semantic_suggestion_nlp') == 1]
-plugin.tx_semanticsuggestion {
-    view {
-        partialRootPaths {
-            20 = EXT:semantic_suggestion_nlp/Resources/Private/Partials/
-        }
-    }
-}
-[global]
