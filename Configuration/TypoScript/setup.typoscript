@@ -1,49 +1,32 @@
-# Main configuration for the Semantic Suggestion plugin
 plugin.tx_semanticsuggestion_suggestions {
     view {
-        # Template root paths
-        # Override these paths in your site package to customize templates
         templateRootPaths {
             0 = EXT:semantic_suggestion/Resources/Private/Templates/
             1 = {$plugin.tx_semanticsuggestion_suggestions.view.templateRootPath}
         }
-        # Partial root paths
         partialRootPaths {
             0 = EXT:semantic_suggestion/Resources/Private/Partials/
             1 = {$plugin.tx_semanticsuggestion_suggestions.view.partialRootPath}
         }
-        # Layout root paths
         layoutRootPaths {
             0 = EXT:semantic_suggestion/Resources/Private/Layouts/
             1 = {$plugin.tx_semanticsuggestion_suggestions.view.layoutRootPath}
         }
     }
 
-    # Persistence configuration
-    # Uncomment and set if you need to store plugin-related records
     persistence {
         storagePid = {$plugin.tx_semanticsuggestion_suggestions.persistence.storagePid}
     }
     
-    # Main settings for the Semantic Suggestion functionality
     settings {
-        # ID of the parent page from which to start the analysis
         parentPageId = {$plugin.tx_semanticsuggestion_suggestions.settings.parentPageId}
-        # Threshold for considering pages as similar (0.0 to 1.0)
         proximityThreshold = {$plugin.tx_semanticsuggestion_suggestions.settings.proximityThreshold}
-        # Maximum number of suggestions to display
         maxSuggestions = {$plugin.tx_semanticsuggestion_suggestions.settings.maxSuggestions}
-        # Depth of recursion in the page tree (0 = only direct children)
         recursive = {$plugin.tx_semanticsuggestion_suggestions.settings.recursive}
-        # Comma-separated list of page UIDs to exclude from suggestions
         excludePages = {$plugin.tx_semanticsuggestion_suggestions.settings.excludePages}
-        # Length of the text excerpt for each suggestion
         excerptLength = {$plugin.tx_semanticsuggestion_suggestions.settings.excerptLength}
-        # Weight for recency in similarity calculation
         recencyWeight = {$plugin.tx_semanticsuggestion_suggestions.settings.recencyWeight}
     
-
-        # Weights for different page fields in similarity calculation
         analyzedFields {
             title = {$plugin.tx_semanticsuggestion_suggestions.settings.analyzedFields.title}
             description = {$plugin.tx_semanticsuggestion_suggestions.settings.analyzedFields.description}
@@ -51,48 +34,26 @@ plugin.tx_semanticsuggestion_suggestions {
             abstract = {$plugin.tx_semanticsuggestion_suggestions.settings.analyzedFields.abstract}
             content = {$plugin.tx_semanticsuggestion_suggestions.settings.analyzedFields.content}
         }
+
+        # NLP settings
+        enableNlpAnalysis = {$plugin.tx_semanticsuggestion_suggestions.settings.enableNlpAnalysis}
+        selectedScenario = {$plugin.tx_semanticsuggestion_suggestions.settings.selectedScenario}
     }
 }
 
-# Configuration to include the plugin in content elements
-# This allows you to include the semantic suggestion functionality
-# in any content element by referencing `lib.semantic_suggestion`
-# Usage: <f:cObject typoscriptObjectPath="lib.semantic_suggestion" />
-
-# Configuration of the lib.semantic_suggestion
-# This block defines a TypoScript object that can be reused throughout the site
 lib.semantic_suggestion = USER
 lib.semantic_suggestion {
-    # Specifies the user function that should be called to execute the plugin
     userFunc = TYPO3\CMS\Extbase\Core\Bootstrap->run
-
-    # Specifies the name of the extension, the plugin, and the vendor
-    # This tells TYPO3 which extension and plugin to use
     extensionName = SemanticSuggestion
     pluginName = Suggestions
-    vendorName = Talan
-
-    # Inherit the view configuration from the plugin setup
-    # This includes paths to templates, partials, and layouts
-    view =< plugin.tx_semanticsuggestion_suggestions.view
-
-    # Inherit the persistence configuration from the plugin setup
-    # This includes settings related to database storage
-    persistence =< plugin.tx_semanticsuggestion_suggestions.persistence
-
-    # Inherit the settings configuration from the plugin setup
-    # This includes custom settings like parentPageId, proximityThreshold, etc.
-    settings =< plugin.tx_semanticsuggestion_suggestions.settings
+    vendorName = TalanHdf
+    view < plugin.tx_semanticsuggestion_suggestions.view
+    persistence < plugin.tx_semanticsuggestion_suggestions.persistence
+    settings < plugin.tx_semanticsuggestion_suggestions.settings
 }
 
-# Configuration to include the plugin in content elements
-# This maps the TypoScript path `tt_content.list.20.semanticsuggestion_suggestions`
-# to the plugin configuration `plugin.tx_semanticsuggestion_suggestions`
-# This allows the plugin to be used as a content element
-tt_content.list.20.semanticsuggestion_suggestions =< plugin.tx_semanticsuggestion_suggestions
+tt_content.list.20.semanticsuggestion_suggestions < plugin.tx_semanticsuggestion_suggestions
 
-
-# Backend module configuration
 module.tx_semanticsuggestion {
     view {
         templateRootPaths {
@@ -102,15 +63,13 @@ module.tx_semanticsuggestion {
         partialRootPaths {
             0 = EXT:semantic_suggestion/Resources/Private/Partials/
             1 = {$module.tx_semanticsuggestion.view.partialRootPath}
-            20 = EXT:semantic_suggestion_nlp/Resources/Private/Partials/
-       }
+            20 = EXT:semantic_suggestion/Resources/Private/Partials/NLP/
+        }
         layoutRootPaths {
             0 = EXT:semantic_suggestion/Resources/Private/Layouts/
             1 = {$module.tx_semanticsuggestion.view.layoutRootPath}
         }
     }
-    # Custom CSS for the backend module
     _CSS_DEFAULT_STYLE >
     _CSS_DEFAULT_STYLE = <link rel="stylesheet" type="text/css" href="EXT:semantic_suggestion/Resources/Public/Css/SemanticSuggestion.css" media="all">
-
 }

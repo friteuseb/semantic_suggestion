@@ -52,7 +52,26 @@
                                                     Score de similarité : 
                                                     <f:format.number decimals="4">{suggestion.similarity}</f:format.number>
                                                 </small>
-                                            </p>                                       
+                                            </p>     
+                                             <h2>Similar Pages</h2>
+    <f:if condition="{similarPages}">
+        <ul>
+            <f:for each="{similarPages}" as="page">
+                <li>
+                    <f:link.page pageUid="{page.uid}">{page.title}</f:link.page>
+                    <br>Similarity: {page.similarity -> f:format.number(decimals: 2)}
+                    <f:if condition="{page.nlp}">
+                        <br>Category: {page.nlp.category}
+                        <br>Sentiment: {page.nlp.sentiment}
+                        <br>Top Keywords: 
+                        <f:for each="{page.nlp.keywords}" as="keyword" iteration="iteration">
+                            {keyword}{f:if(condition: iteration.isLast, else: ', ')}
+                        </f:for>
+                    </f:if>
+                </li>
+            </f:for>
+        </ul>
+    </f:if>                                  
                                        
                                         </div>
 
