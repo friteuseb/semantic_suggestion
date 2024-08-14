@@ -1,5 +1,6 @@
 <html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers" data-namespace-typo3-fluid="true">
-<div id="content" class="section">
+    
+    <div id="content" class="section">
     <div class="frame frame-default frame-type-menu_card_dir frame-layout-default frame-size-default frame-height-default frame-background-none frame-space-before-none frame-space-after-none frame-no-backgroundimage" proximity-threshold="{proximityThreshold}">
         <div class="frame-group-container">
             <div class="frame-group-inner">
@@ -10,6 +11,11 @@
                         </div>
 
                         <div class="card-menu card-menu-align-left card-menu-columns-3 card-menu-Article">
+                            <f:if condition="{debugNlpEnabled}">
+    <div style="background-color: #ffcccc; padding: 10px; margin: 10px 0;">
+        NLP Enabled: {debugNlpEnabled}
+    </div>
+</f:if>
                             <f:for each="{suggestions}" as="suggestion">
                                 <div class="card-menu-item" proximity="{suggestion.similarity}">
                                     <div class="card">
@@ -52,27 +58,7 @@
                                                     Score de similarité : 
                                                     <f:format.number decimals="4">{suggestion.similarity}</f:format.number>
                                                 </small>
-                                            </p>     
-                                             <h2>Similar Pages</h2>
-    <f:if condition="{similarPages}">
-        <ul>
-            <f:for each="{similarPages}" as="page">
-                <li>
-                    <f:link.page pageUid="{page.uid}">{page.title}</f:link.page>
-                    <br>Similarity: {page.similarity -> f:format.number(decimals: 2)}
-                    <f:if condition="{page.nlp}">
-                        <br>Category: {page.nlp.category}
-                        <br>Sentiment: {page.nlp.sentiment}
-                        <br>Top Keywords: 
-                        <f:for each="{page.nlp.keywords}" as="keyword" iteration="iteration">
-                            {keyword}{f:if(condition: iteration.isLast, else: ', ')}
-                        </f:for>
-                    </f:if>
-                </li>
-            </f:for>
-        </ul>
-    </f:if>                                  
-                                       
+                                            </p>
                                         </div>
 
                                         <div class="card-footer">

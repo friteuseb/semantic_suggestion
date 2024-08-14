@@ -36,8 +36,14 @@ class NlpService implements SingletonInterface
 
     public function analyzeContent(string $content): array
     {
-        if (!$this->enabled) {
-            return [];
+        if (empty(trim($content))) {
+            return [
+                'keywords' => [],
+                'namedEntities' => [],
+                'sentiment' => 'neutral',
+                'category' => 'uncategorized',
+                'readabilityScore' => 0
+            ];
         }
 
         return [
@@ -45,9 +51,11 @@ class NlpService implements SingletonInterface
             'namedEntities' => $this->extractNamedEntities($content),
             'sentiment' => $this->analyzeSentiment($content),
             'category' => $this->classifyText($content),
-            'readabilityScore' => $this->calculateReadabilityScore($content),
+            'readabilityScore' => $this->calculateReadabilityScore($content)
         ];
     }
+
+
 
     protected function extractKeywords(string $content): array
     {
@@ -106,22 +114,34 @@ class NlpService implements SingletonInterface
 
     public function calculateNlpSimilarity(array $nlpData1, array $nlpData2): float
     {
-        if (!$this->enabled || empty($nlpData1) || empty($nlpData2)) {
-            return 0.0;
-        }
-
-        $keywordSimilarity = $this->jaccardIndex->similarity($nlpData1['keywords'], $nlpData2['keywords']);
-        $entitySimilarity = $this->jaccardIndex->similarity($nlpData1['namedEntities'], $nlpData2['namedEntities']);
-        $sentimentSimilarity = $nlpData1['sentiment'] === $nlpData2['sentiment'] ? 1.0 : 0.0;
-        $categorySimilarity = $nlpData1['category'] === $nlpData2['category'] ? 1.0 : 0.0;
+        $keywordSimilarity = $this->safeJaccardSimilarity($nlpData1['keywords'] ?? [], $nlpData2['keywords'] ?? []);
+        $entitySimilarity = $this->safeJaccardSimilarity($nlpData1['namedEntities'] ?? [], $nlpData2['namedEntities'] ?? []);
+        $sentimentSimilarity = ($nlpData1['sentiment'] ?? '') === ($nlpData2['sentiment'] ?? '') ? 1.0 : 0.0;
+        $categorySimilarity = ($nlpData1['category'] ?? '') === ($nlpData2['category'] ?? '') ? 1.0 : 0.0;
 
         return ($keywordSimilarity + $entitySimilarity + $sentimentSimilarity + $categorySimilarity) / 4;
+    }
+
+    protected function safeJaccardSimilarity(array $set1, array $set2): float
+    {
+        if (empty($set1) && empty($set2)) {
+            return 1.0; // Considérer deux ensembles vides comme identiques
+        }
+        if (empty($set1) || empty($set2)) {
+            return 0.0; // Si un ensemble est vide et l'autre non, ils sont complètement différents
+        }
+        return $this->jaccardIndex->similarity($set1, $set2);
     }
 
     protected function calculateReadabilityScore(string $content): float
     {
         $sentences = preg_split('/[.!?]+/', $content);
         $wordCount = str_word_count($content);
+        
+        if ($wordCount === 0 || empty($sentences)) {
+            return 0.0;
+        }
+        
         $syllableCount = $this->countSyllables($content);
         
         $averageWordsPerSentence = $wordCount / count($sentences);

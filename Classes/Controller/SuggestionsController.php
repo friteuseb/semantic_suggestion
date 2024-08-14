@@ -30,56 +30,73 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
         $this->setLogger($logger);
     }
 
-    public function listAction(): ResponseInterface
-    {
-        $this->logger->info('listAction called');
-    
-        $currentPageId = $GLOBALS['TSFE']->id;
-        $cacheIdentifier = 'suggestions_' . $currentPageId;
-        $cacheManager = GeneralUtility::makeInstance(CacheManager::class);
-        $cache = $cacheManager->getCache('semantic_suggestion');
-    
-        try {
-            if ($cache->has($cacheIdentifier)) {
-                $this->logger->debug('Cache hit for suggestions', ['pageId' => $currentPageId]);
-                $viewData = $cache->get($cacheIdentifier);
+
+
+
+   public function listAction(): ResponseInterface
+{
+    $this->logger->info('listAction called');
+
+    $currentPageId = $GLOBALS['TSFE']->id;
+    $cacheIdentifier = 'suggestions_' . $currentPageId;
+    $cacheManager = GeneralUtility::makeInstance(CacheManager::class);
+    $cache = $cacheManager->getCache('semantic_suggestion');
+
+    try {
+        if ($cache->has($cacheIdentifier)) {
+            $this->logger->debug('Cache hit for suggestions', ['pageId' => $currentPageId]);
+            $viewData = $cache->get($cacheIdentifier);
+        } else {
+            $this->logger->debug('Cache miss for suggestions', ['pageId' => $currentPageId]);
+            $viewData = $this->generateSuggestions($currentPageId);
+            
+            if (!empty($viewData['suggestions'])) {
+                $cache->set($cacheIdentifier, $viewData, ['tx_semanticsuggestion'], 3600);
             } else {
-                $this->logger->debug('Cache miss for suggestions', ['pageId' => $currentPageId]);
-                $viewData = $this->generateSuggestions($currentPageId);
-                
-                if (!empty($viewData['suggestions'])) {
-                    $cache->set($cacheIdentifier, $viewData, ['tx_semanticsuggestion'], 3600); // Cache for 1 hour
-                } else {
-                    $this->logger->warning('No suggestions generated', ['pageId' => $currentPageId]);
-                }
+                $this->logger->warning('No suggestions generated', ['pageId' => $currentPageId]);
             }
-    
-            // Vérifier si l'extension NLP est activée et utiliser le template approprié
-            $nlpEnabled = \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion_nlp');
+        }
 
-            // Récupérer la configuration de l'extension NLP
-            $nlpConfig = $nlpEnabled 
-                ? GeneralUtility::makeInstance(\TYPO3\CMS\Core\Configuration\ExtensionConfiguration::class)->get('semantic_suggestion_nlp') 
-                : [];
+        // Vérifier si l'extension NLP est activée et utiliser le template approprié
+        $nlpEnabled = \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion');
 
-            // Vérifier si l'extension est activée selon sa configuration
-            $nlpEnabled = $nlpEnabled && ($nlpConfig['enableNlpAnalysis'] ?? false);
-
-            if ($nlpEnabled) {
-                $this->view->setTemplatePathAndFilename(
-                    GeneralUtility::getFileAbsFileName('EXT:semantic_suggestion_nlp/Resources/Private/Templates/Suggestions/NlpList.html')
-                );
-            } 
+        // Récupérer la configuration de l'extension
+        $extensionConfiguration = GeneralUtility::makeInstance(\TYPO3\CMS\Core\Configuration\ExtensionConfiguration::class);
+        $nlpConfig = $extensionConfiguration->get('semantic_suggestion');
     
-            $this->view->assignMultiple($viewData);
+        // Afficher la configuration dans les logs
+        $this->logger->info('Semantic Suggestion Configuration', ['config' => $nlpConfig]);
     
-        } catch (\Exception $e) {
-            $this->logger->error('Error in listAction', ['exception' => $e->getMessage()]);
-            $this->view->assign('error', 'An error occurred while generating suggestions.');
+        // Vérifier si l'analyse NLP est activée
+        $nlpEnabled = ($nlpConfig['enableNlpAnalysis'] ?? false) && \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion');
+    
+        $this->logger->info('NLP Enabled Status', ['nlpEnabled' => $nlpEnabled]);
+    
+        // Passer les informations de débogage à la vue
+        $this->view->assign('debugConfig', $nlpConfig);
+        $this->view->assign('debugNlpEnabled', $nlpEnabled);
+    
+        if ($nlpEnabled) {
+            $this->logger->info('NLP analysis is enabled, using NlpSuggestions template');
+            $templatePath = 'EXT:semantic_suggestion/Resources/Private/Templates/Suggestions/SuggestionsNlp.html';
+        } else {
+            $this->logger->info('NLP analysis is disabled, using default Suggestions template');
+            $templatePath = 'EXT:semantic_suggestion/Resources/Private/Templates/Suggestions/List.html';
         }
     
-        return $this->htmlResponse();
+        $this->view->setTemplatePathAndFilename(GeneralUtility::getFileAbsFileName($templatePath));
+        $this->view->assignMultiple($viewData);
+        $this->view->assign('nlpEnabled', $nlpEnabled);
+
+    } catch (\Exception $e) {
+        $this->logger->error('Error in listAction', ['exception' => $e->getMessage()]);
+        $this->view->assign('error', 'An error occurred while generating suggestions.');
     }
+
+    return $this->htmlResponse();
+}
+
+
     
     protected function generateSuggestions(int $currentPageId): array
     {
@@ -113,13 +130,15 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
     
         // Ajout des données NLP si l'extension est présente
         if (\TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion_nlp')) {
-            $nlpAnalyzer = GeneralUtility::makeInstance(\TalanHdf\SemanticSuggestionNlp\NLP\Analyzer::class);
+            $nlpAnalyzer = GeneralUtility::makeInstance(\TalanHdf\SemanticSuggestion\Service\NlpService::class);
             foreach ($viewData['suggestions'] as &$suggestion) {
                 $pageUid = $suggestion['data']['uid'];
-                $suggestion['nlpData'] = $nlpAnalyzer->getPageNlpData($pageUid);
+                $pageContent = $suggestion['data']['tt_content'] ?? '';
+                $suggestion['nlp'] = $nlpAnalyzer->analyzeContent($pageContent);
+                $currentPageContent = $this->getPageContents($currentPageId);
                 $suggestion['nlpSimilarity'] = $nlpAnalyzer->calculateNlpSimilarity(
-                    $nlpAnalyzer->getPageNlpData($currentPageId),
-                    $suggestion['nlpData']
+                    $nlpAnalyzer->analyzeContent($currentPageContent),
+                    $suggestion['nlp']
                 );
             }
             $viewData['nlpEnabled'] = true;
@@ -218,10 +237,10 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
     {
         $contentObject = GeneralUtility::makeInstance(ContentObjectRenderer::class);
         $contentObject->start([], 'pages');
-
+    
         $content = '';
         $commonColPos = [0, 1, 2, 3, 8, 9];
-
+    
         foreach ($commonColPos as $colPos) {
             $conf = [
                 'table' => 'tt_content',
@@ -231,13 +250,13 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
                     'pidInList' => $pageId
                 ]
             ];
-
+    
             $colPosContent = $contentObject->cObjGetSingle('CONTENT', $conf);
             if (!empty(trim($colPosContent))) {
                 $content .= ' ' . $colPosContent;
             }
         }
-
-        return $content;
+    
+        return trim($content);
     }
 }

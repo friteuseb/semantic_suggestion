@@ -11,4 +11,4 @@ settings.maxSuggestions = 5
 settings.excerptLength = 100
 
 # cat=basic/enable; type=boolean; label=Enable NLP features
-enableNlp = 0
+enableNlpAnalysis = 1
