@@ -296,9 +296,11 @@ class PageAnalysisService implements LoggerAwareInterface
         
             return $preparedData;
         }
+         // Retourner $preparedData même si l'extension NLP n'est pas chargée
+        return $preparedData; 
 
     }
-    
+
 private function getAllSubpages(int $parentId, int $depth = 0): array
 {
     $allPages = [];

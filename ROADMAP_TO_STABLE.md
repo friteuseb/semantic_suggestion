@@ -15,22 +15,22 @@ The extension is currently in beta, with version 1.0.7 being the latest release.
 - [x] Add support for excluding specific pages
 
 ### Version 1.0.8 (Planned)
-- [ ] Bug fixes based on user feedback
+- [x] Bug fixes based on user feedback
 - [x] Further performance optimizations
 - [x] Enhance documentation
 
 ### Version 1.0.9 (If Necessary)
-- [ ] Additional bug fixes
+- [x] Additional bug fixes
 - [x] Minor feature enhancements
 
 ## Phase 2: Preparation for Stability (1.1.0-beta)
 
 - [ ] Conduct a comprehensive code review
-- [ ] Implement automated testing suite
+- [x] Implement automated testing suite
 - [ ] Enhance developer documentation
-- [ ] Create detailed user guides
+- [x] Create detailed user guides
 - [ ] Evaluate and potentially implement integration with EXT:news
-- [ ] Improve backend module functionality
+- [x] Improve backend module functionality
 
 ## Phase 3: Release Candidate (1.1.0-rc)
 

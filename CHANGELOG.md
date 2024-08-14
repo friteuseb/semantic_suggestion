@@ -7,13 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog for Semantic Suggestion Extension
 
-## [1.1.0] 
+## [1.1.0]-beta 
 
 ### Added
-- New `SuggestionsViewHelper` for easy integration in Fluid templates
-  - Allows direct rendering of semantic suggestions in any template
-  - Supports customizable parameters: pageUid, parentPageId, proximityThreshold, maxSuggestions, depth
-  - Flexible content rendering within ViewHelper tags
+
+- Advanced integration of NLP (Natural Language Processing) functionalities with the semantic_suggestion_nlp extension :
+  - New `NlpAnalysisService` for NLP content analysis
+  - `NlpAnalysisHook` for flexible integration of NLP analyses
+  - Calculation of NLP statistics including text complexity, sentiment, and top keywords
+- Option to toggle NLP analysis in extension settings
+
 
 - Comprehensive unit tests for `SuggestionsController`
   - Tests for cache handling in list action
@@ -27,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added detailed information about similarity and recency in analysis results
 
   #### Changes
+  
+  - Major refactoring of `SemanticBackendController` for improved handling of classic and NLP analyses
+  - Enhanced `preparePageData` method in `PageAnalysisService` to include NLP results
+  - Updated hook system for better extensibility
+
   - Redesigned the `calculateSimilarity` method to better account for page recency
   - Improved the `calculateRecencyBoost` method for better normalization of page ages
   - Updated the `analyzePages` method to include more information in results
