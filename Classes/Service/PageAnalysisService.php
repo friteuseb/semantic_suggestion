@@ -162,10 +162,10 @@ class PageAnalysisService implements LoggerAwareInterface
     
         return $result;
     }
-
     protected function preparePageData(array $page): array
     {
         $preparedData = [];
+        $nlpAnalysis = null;
     
         if (!is_array($this->settings['analyzedFields'])) {
             $this->logger?->warning('analyzedFields is not an array', ['settings' => $this->settings]);
@@ -181,9 +181,10 @@ class PageAnalysisService implements LoggerAwareInterface
                         'weight' => (float)$weight
                     ];
                     
-                    // Ajout de l'analyse NLP pour le contenu
+                    // Analyse NLP pour le contenu principal
                     if ($this->nlpService->isEnabled()) {
-                        $preparedData['content']['nlp'] = $this->nlpService->analyzeContent($content);
+                        $nlpAnalysis = $this->nlpService->analyzeContent($content);
+                        $preparedData['content']['nlp'] = $nlpAnalysis;
                     }
                 } catch (\Exception $e) {
                     $this->logger?->error('Error fetching page content', ['pageId' => $page['uid'], 'exception' => $e->getMessage()]);
@@ -198,7 +199,7 @@ class PageAnalysisService implements LoggerAwareInterface
                     'weight' => (float)$weight
                 ];
                 
-                // Ajout de l'analyse NLP pour les autres champs
+                // Analyse NLP pour les autres champs importants
                 if ($this->nlpService->isEnabled() && in_array($field, ['title', 'description', 'keywords'])) {
                     $preparedData[$field]['nlp'] = $this->nlpService->analyzeContent($page[$field]);
                 }
@@ -212,8 +213,15 @@ class PageAnalysisService implements LoggerAwareInterface
     
         $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
     
+        if ($nlpAnalysis) {
+            $preparedData['nlp'] = $nlpAnalysis;
+            $this->logger->debug('NLP analysis result', ['pageId' => $page['uid'], 'nlpAnalysis' => $nlpAnalysis]);
+        }
+    
         return $preparedData;
     }
+
+
 
     private function getAllSubpages(int $parentId, int $depth = 0): array
     {

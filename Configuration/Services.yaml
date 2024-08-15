@@ -24,4 +24,9 @@ services:
   TalanHdf\SemanticSuggestion\Controller\SemanticBackendController:
     tags: ['backend.controller']
 
+  TalanHdf\SemanticSuggestion\Command\NlpAnalysisCommand:
+    tags:
+      - name: 'console.command'
+        command: 'semanticsuggestion:nlpanalysis'
+
   

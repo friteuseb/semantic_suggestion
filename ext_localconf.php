@@ -54,4 +54,12 @@ defined('TYPO3') or die();
             'groups' => ['pages']
         ];
     }
+
+    $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['scheduler']['tasks'][\TalanHdf\SemanticSuggestion\Task\NlpAnalysisTask::class] = [
+        'extension' => 'semantic_suggestion',
+        'title' => 'LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang.xlf:nlpAnalysisTask.name',
+        'description' => 'LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang.xlf:nlpAnalysisTask.description',
+        'additionalFields' => \TalanHdf\SemanticSuggestion\Task\NlpAnalysisTaskAdditionalFieldProvider::class
+    ];
+    
 })();

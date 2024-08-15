@@ -2,64 +2,36 @@
 <f:layout name="Default" />
 
 <f:section name="content">
-    <div class="semantic-suggestions">
-        <h2>Pages suggérées</h2>
-        
-        <f:if condition="{suggestions}">
-            <f:then>
-                <div class="suggestion-list">
-                    <f:for each="{suggestions}" as="suggestion">
-                        <div class="suggestion-item">
-                            <h3>
-                                <f:link.page pageUid="{suggestion.uid}" title="Voir la page complète">
-                                    {suggestion.title}
-                                </f:link.page>
-                            </h3>
-                            
-                            <div class="suggestion-meta">
-                                <span class="similarity-score" title="Score de similarité">
-                                    <i class="fas fa-percentage"></i> {suggestion.similarity -> f:format.number(decimals: 2)}
-                                </span>
-                                <span class="sentiment" title="Sentiment du contenu">
-                                    <i class="fas fa-smile"></i> {suggestion.nlp.sentiment}
-                                </span>
-                                <span class="category" title="Catégorie du contenu">
-                                    <i class="fas fa-tag"></i> {suggestion.nlp.category}
-                                </span>
-                            </div>
-                            
-                            <p class="suggestion-excerpt">
-                                <f:format.crop maxCharacters="200" append="...">{suggestion.content}</f:format.crop>
-                            </p>
-                            
-                            <div class="suggestion-keywords">
-                                <strong>Mots-clés :</strong>
-                                <f:for each="{suggestion.nlp.keywords}" as="keyword" iteration="iterator">
-                                    <span class="keyword">{keyword}</span>{f:if(condition: iterator.isLast, else: ', ')}
-                                </f:for>
-                            </div>
-                            
-                            <f:if condition="{suggestion.nlp.namedEntities}">
-                                <div class="suggestion-entities">
-                                    <strong>Entités nommées :</strong>
-                                    <f:for each="{suggestion.nlp.namedEntities}" as="entity" iteration="iterator">
-                                        <span class="entity">{entity}</span>{f:if(condition: iterator.isLast, else: ', ')}
-                                    </f:for>
-                                </div>
-                            </f:if>
-                            
-                            <div class="suggestion-readability">
-                                <strong>Score de lisibilité :</strong>
-                                <span title="Score Flesch-Kincaid">{suggestion.nlp.readabilityScore -> f:format.number(decimals: 1)}</span>
-                            </div>
-                        </div>
-                    </f:for>
+    <h2>Pages suggérées</h2>
+    <f:if condition="{suggestions}">
+        <f:then>
+            <f:for each="{suggestions}" as="suggestion">
+                <div class="suggestion">
+                    <h3>{suggestion.data.title}</h3>
+                    <p>Similarité: {suggestion.similarity -> f:format.number(decimals: 2)}</p>
+                    <f:if condition="{suggestion.nlp}">
+                        <p>Sentiment: {suggestion.nlp.sentiment}</p>
+                        <p>Phrases clés:</p>
+                        <ul>
+                            <f:for each="{suggestion.nlp.keyphrases}" as="keyphrase">
+                                <li>{keyphrase}</li>
+                            </f:for>
+                        </ul>
+                        <p>Catégorie: {suggestion.nlp.category}</p>
+                        <p>Entités nommées:</p>
+                        <ul>
+                            <f:for each="{suggestion.nlp.named_entities}" as="entity">
+                                <li>{entity}</li>
+                            </f:for>
+                        </ul>
+                        <p>Score de lisibilité: {suggestion.nlp.readability_score -> f:format.number(decimals: 1)}</p>
+                    </f:if>
                 </div>
-            </f:then>
-            <f:else>
-                <p>Aucune suggestion trouvée pour cette page.</p>
-            </f:else>
-        </f:if>
-    </div>
+            </f:for>
+        </f:then>
+        <f:else>
+            <p>Aucune suggestion trouvée pour cette page.</p>
+        </f:else>
+    </f:if>
 </f:section>
 </html>
