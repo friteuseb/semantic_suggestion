@@ -498,7 +498,6 @@ Detailed output helps quickly identify and address any issues.
 
 > 💡 **Tip**: Regular test execution is recommended, especially after code changes, to ensure continued functionality and catch regressions early.
 
-
 ## NLP Functionality (Optional)
 
 The Semantic Suggestion extension works autonomously without NLP features. However, if you want to enhance its capabilities with Natural Language Processing, you can activate the NLP mode.
@@ -511,29 +510,27 @@ To use the NLP features, you need to install additional Python libraries. The in
 
 If you're not using DDEV:
 
-1. Ensure Python and pip are installed on your system.
+1. Ensure Python 3, pip, and pipx are installed on your system.
 2. Navigate to the root folder of the extension.
-3. Run the installation script:
+3. Run the following commands:
 
    ```
-   bash install_dependencies.sh
+   pipx install nltk spacy torch transformers
+   python3 -m spacy download fr_core_news_sm
+   python3 -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')"
    ```
 
-This script will install all necessary Python libraries for NLP functionality.
+This will install all necessary Python libraries for NLP functionality.
 
 #### DDEV Installation
 
 If you're using DDEV:
 
-1. The extension includes a DDEV-specific installation script at the root of the extension.
-2. DDEV will automatically run this script during the post-start hook.
-3. To manually trigger the installation, you can run:
+1. The extension includes a DDEV-specific configuration file named `config.semantic_suggestion.yaml` at the root of the extension.
+2. Copy the contents of this file and append them to your project's `.ddev/config.yaml` file.
+3. Run `ddev restart` to apply the changes.
 
-   ```
-   ddev exec bash /var/www/html/packages/semantic_suggestion/ddev_install_dependencies.sh
-   ```
-
-This will install the required Python libraries within the DDEV container.
+DDEV will automatically install the required Python libraries and dependencies during the post-start hook.
 
 ### Activating NLP Mode
 
@@ -549,26 +546,21 @@ Here's how it should look in the TYPO3 backend:
 
 ![NLP Activation in TYPO3 Backend](/path/to/nlp_activation_image.png)
 
-Remember, the NLP functionality is optional. The extension will continue to work without it, but enabling NLP will provide more advanced semantic analysis and improved suggestion accuracy.
-
-**Note**: Activating NLP mode may increase processing time and resource usage. Consider your server capabilities when enabling this feature.
-
-#### Verifying NLP Installation
+### Verifying NLP Installation
 
 To verify that the NLP dependencies are correctly installed:
 
 1. For standard installations:
    ```
-   python -c "import nltk, spacy, torch, transformers; print('NLP dependencies are installed correctly')"
+   python3 -c "import nltk, spacy, torch, transformers; print('NLP dependencies are installed correctly')"
    ```
 
 2. For DDEV:
    ```
-   ddev exec python -c "import nltk, spacy, torch, transformers; print('NLP dependencies are installed correctly')"
+   ddev exec python3 -c "import nltk, spacy, torch, transformers; print('NLP dependencies are installed correctly')"
    ```
 
 If you see the message "NLP dependencies are installed correctly" without any errors, the installation was successful.
-
 
 Remember, the NLP functionality is optional. The extension will continue to work without it, but enabling NLP will provide more advanced semantic analysis and improved suggestion accuracy.
 

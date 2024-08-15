@@ -1,0 +1,15 @@
+webimage_extra_packages:
+  - python3
+  - python3-pip
+  - python3-venv
+
+hooks:
+  post-start:
+    - exec: sudo apt-get update && sudo apt-get install -y pipx
+    - exec: pipx ensurepath
+    - exec: pipx install nltk
+    - exec: pipx install spacy
+    - exec: pipx install torch
+    - exec: pipx install transformers
+    - exec: python3 -m spacy download fr_core_news_sm
+    - exec: python3 -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')"
