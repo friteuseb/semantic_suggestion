@@ -14,6 +14,7 @@ use TalanHdf\SemanticSuggestion\Service\NlpService;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Domain\Repository\PageRepository;
+use TYPO3\CMS\Frontend\ContentObject\ContentObjectRenderer;
 
 class SuggestionsController extends ActionController implements LoggerAwareInterface
 {
@@ -273,6 +274,6 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
             }
         }
     
-        return trim($content);
+        return $content;
     }
 }

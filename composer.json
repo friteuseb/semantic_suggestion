@@ -27,5 +27,13 @@
         "typo3/cms": {
             "extension-key": "semantic_suggestion"
         }
+    },
+    "scripts": {
+        "post-install-cmd": [
+            "bash install_dependencies.sh"
+        ],
+        "post-update-cmd": [
+            "bash install_dependencies.sh"
+        ]
     }
 }

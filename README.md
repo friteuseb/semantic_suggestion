@@ -57,10 +57,11 @@ By leveraging the power of semantic analysis, this extension provides a superior
 - [Debugging and Maintenance](#-debugging-and-maintenance)
 - [Security](#-security)
 - [Performance](#-performance)
-- [File Structure](#-file-structure)
-- [Unit Tests](#-unit-tests)
-- [Contributing](#-contributing)
-- [License](#-license)
+- [File Structure](#file-structure)
+- [Unit Tests](#unit-tests)
+- [NLP Functionality (Optional)](#nlp-functionality-optional)
+- [Contributing](#contributing)
+- [License](#license)
 - [Support](#-support)
 
 
@@ -104,6 +105,7 @@ By leveraging the power of semantic analysis, this extension provides a superior
 2. Upload the extension file to your TYPO3 installation's `typo3conf/ext/` directory.
 3. In the TYPO3 backend, go to the Extension Manager and activate the "Semantic Suggestion" extension.
 </details>
+
 
 ## ⚙️ Configuration
 
@@ -495,6 +497,83 @@ ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist --
 Detailed output helps quickly identify and address any issues.
 
 > 💡 **Tip**: Regular test execution is recommended, especially after code changes, to ensure continued functionality and catch regressions early.
+
+
+## NLP Functionality (Optional)
+
+The Semantic Suggestion extension works autonomously without NLP features. However, if you want to enhance its capabilities with Natural Language Processing, you can activate the NLP mode.
+
+### Installing NLP Dependencies
+
+To use the NLP features, you need to install additional Python libraries. The installation process differs depending on your development environment.
+
+#### Standard Installation
+
+If you're not using DDEV:
+
+1. Ensure Python and pip are installed on your system.
+2. Navigate to the root folder of the extension.
+3. Run the installation script:
+
+   ```
+   bash install_dependencies.sh
+   ```
+
+This script will install all necessary Python libraries for NLP functionality.
+
+#### DDEV Installation
+
+If you're using DDEV:
+
+1. The extension includes a DDEV-specific installation script at the root of the extension.
+2. DDEV will automatically run this script during the post-start hook.
+3. To manually trigger the installation, you can run:
+
+   ```
+   ddev exec bash /var/www/html/packages/semantic_suggestion/ddev_install_dependencies.sh
+   ```
+
+This will install the required Python libraries within the DDEV container.
+
+### Activating NLP Mode
+
+To activate the NLP mode:
+
+1. Go to the TYPO3 backend.
+2. Navigate to "Admin Tools" > "Settings" > "Extension Configuration".
+3. Find "semantic_suggestion" in the list and click on it.
+4. Check the box next to "Enable NLP Analysis".
+5. Save the configuration.
+
+Here's how it should look in the TYPO3 backend:
+
+![NLP Activation in TYPO3 Backend](/path/to/nlp_activation_image.png)
+
+Remember, the NLP functionality is optional. The extension will continue to work without it, but enabling NLP will provide more advanced semantic analysis and improved suggestion accuracy.
+
+**Note**: Activating NLP mode may increase processing time and resource usage. Consider your server capabilities when enabling this feature.
+
+#### Verifying NLP Installation
+
+To verify that the NLP dependencies are correctly installed:
+
+1. For standard installations:
+   ```
+   python -c "import nltk, spacy, torch, transformers; print('NLP dependencies are installed correctly')"
+   ```
+
+2. For DDEV:
+   ```
+   ddev exec python -c "import nltk, spacy, torch, transformers; print('NLP dependencies are installed correctly')"
+   ```
+
+If you see the message "NLP dependencies are installed correctly" without any errors, the installation was successful.
+
+
+Remember, the NLP functionality is optional. The extension will continue to work without it, but enabling NLP will provide more advanced semantic analysis and improved suggestion accuracy.
+
+**Note**: Activating NLP mode may increase processing time and resource usage. Consider your server capabilities when enabling this feature.
+
 
 ## 🤝 Contributing
 
