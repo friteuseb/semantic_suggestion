@@ -14,3 +14,15 @@ CREATE TABLE tx_semanticsuggestion_nlp_results (
     KEY parent (pid),
     KEY page (page_uid)
 );
+
+CREATE TABLE tx_semanticsuggestion_nlp_task_progress (
+    uid int(11) unsigned NOT NULL auto_increment,
+    task_id int(11) unsigned NOT NULL,
+    total_pages int(11) unsigned NOT NULL,
+    processed_pages int(11) unsigned NOT NULL,
+    status varchar(20) NOT NULL DEFAULT 'running',
+    start_time int(11) unsigned NOT NULL,
+    last_update int(11) unsigned NOT NULL,
+    PRIMARY KEY (uid),
+    KEY task_id (task_id)
+);

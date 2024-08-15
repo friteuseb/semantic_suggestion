@@ -92,12 +92,14 @@ class PageAnalysisService implements LoggerAwareInterface
         $this->settings['recencyWeight'] = max(0, min(1, (float)$this->settings['recencyWeight']));
     }
 
-    public function analyzePages(int $parentPageId = null, int $depth = null): array
+    public function analyzePages(?int $parentPageId = null, ?int $depth = null): array
     {
         $startTime = microtime(true);
     
         $parentPageId = $parentPageId ?? (int)$this->settings['parentPageId'];
         $depth = $depth ?? (int)$this->settings['recursive'];
+        $excludePages = GeneralUtility::intExplode(',', $this->settings['excludePages'] ?? '', true);
+        
         $cacheIdentifier = 'semantic_analysis_' . $parentPageId . '_' . $depth;
     
         if ($this->cache->has($cacheIdentifier)) {
@@ -108,7 +110,7 @@ class PageAnalysisService implements LoggerAwareInterface
         }
     
         try {
-            $pages = $this->getAllSubpages($parentPageId, $depth);
+            $pages = $this->getAllRelevantPages($parentPageId, $depth, $excludePages);
             $totalPages = count($pages);
             $analysisResults = [];
     
@@ -119,7 +121,6 @@ class PageAnalysisService implements LoggerAwareInterface
                 if ($nlpResults) {
                     $pageData['nlp'] = $nlpResults;
                 } else {
-                    // Si les résultats NLP n'existent pas en base, on les calcule et les stocke
                     $content = $this->getPageContent($page['uid']);
                     $nlpResults = $this->nlpService->analyzeContent($content);
                     $this->storeNlpResults($page['uid'], $nlpResults);
@@ -129,53 +130,73 @@ class PageAnalysisService implements LoggerAwareInterface
                 $analysisResults[$page['uid']] = $pageData;
             }
     
-            $similarityCalculations = 0;
-            foreach ($analysisResults as $pageId => &$pageData) {
-                foreach ($analysisResults as $comparisonPageId => $comparisonPageData) {
-                    if ($pageId !== $comparisonPageId) {
-                        $similarity = $this->calculateSimilarity($pageData, $comparisonPageData);
-                        $pageData['similarities'][$comparisonPageId] = [
-                            'score' => $similarity['finalSimilarity'],
-                            'semanticSimilarity' => $similarity['semanticSimilarity'],
-                            'recencyBoost' => $similarity['recencyBoost'],
-                            'nlpSimilarity' => $similarity['nlpSimilarity'] ?? 0,
-                            'commonKeywords' => $this->findCommonKeywords($pageData, $comparisonPageData),
-                            'relevance' => $this->determineRelevance($similarity['finalSimilarity']),
-                            'ageInDays' => round((time() - $comparisonPageData['content_modified_at']) / (24 * 3600), 1),
-                        ];
-                        
-                        $similarityCalculations++;
-                    }
-                }
-            }
+            $similarityResults = $this->calculateSimilarities($analysisResults);
+            $analysisResults = $similarityResults['analysisResults'];
+            $similarityCalculations = $similarityResults['similarityCalculations'];
     
+            $endTime = microtime(true);
+            $executionTime = $endTime - $startTime;
+    
+            $result = [
+                'results' => $analysisResults,
+                'metrics' => [
+                    'executionTime' => $executionTime,
+                    'totalPages' => $totalPages,
+                    'similarityCalculations' => $similarityCalculations,
+                    'fromCache' => false,
+                ],
+            ];
+    
+            $this->cache->set(
+                $cacheIdentifier,
+                $result,
+                ['tx_semanticsuggestion', 'pages_' . $parentPageId],
+                86400
+            );
+    
+            return $result;
         } catch (\Exception $e) {
             $this->logger?->error('Error during page analysis', ['exception' => $e->getMessage()]);
             return [];
         }
-    
-        $endTime = microtime(true);
-        $executionTime = $endTime - $startTime;
-    
-        $result = [
-            'results' => $analysisResults,
-            'metrics' => [
-                'executionTime' => $executionTime,
-                'totalPages' => $totalPages,
-                'similarityCalculations' => $similarityCalculations,
-                'fromCache' => false,
-            ],
-        ];
-    
-        $this->cache->set(
-            $cacheIdentifier,
-            $result,
-            ['tx_semanticsuggestion', 'pages_' . $parentPageId],
-            86400
-        );
-    
-        return $result;
     }
+
+private function getAllRelevantPages(?int $parentPageId, int $depth, array $excludePages): array
+{
+    $allPages = [];
+    
+    if ($parentPageId === null) {
+        // Si aucun parentPageId n'est spécifié, on récupère toutes les pages racines
+        $rootPages = $this->getRootPages();
+        foreach ($rootPages as $rootPage) {
+            $allPages = array_merge($allPages, $this->getAllSubpages($rootPage['uid'], $depth));
+        }
+    } else {
+        $allPages = $this->getAllSubpages($parentPageId, $depth);
+    }
+    
+    // Filtrer les pages exclues
+    return array_filter($allPages, function($page) use ($excludePages) {
+        return !in_array($page['uid'], $excludePages);
+    });
+}
+
+private function getRootPages(): array
+{
+    $queryBuilder = $this->getQueryBuilder();
+    return $queryBuilder
+        ->select('uid', 'title')
+        ->from('pages')
+        ->where(
+            $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
+            $queryBuilder->expr()->eq('hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
+            $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT))
+        )
+        ->executeQuery()
+        ->fetchAllAssociative();
+}
+
+
     
     protected function getPageNlpResults(int $pageId): ?array
     {
@@ -405,6 +426,34 @@ class PageAnalysisService implements LoggerAwareInterface
         return $weightedWords;
     }
 
+    private function calculateSimilarities(array $analysisResults): array
+    {
+        $similarities = [];
+        $similarityCalculations = 0;
+    
+        foreach ($analysisResults as $pageId1 => $pageData1) {
+            foreach ($analysisResults as $pageId2 => $pageData2) {
+                if ($pageId1 >= $pageId2) {
+                    continue;  // Évite les calculs redondants et la comparaison d'une page avec elle-même
+                }
+    
+                $similarity = $this->calculateSimilarity($pageData1, $pageData2);
+                $similarities[$pageId1][$pageId2] = $similarity;
+                $similarities[$pageId2][$pageId1] = $similarity;  // La similarité est symétrique
+    
+                $analysisResults[$pageId1]['similarities'][$pageId2] = $this->formatSimilarityResult($similarity, $pageData1, $pageData2);
+                $analysisResults[$pageId2]['similarities'][$pageId1] = $this->formatSimilarityResult($similarity, $pageData2, $pageData1);
+    
+                $similarityCalculations += 2;  // Compte pour les deux directions
+            }
+        }
+    
+        return [
+            'analysisResults' => $analysisResults,
+            'similarityCalculations' => $similarityCalculations
+        ];
+    }
+    
     private function calculateSimilarity(array $page1, array $page2): array
     {
         $words1 = $this->getWeightedWords($page1);
@@ -459,6 +508,20 @@ class PageAnalysisService implements LoggerAwareInterface
             'finalSimilarity' => min($finalSimilarity, 1.0)
         ];
     }
+    
+    private function formatSimilarityResult(array $similarity, array $currentPage, array $comparisonPage): array
+    {
+        return [
+            'score' => $similarity['finalSimilarity'],
+            'semanticSimilarity' => $similarity['semanticSimilarity'],
+            'recencyBoost' => $similarity['recencyBoost'],
+            'nlpSimilarity' => $similarity['nlpSimilarity'],
+            'commonKeywords' => $this->findCommonKeywords($currentPage, $comparisonPage),
+            'relevance' => $this->determineRelevance($similarity['finalSimilarity']),
+            'ageInDays' => round((time() - $comparisonPage['content_modified_at']) / (24 * 3600), 1),
+        ];
+    }
+
     
     private function calculateNlpSimilarity(array $nlpData1, array $nlpData2): float
     {

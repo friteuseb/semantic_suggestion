@@ -7,38 +7,74 @@ use TalanHdf\SemanticSuggestion\Service\PageAnalysisService;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
+use Psr\Log\LoggerInterface;
+use TYPO3\CMS\Core\Log\LogManager;
 
 class NlpAnalysisTask extends AbstractTask
 {
     protected $configurationManager;
     protected $nlpService;
     protected $pageAnalysisService;
+    protected ?LoggerInterface $logger = null;
 
     public function __construct()
     {
         parent::__construct();
+        $this->initializeServices();
     }
 
     public function execute()
     {
-        $this->initializeServices();
-
-        $settings = $this->getSettings();
-
-        $pages = $this->pageAnalysisService->getAllPages(
-            $settings['parentPageId'],
-            $settings['recursive'],
-            $settings['excludePages']
-        );
-
-        foreach ($pages as $page) {
-            $content = $this->pageAnalysisService->getPageContent($page['uid']);
-            $nlpResults = $this->nlpService->analyzeContent($content);
-
-            $this->storeNlpResults($page['uid'], $nlpResults);
+        try {
+            $this->initializeServices();
+            $settings = $this->getSettings();
+    
+            $analysisData = $this->pageAnalysisService->analyzePages(
+                $settings['parentPageId'],
+                $settings['recursive'],
+                $settings['excludePages']
+            );
+    
+            if (!isset($analysisData['results']) || !is_array($analysisData['results'])) {
+                throw new \Exception('Aucun résultat d\'analyse valide n\'a été retourné.');
+            }
+    
+            $totalPages = count($analysisData['results']);
+            $this->initializeTaskProgress($totalPages);
+    
+            $processedPages = 0;
+            foreach ($analysisData['results'] as $pageId => $pageData) {
+                if (isset($pageData['nlp'])) {
+                    $this->storeNlpResults($pageId, $pageData['nlp']);
+                }
+                $processedPages++;
+                $this->updateTaskProgress($processedPages);
+            }
+    
+            $this->finalizeTaskProgress();
+    
+            $this->logger?->info('Analyse NLP terminée', [
+                'totalPages' => $totalPages,
+                'executionTime' => $analysisData['metrics']['executionTime']
+            ]);
+    
+            return true;
+        } catch (\Exception $e) {
+            $this->finalizeTaskProgress('error');
+            $this->logger?->error('Erreur lors de l\'exécution de la tâche NLP : ' . $e->getMessage(), ['exception' => $e]);
+            return false;
         }
-
-        return true;
+    }
+    
+    protected function updateProgress($current, $total)
+    {
+        $progress = ($current / $total) * 100;
+        $this->logger?->info("Progression de l'analyse NLP", [
+            'current' => $current,
+            'total' => $total,
+            'percentage' => round($progress, 2)
+        ]);
+        // Vous pouvez également stocker cette progression dans la base de données si nécessaire
     }
 
     protected function initializeServices()
@@ -46,6 +82,7 @@ class NlpAnalysisTask extends AbstractTask
         $this->configurationManager = GeneralUtility::makeInstance(ConfigurationManagerInterface::class);
         $this->nlpService = GeneralUtility::makeInstance(NlpService::class);
         $this->pageAnalysisService = GeneralUtility::makeInstance(PageAnalysisService::class);
+        $this->logger = GeneralUtility::makeInstance(LogManager::class)->getLogger(__CLASS__);
     }
 
     protected function getSettings(): array
@@ -54,11 +91,16 @@ class NlpAnalysisTask extends AbstractTask
             ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
             'SemanticSuggestion'
         );
-
+    
         return [
             'parentPageId' => (int)($typoscriptSettings['parentPageId'] ?? 0),
             'recursive' => (int)($typoscriptSettings['recursive'] ?? 0),
             'excludePages' => GeneralUtility::intExplode(',', $typoscriptSettings['excludePages'] ?? '', true),
+            'proximityThreshold' => (float)($typoscriptSettings['proximityThreshold'] ?? 0.5),
+            'maxSuggestions' => (int)($typoscriptSettings['maxSuggestions'] ?? 5),
+            'excerptLength' => (int)($typoscriptSettings['excerptLength'] ?? 150),
+            'recencyWeight' => (float)($typoscriptSettings['recencyWeight'] ?? 0.2),
+            'nlpWeight' => (float)($typoscriptSettings['nlpWeight'] ?? 0.3),
         ];
     }
 
@@ -86,9 +128,58 @@ class NlpAnalysisTask extends AbstractTask
         }
     }
 
+
+    protected function initializeTaskProgress($totalPages)
+{
+    $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_semanticsuggestion_nlp_task_progress');
+    $connection->insert('tx_semanticsuggestion_nlp_task_progress', [
+        'task_id' => $this->taskUid,
+        'total_pages' => $totalPages,
+        'processed_pages' => 0,
+        'status' => 'running',
+        'start_time' => time(),
+        'last_update' => time(),
+    ]);
+}
+
+protected function updateTaskProgress($processedPages)
+{
+    $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_semanticsuggestion_nlp_task_progress');
+    $connection->update(
+        'tx_semanticsuggestion_nlp_task_progress',
+        [
+            'processed_pages' => $processedPages,
+            'last_update' => time(),
+        ],
+        ['task_id' => $this->taskUid]
+    );
+}
+
+protected function finalizeTaskProgress($status = 'completed')
+{
+    $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_semanticsuggestion_nlp_task_progress');
+    $connection->update(
+        'tx_semanticsuggestion_nlp_task_progress',
+        ['status' => $status],
+        ['task_id' => $this->taskUid]
+    );
+}
+
+
+
+    public function getTaskTitle(): string
+    {
+        return 'Analyse NLP des pages';
+    }
+
+    public function getTaskDescription(): string
+    {
+        return 'Effectue une analyse NLP sur toutes les pages configurées';
+    }
+
     public function __sleep()
     {
-        return ['taskUid', 'disabled', 'description', 'execution', 'type'];
+        return ['taskUid', 'disabled', 'description', 'execution'];
     }
 
     public function __wakeup()
