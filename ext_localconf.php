@@ -62,4 +62,5 @@ defined('TYPO3') or die();
         'additionalFields' => \TalanHdf\SemanticSuggestion\Task\NlpAnalysisTaskAdditionalFieldProvider::class
     ];
     
+
 })();
