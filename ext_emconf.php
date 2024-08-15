@@ -16,4 +16,15 @@ $EM_CONF[$_EXTKEY] = [
         'conflicts' => [],
         'suggests' => [],
     ],
+    // Permet de créer la table sql
+    'update' => [
+        'numbered' => [
+            '1' => [ 
+                'type' => 'sql',
+                'tables' => [
+                    'tx_semanticsuggestion_nlp_results' => 'ext_tables.sql', 
+                ],
+            ],
+        ],
+    ],
 ];
