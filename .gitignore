@@ -30,7 +30,6 @@ extension_report.json
 
 # Logs and databases
 *.log
-*.sql
 *.sqlite
 
 # Backup files
