@@ -7,6 +7,7 @@ from collections import Counter
 import nltk
 from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.corpus import stopwords
+import base64
 
 # Configuration du logging
 log_file = Path(__file__).parent / "nlp_analysis.log"
@@ -125,8 +126,13 @@ def analyze_text(text):
             "keyphrases": extract_keyphrases(text),
             "category": categorize_text(text),
             "named_entities": extract_named_entities(text),
-            "readability_score": calculate_readability_score(text)
+            "readability_score": calculate_readability_score(text),
+            "word_count": len(word_tokenize(text, language='french')),
+            "sentence_count": len(sent_tokenize(text, language='french')),
+            "language": "fr",  # Assuming French, you might want to add language detection
         }
+        
+        result["average_sentence_length"] = result["word_count"] / result["sentence_count"] if result["sentence_count"] > 0 else 0
 
         logger.info(f"Analysis completed successfully. Result: {json.dumps(result)}")
         print(json.dumps(result))
@@ -138,15 +144,32 @@ def analyze_text(text):
             "keyphrases": [],
             "category": "Non catégorisé",
             "named_entities": [],
-            "readability_score": 0
+            "readability_score": 0,
+            "word_count": 0,
+            "sentence_count": 0,
+            "average_sentence_length": 0,
+            "language": "unknown"
         }))
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         logger.error("No text provided for analysis")
-        print(json.dumps({
-            "error": "No text provided for analysis"
-        }))
+        print(json.dumps({"error": "No text provided for analysis"}))
+        sys.exit(1)
+    
+    input_text = sys.argv[1]
+    try:
+        # Essayez de décoder en base64, si ça échoue, utilisez le texte tel quel
+        try:
+            text = base64.b64decode(input_text).decode('utf-8')
+        except:
+            text = input_text
+        
+        logger.info(f"Received text for analysis: {text[:50]}...")
+        analyze_text(text)
+    except Exception as e:
+        logger.error(f"Error processing input: {str(e)}")
+        print(json.dumps({"error": f"Error processing input: {str(e)}"}))
         sys.exit(1)
     
     text = sys.argv[1]
