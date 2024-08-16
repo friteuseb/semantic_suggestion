@@ -10,5 +10,9 @@ settings.maxSuggestions = 5
 # cat=basic//40; type=int+; label=Excerpt Length: The maximum length of the page excerpt in characters
 settings.excerptLength = 100
 
-# cat=basic/enable; type=boolean; label=Enable NLP features
-enableNlpAnalysis = 1
+
+# cat=basic//10; type=boolean; label=Enable NLP Analysis
+enableNlpAnalysis = 0
+
+# cat=basic//20; type=string; label=Google Cloud Key Path
+googleCloudKeyPath = 

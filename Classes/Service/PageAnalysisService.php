@@ -403,28 +403,6 @@ private function getRootPages(): array
         }
     }
 
-    private function getWeightedWords(array $pageData): array
-    {
-        $weightedWords = [];
-
-        foreach ($pageData as $field => $data) {
-            if (!isset($data['content']) || !is_string($data['content'])) {
-                continue;
-            }
-
-            $words = str_word_count(strtolower($data['content']), 1);
-            $weight = $data['weight'] ?? 1.0;
-
-            foreach ($words as $word) {
-                if (!isset($weightedWords[$word])) {
-                    $weightedWords[$word] = 0;
-                }
-                $weightedWords[$word] += $weight;
-            }
-        }
-
-        return $weightedWords;
-    }
 
     private function calculateSimilarities(array $analysisResults): array
     {
@@ -555,18 +533,7 @@ private function getRootPages(): array
         // Calculate average similarity
         return array_sum($similarities) / count($similarities);
     }
-    
-    private function calculateJaccardSimilarity(array $set1, array $set2): float
-    {
-        $intersection = array_intersect($set1, $set2);
-        $union = array_unique(array_merge($set1, $set2));
-        
-        if (empty($union)) {
-            return 0.0;
-        }
-        
-        return count($intersection) / count($union);
-    }
+
 
     
 
