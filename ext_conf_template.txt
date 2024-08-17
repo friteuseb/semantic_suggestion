@@ -15,4 +15,4 @@ settings.excerptLength = 100
 enableNlpAnalysis = 0
 
 # cat=basic//20; type=string; label=Google Cloud Key Path
-googleCloudKeyPath = 
+googleCloudKeyPath = /var/www/html/config/system/nlptypo3-b4bf70c3d61e.json

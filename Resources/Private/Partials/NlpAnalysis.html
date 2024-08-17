@@ -1,26 +1,27 @@
 <html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers" data-namespace-typo3-fluid="true">
 <div class="panel panel-default">
-    <div class="panel-heading">NLP Statistics</div>
+    <div class="panel-heading">Statistiques NLP</div>
     <div class="panel-body">
         <div class="row">
             <div class="col-md-6">
-                <h4>General Statistics</h4>
-                <p>Average Word Count: {nlpStatistics.averageWordCount -> f:format.number(decimals: 0)}</p>
-                <p>Average Unique Word Count: {nlpStatistics.averageUniqueWordCount -> f:format.number(decimals: 0)}</p>
-                <p>Average Text Complexity: {nlpStatistics.averageComplexity -> f:format.number(decimals: 2)}</p>
-                <p>Average Reading Time: {nlpStatistics.averageReadingTime -> f:format.number(decimals: 2)} minutes</p>
+                <h4>Statistiques générales</h4>
+                <p>Nombre moyen de mots : {nlpStatistics.averageWordCount -> f:format.number(decimals: 0)}</p>
+                <p>Nombre moyen de mots uniques : {nlpStatistics.averageUniqueWordCount -> f:format.number(decimals: 0)}</p>
+                <p>Complexité moyenne du texte : {nlpStatistics.averageComplexity -> f:format.number(decimals: 2)}</p>
+                <p>Temps de lecture moyen : {nlpStatistics.averageReadingTime -> f:format.number(decimals: 2)} minutes</p>
+                <p>Score de lisibilité moyen : {nlpStatistics.averageReadabilityScore -> f:format.number(decimals: 2)}</p>
             </div>
             <div class="col-md-6">
-                <h4>Sentiment Distribution</h4>
+                <h4>Distribution des sentiments</h4>
                 <div class="progress">
                     <div class="progress-bar progress-bar-success" style="width: {f:math.divide(a: nlpStatistics.sentimentDistribution.positive, b: nlpStatistics.totalPages, decimals: 2) * 100}%">
-                        Positive ({nlpStatistics.sentimentDistribution.positive})
+                        Positif ({nlpStatistics.sentimentDistribution.positive})
                     </div>
                     <div class="progress-bar progress-bar-warning" style="width: {f:math.divide(a: nlpStatistics.sentimentDistribution.neutral, b: nlpStatistics.totalPages, decimals: 2) * 100}%">
-                        Neutral ({nlpStatistics.sentimentDistribution.neutral})
+                        Neutre ({nlpStatistics.sentimentDistribution.neutral})
                     </div>
                     <div class="progress-bar progress-bar-danger" style="width: {f:math.divide(a: nlpStatistics.sentimentDistribution.negative, b: nlpStatistics.totalPages, decimals: 2) * 100}%">
-                        Negative ({nlpStatistics.sentimentDistribution.negative})
+                        Négatif ({nlpStatistics.sentimentDistribution.negative})
                     </div>
                 </div>
             </div>
@@ -28,7 +29,7 @@
         
         <div class="row">
             <div class="col-md-6">
-                <h4>Top 10 Words</h4>
+                <h4>Top 10 des mots-clés</h4>
                 <ul>
                     <f:for each="{nlpStatistics.topWords}" as="count" key="word">
                         <li>{word}: {count}</li>
@@ -36,7 +37,7 @@
                 </ul>
             </div>
             <div class="col-md-6">
-                <h4>Top 10 Named Entities</h4>
+                <h4>Top 10 des entités nommées</h4>
                 <ul>
                     <f:for each="{nlpStatistics.topEntities}" as="count" key="entity">
                         <li>{entity}: {count}</li>
@@ -47,18 +48,29 @@
         
         <div class="row">
             <div class="col-md-12">
-                <h4>Text Complexity Distribution</h4>
+                <h4>Distribution de la complexité du texte</h4>
                 <div class="progress">
                     <div class="progress-bar progress-bar-success" style="width: {f:math.divide(a: nlpStatistics.complexityDistribution.simple, b: nlpStatistics.totalPages, decimals: 2) * 100}%">
                         Simple ({nlpStatistics.complexityDistribution.simple})
                     </div>
                     <div class="progress-bar progress-bar-warning" style="width: {f:math.divide(a: nlpStatistics.complexityDistribution.medium, b: nlpStatistics.totalPages, decimals: 2) * 100}%">
-                        Medium ({nlpStatistics.complexityDistribution.medium})
+                        Moyen ({nlpStatistics.complexityDistribution.medium})
                     </div>
                     <div class="progress-bar progress-bar-danger" style="width: {f:math.divide(a: nlpStatistics.complexityDistribution.complex, b: nlpStatistics.totalPages, decimals: 2) * 100}%">
-                        Complex ({nlpStatistics.complexityDistribution.complex})
+                        Complexe ({nlpStatistics.complexityDistribution.complex})
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <h4>Top 5 des catégories</h4>
+                <ul>
+                    <f:for each="{nlpStatistics.topCategories}" as="count" key="category">
+                        <li>{category}: {count}</li>
+                    </f:for>
+                </ul>
             </div>
         </div>
     </div>

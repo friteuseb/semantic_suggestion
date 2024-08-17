@@ -6,11 +6,9 @@
         "type": "typo3-cms-extension",
         "require": {
             "typo3\/cms-core": "^12.0 || ^13.0",
-            "nlp-tools\/nlp-tools": "^0.1.3",
             "ext-json": "*",
             "guzzlehttp\/guzzle": "^7.0",
-            "thecodingmachine\/safe": "^1.3",
-            "symfony\/process": "^5.0 || ^6.0"
+            "google\/cloud-language": "^0.28.0"
         },
         "autoload": {
             "psr-4": {
@@ -46,9 +44,6 @@
         "semantic_suggestion\/Resources\/Private\/Language\/locallang_be.xlf",
         "semantic_suggestion\/Resources\/Private\/Language\/locallang_mod.xlf",
         "semantic_suggestion\/Resources\/Private\/Language\/locallang_semanticproximity.xlf",
-        "semantic_suggestion\/Resources\/Private\/Python\/camembert_analysis.py",
-        "semantic_suggestion\/Resources\/Private\/Python\/nlp_analysis.log",
-        "semantic_suggestion\/Resources\/Private\/Python\/requirements.txt",
         "semantic_suggestion\/Resources\/Public\/Css\/SemanticSuggestion.css",
         "semantic_suggestion\/Resources\/Public\/Icons\/Extension.svg",
         "semantic_suggestion\/Resources\/Public\/Icons\/module-semantic-suggestion.svg",
@@ -56,7 +51,6 @@
         "semantic_suggestion\/composer.json",
         "semantic_suggestion\/ext_conf_template.txt",
         "semantic_suggestion\/extension_analysis_report.json",
-        "semantic_suggestion\/install_dependencies.sh",
         "semantic_suggestion\/phpunit.xml.dist"
     ],
     "php_files": [
@@ -296,11 +290,11 @@
             "namespace": "TalanHdf\\SemanticSuggestion\\Service",
             "uses": [
                 "TYPO3\\CMS\\Core\\SingletonInterface",
-                "Symfony\\Component\\Process\\Process",
                 "TYPO3\\CMS\\Core\\Utility\\GeneralUtility",
                 "TYPO3\\CMS\\Core\\Configuration\\ExtensionConfiguration",
                 "Psr\\Log\\LoggerAwareInterface",
-                "Psr\\Log\\LoggerAwareTrait"
+                "Psr\\Log\\LoggerAwareTrait",
+                "Google\\Cloud\\Language\\LanguageClient"
             ],
             "classes": [
                 {
@@ -322,27 +316,27 @@
                             "static": false
                         },
                         {
-                            "name": "logPythonOutput",
+                            "name": "getSentimentLabel",
+                            "visibility": "protected",
+                            "static": false
+                        },
+                        {
+                            "name": "extractKeyphrases",
+                            "visibility": "protected",
+                            "static": false
+                        },
+                        {
+                            "name": "determineCategory",
+                            "visibility": "protected",
+                            "static": false
+                        },
+                        {
+                            "name": "extractNamedEntities",
                             "visibility": "protected",
                             "static": false
                         },
                         {
                             "name": "calculateReadabilityScore",
-                            "visibility": "protected",
-                            "static": false
-                        },
-                        {
-                            "name": "countFrenchSyllables",
-                            "visibility": "protected",
-                            "static": false
-                        },
-                        {
-                            "name": "calculateNlpSimilarity",
-                            "visibility": "public",
-                            "static": false
-                        },
-                        {
-                            "name": "calculateJaccardSimilarity",
                             "visibility": "protected",
                             "static": false
                         },
@@ -354,15 +348,7 @@
                     ],
                     "properties": [
                         {
-                            "name": "pythonPath",
-                            "visibility": "protected"
-                        },
-                        {
-                            "name": "scriptPath",
-                            "visibility": "protected"
-                        },
-                        {
-                            "name": "logPath",
+                            "name": "languageClient",
                             "visibility": "protected"
                         },
                         {
@@ -457,11 +443,6 @@
                             "static": false
                         },
                         {
-                            "name": "getWeightedWords",
-                            "visibility": "private",
-                            "static": false
-                        },
-                        {
                             "name": "calculateSimilarities",
                             "visibility": "private",
                             "static": false
@@ -477,12 +458,27 @@
                             "static": false
                         },
                         {
+                            "name": "calculateSemanticSimilarity",
+                            "visibility": "private",
+                            "static": false
+                        },
+                        {
+                            "name": "getCombinedContent",
+                            "visibility": "private",
+                            "static": false
+                        },
+                        {
+                            "name": "getUniqueWords",
+                            "visibility": "private",
+                            "static": false
+                        },
+                        {
                             "name": "calculateNlpSimilarity",
                             "visibility": "private",
                             "static": false
                         },
                         {
-                            "name": "calculateJaccardSimilarity",
+                            "name": "compareArrays",
                             "visibility": "private",
                             "static": false
                         },
@@ -1430,8 +1426,8 @@
         },
         "composer.json": {
             "status": "Present",
-            "size": 1036,
-            "last_modified": "2024-08-16 22:18:20"
+            "size": 765,
+            "last_modified": "2024-08-16 23:40:32"
         },
         "ext_icon.png": {
             "status": "Missing"
@@ -1500,13 +1496,13 @@
             "Service": [
                 {
                     "name": "NlpService.php",
-                    "size": 5767,
-                    "last_modified": "2024-08-15 09:18:15"
+                    "size": 4277,
+                    "last_modified": "2024-08-16 23:59:30"
                 },
                 {
                     "name": "PageAnalysisService.php",
-                    "size": 26638,
-                    "last_modified": "2024-08-16 22:18:20"
+                    "size": 25650,
+                    "last_modified": "2024-08-17 00:02:50"
                 }
             ],
             "Task": [
@@ -1683,23 +1679,6 @@
                         "last_modified": "2024-08-14 23:04:42"
                     }
                 ],
-                "Python": [
-                    {
-                        "name": "camembert_analysis.py",
-                        "size": 7145,
-                        "last_modified": "2024-08-16 22:18:20"
-                    },
-                    {
-                        "name": "nlp_analysis.log",
-                        "size": 541727,
-                        "last_modified": "2024-08-16 22:21:19"
-                    },
-                    {
-                        "name": "requirements.txt",
-                        "size": 198,
-                        "last_modified": "2024-08-16 22:18:20"
-                    }
-                ],
                 "Templates": {
                     "SemanticBackend": [
                         {
@@ -1795,8 +1774,8 @@
         },
         "7": {
             "name": "composer.json",
-            "size": 1036,
-            "last_modified": "2024-08-16 22:18:20"
+            "size": 765,
+            "last_modified": "2024-08-16 23:40:32"
         },
         "8": {
             "name": "ddev_install_dependencies.yaml",
@@ -1805,8 +1784,8 @@
         },
         "9": {
             "name": "ext_conf_template.txt",
-            "size": 659,
-            "last_modified": "2024-08-15 00:28:10"
+            "size": 803,
+            "last_modified": "2024-08-16 23:59:55"
         },
         "10": {
             "name": "ext_emconf.php",
@@ -1830,15 +1809,10 @@
         },
         "14": {
             "name": "extension_analysis_report.json",
-            "size": 41160,
-            "last_modified": "2024-08-16 23:02:44"
+            "size": 74480,
+            "last_modified": "2024-08-16 23:12:27"
         },
         "15": {
-            "name": "install_dependencies.sh",
-            "size": 613,
-            "last_modified": "2024-08-16 22:18:20"
-        },
-        "16": {
             "name": "phpunit.xml.dist",
             "size": 1208,
             "last_modified": "2024-08-10 18:01:56"
@@ -1979,11 +1953,9 @@
     "dependencies": {
         "require": {
             "typo3\/cms-core": "^12.0 || ^13.0",
-            "nlp-tools\/nlp-tools": "^0.1.3",
             "ext-json": "*",
             "guzzlehttp\/guzzle": "^7.0",
-            "thecodingmachine\/safe": "^1.3",
-            "symfony\/process": "^5.0 || ^6.0"
+            "google\/cloud-language": "^0.28.0"
         },
         "typo3": {
             "depends": {

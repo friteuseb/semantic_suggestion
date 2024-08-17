@@ -28,7 +28,16 @@ plugin.tx_semanticsuggestion_suggestions {
         recencyWeight = {$plugin.tx_semanticsuggestion_suggestions.settings.recencyWeight}
         nlpWeight = 0.3
 
-    
+        nlp {
+            weights {
+                sentiment = 0.2
+                keyphrases = 0.3
+                named_entities = 0.2
+                category = 0.2
+                readability = 0.1
+            }
+        }
+
         analyzedFields {
             title = {$plugin.tx_semanticsuggestion_suggestions.settings.analyzedFields.title}
             description = {$plugin.tx_semanticsuggestion_suggestions.settings.analyzedFields.description}

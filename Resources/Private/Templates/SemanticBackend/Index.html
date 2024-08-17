@@ -75,6 +75,8 @@
                 <strong>NLP Analysis Enabled:</strong> The results include Natural Language Processing analysis.
             </div>
         </f:if>
+        <f:render partial="NlpAnalysis" arguments="{_all}" />
+        
         <h2>Similar Pages</h2>
         <f:if condition="{similarPages}">
             <ul>

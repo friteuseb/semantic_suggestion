@@ -39,11 +39,11 @@ class PageAnalysisService implements LoggerAwareInterface
         $this->context = $context;
         $this->configurationManager = $configurationManager;
         $this->nlpService = $nlpService ?? GeneralUtility::makeInstance(NlpService::class);
-
+    
         if ($logger) {
             $this->setLogger($logger);
         }
-
+    
         if ($dbConnection instanceof ConnectionPool) {
             $this->connectionPool = $dbConnection;
         } elseif ($dbConnection instanceof QueryBuilder) {
@@ -51,27 +51,17 @@ class PageAnalysisService implements LoggerAwareInterface
         } else {
             $this->connectionPool = GeneralUtility::makeInstance(ConnectionPool::class);
         }
-
+    
         $this->settings = $this->configurationManager->getConfiguration(
             ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
             'semanticsuggestion_suggestions'
         );
-
-        if (!isset($this->settings['recencyWeight'])) {
-            $this->settings['recencyWeight'] = 0.2;
-        }
-        $this->settings['recencyWeight'] = max(0, min(1, (float)$this->settings['recencyWeight']));
-
-        if ($cacheManager) {
-            try {
-                $this->cache = $cacheManager->getCache('semantic_suggestion');
-            } catch (\TYPO3\CMS\Core\Cache\Exception\NoSuchCacheException $e) {
-                $this->cache = $cacheManager->getCache('null');
-            }
-        } else {
-            $this->cache = $this->createFallbackCache();
-        }
-
+    
+        $this->settings['recencyWeight'] = max(0, min(1, (float)($this->settings['recencyWeight'] ?? 0.2)));
+        $this->settings['nlpWeight'] = max(0, min(1, (float)($this->settings['nlpWeight'] ?? 0.3)));
+        $this->settings['proximityThreshold'] = (float)($this->settings['proximityThreshold'] ?? 0.5);
+        $this->settings['maxSuggestions'] = (int)($this->settings['maxSuggestions'] ?? 5);
+    
         if (!isset($this->settings['analyzedFields']) || !is_array($this->settings['analyzedFields'])) {
             $this->settings['analyzedFields'] = [
                 'title' => 1.5,
@@ -81,7 +71,18 @@ class PageAnalysisService implements LoggerAwareInterface
                 'content' => 1.0
             ];
         }
+    
+        if ($cacheManager) {
+            try {
+                $this->cache = $cacheManager->getCache('semantic_suggestion');
+            } catch (\TYPO3\CMS\Core\Cache\Exception\NoSuchCacheException $e) {
+                $this->cache = $cacheManager->getCache('null');
+            }
+        } else {
+            $this->cache = $this->createFallbackCache();
+        }
     }
+
 
     public function setSettings(array $settings): void
     {
@@ -99,7 +100,9 @@ class PageAnalysisService implements LoggerAwareInterface
         $parentPageId = $parentPageId ?? (int)$this->settings['parentPageId'];
         $depth = $depth ?? (int)$this->settings['recursive'];
         $excludePages = GeneralUtility::intExplode(',', $this->settings['excludePages'] ?? '', true);
-        
+        $proximityThreshold = (float)($this->settings['proximityThreshold'] ?? 0.5);
+        $maxSuggestions = (int)($this->settings['maxSuggestions'] ?? 5);
+    
         $cacheIdentifier = 'semantic_analysis_' . $parentPageId . '_' . $depth;
     
         if ($this->cache->has($cacheIdentifier)) {
@@ -116,14 +119,15 @@ class PageAnalysisService implements LoggerAwareInterface
     
             foreach ($pages as $page) {
                 $pageData = $this->preparePageData($page);
-                $nlpResults = $this->getPageNlpResults($page['uid']);
-                
-                if ($nlpResults) {
-                    $pageData['nlp'] = $nlpResults;
-                } else {
-                    $content = $this->getPageContent($page['uid']);
-                    $nlpResults = $this->nlpService->analyzeContent($content);
-                    $this->storeNlpResults($page['uid'], $nlpResults);
+                if ($this->nlpService->isEnabled()) {
+                    $nlpResults = $this->getPageNlpResults($page['uid']);
+                    
+                    if (!$nlpResults) {
+                        $content = $this->getPageContent($page['uid']);
+                        $nlpResults = $this->nlpService->analyzeContent($content);
+                        $this->storeNlpResults($page['uid'], $nlpResults);
+                    }
+                    
                     $pageData['nlp'] = $nlpResults;
                 }
                 
@@ -223,6 +227,9 @@ private function getRootPages(): array
             'category' => $nlpResults['category'] ?? '',
             'named_entities' => json_encode($nlpResults['named_entities'] ?? []),
             'readability_score' => $nlpResults['readability_score'] ?? 0.0,
+            'word_count' => $nlpResults['word_count'] ?? 0,
+            'unique_word_count' => $nlpResults['unique_word_count'] ?? 0,
+            'complexity' => $nlpResults['complexity'] ?? 0.0,
             'tstamp' => time()
         ];
     
@@ -234,6 +241,8 @@ private function getRootPages(): array
             $data['crdate'] = time();
             $connection->insert('tx_semanticsuggestion_nlp_results', $data);
         }
+    
+        $this->logger->info('NLP results stored', ['pageId' => $pageId, 'data' => $data]);
     }
 
 
@@ -252,38 +261,32 @@ private function getRootPages(): array
             if ($field === 'content') {
                 try {
                     $content = $this->getPageContent($page['uid']);
+                    if (empty(trim($content))) {
+                        $this->logger?->warning('Empty content for page', ['pageId' => $page['uid']]);
+                        continue;
+                    }
+                    
                     $preparedData['content'] = [
                         'content' => $content,
                         'weight' => (float)$weight
                     ];
                     
-                    // Analyse NLP pour le contenu principal
                     if ($this->nlpService->isEnabled()) {
                         $nlpAnalysis = $this->nlpService->analyzeContent($content);
                         $preparedData['content']['nlp'] = $nlpAnalysis;
                     }
                 } catch (\Exception $e) {
                     $this->logger?->error('Error fetching page content', ['pageId' => $page['uid'], 'exception' => $e->getMessage()]);
-                    $preparedData['content'] = [
-                        'content' => '',
-                        'weight' => (float)$weight
-                    ];
                 }
-            } elseif (isset($page[$field])) {
+            } elseif (isset($page[$field]) && !empty(trim($page[$field]))) {
                 $preparedData[$field] = [
                     'content' => $page[$field],
                     'weight' => (float)$weight
                 ];
                 
-                // Analyse NLP pour les autres champs importants
                 if ($this->nlpService->isEnabled() && in_array($field, ['title', 'description', 'keywords'])) {
                     $preparedData[$field]['nlp'] = $this->nlpService->analyzeContent($page[$field]);
                 }
-            } else {
-                $preparedData[$field] = [
-                    'content' => '',
-                    'weight' => (float)$weight
-                ];
             }
         }
     
@@ -296,7 +299,6 @@ private function getRootPages(): array
     
         return $preparedData;
     }
-
 
 
     private function getAllSubpages(int $parentId, int $depth = 0): array
@@ -432,27 +434,10 @@ private function getRootPages(): array
         ];
     }
     
+
     private function calculateSimilarity(array $page1, array $page2): array
     {
-        $words1 = $this->getWeightedWords($page1);
-        $words2 = $this->getWeightedWords($page2);
-    
-        $intersection = array_intersect_key($words1, $words2);
-        $union = $words1 + $words2;
-    
-        $intersectionSum = array_sum($intersection);
-        $unionSum = array_sum($union);
-    
-        if ($unionSum === 0) {
-            return [
-                'semanticSimilarity' => 0.0,
-                'recencyBoost' => 0.0,
-                'nlpSimilarity' => 0.0,
-                'finalSimilarity' => 0.0
-            ];
-        }
-    
-        $semanticSimilarity = min($intersectionSum / $unionSum, 1.0);
+        $semanticSimilarity = $this->calculateSemanticSimilarity($page1, $page2);
         $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
         
         $nlpSimilarity = 0.0;
@@ -462,22 +447,13 @@ private function getRootPages(): array
             $nlpSimilarity = $this->calculateNlpSimilarity($nlpData1, $nlpData2);
         }
     
-        $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
-        $nlpWeight = $this->settings['nlpWeight'] ?? 0.3;
+        $recencyWeight = (float)($this->settings['recencyWeight'] ?? 0.2);
+        $nlpWeight = (float)($this->settings['nlpWeight'] ?? 0.3);
         $semanticWeight = 1 - $recencyWeight - $nlpWeight;
     
         $finalSimilarity = ($semanticSimilarity * $semanticWeight) + 
                            ($recencyBoost * $recencyWeight) + 
                            ($nlpSimilarity * $nlpWeight);
-    
-        $this->logger?->info('Similarity calculation', [
-            'page1' => $page1['uid'] ?? 'unknown',
-            'page2' => $page2['uid'] ?? 'unknown',
-            'semanticSimilarity' => $semanticSimilarity, 
-            'recencyBoost' => $recencyBoost,
-            'nlpSimilarity' => $nlpSimilarity,
-            'finalSimilarity' => $finalSimilarity
-        ]);
     
         return [
             'semanticSimilarity' => $semanticSimilarity,
@@ -486,6 +462,7 @@ private function getRootPages(): array
             'finalSimilarity' => min($finalSimilarity, 1.0)
         ];
     }
+
     
     private function formatSimilarityResult(array $similarity, array $currentPage, array $comparisonPage): array
     {
@@ -501,40 +478,93 @@ private function getRootPages(): array
     }
 
     
-    private function calculateNlpSimilarity(array $nlpData1, array $nlpData2): float
+    private function calculateSemanticSimilarity(array $page1, array $page2): float
     {
-        $similarities = [];
-    
-        // Compare sentiments
-        $similarities[] = $nlpData1['sentiment'] === $nlpData2['sentiment'] ? 1.0 : 0.0;
-    
-        // Compare categories
-        $similarities[] = $nlpData1['category'] === $nlpData2['category'] ? 1.0 : 0.0;
-    
-        // Compare keyphrases
-        $keywordSimilarity = $this->calculateJaccardSimilarity(
-            $nlpData1['keyphrases'] ?? [],
-            $nlpData2['keyphrases'] ?? []
-        );
-        $similarities[] = $keywordSimilarity;
-    
-        // Compare named entities
-        $entitiesSimilarity = $this->calculateJaccardSimilarity(
-            $nlpData1['named_entities'] ?? [],
-            $nlpData2['named_entities'] ?? []
-        );
-        $similarities[] = $entitiesSimilarity;
-    
-        // Compare readability scores
-        $readabilityDiff = abs(($nlpData1['readability_score'] ?? 0) - ($nlpData2['readability_score'] ?? 0));
-        $readabilitySimilarity = 1 - min($readabilityDiff / 100, 1); // Assuming readability score is 0-100
-        $similarities[] = $readabilitySimilarity;
-    
-        // Calculate average similarity
-        return array_sum($similarities) / count($similarities);
+        $content1 = $this->getCombinedContent($page1);
+        $content2 = $this->getCombinedContent($page2);
+
+        $words1 = $this->getUniqueWords($content1);
+        $words2 = $this->getUniqueWords($content2);
+
+        $intersection = array_intersect($words1, $words2);
+        $union = array_unique(array_merge($words1, $words2));
+
+        return count($union) > 0 ? count($intersection) / count($union) : 0.0;
+    }
+
+    private function getCombinedContent(array $page): string
+    {
+        $content = '';
+        foreach ($page as $field => $data) {
+            if (isset($data['content']) && is_string($data['content'])) {
+                $content .= ' ' . $data['content'];
+            }
+        }
+        return trim($content);
+    }
+
+    private function getUniqueWords(string $content): array
+    {
+        $words = str_word_count(strtolower($content), 1);
+        return array_unique($words);
     }
 
 
+    private function calculateNlpSimilarity(array $nlpData1, array $nlpData2): float
+{
+    if (empty($nlpData1) || empty($nlpData2)) {
+        return 0.0;
+    }
+
+    $similarities = [
+        'sentiment' => $nlpData1['sentiment'] === $nlpData2['sentiment'] ? 1.0 : 0.0,
+        'keyphrases' => $this->compareArrays($nlpData1['keyphrases'], $nlpData2['keyphrases']),
+        'named_entities' => $this->compareNamedEntities($nlpData1['named_entities'], $nlpData2['named_entities']),
+        'category' => $nlpData1['category'] === $nlpData2['category'] ? 1.0 : 0.0,
+        'readability' => 1 - min(abs($nlpData1['readability_score'] - $nlpData2['readability_score']) / 100, 1)
+    ];
+
+    $weights = $this->settings['nlp']['weights'] ?? [
+        'sentiment' => 0.2,
+        'keyphrases' => 0.3,
+        'named_entities' => 0.2,
+        'category' => 0.2,
+        'readability' => 0.1
+    ];
+
+    $weightedSum = 0;
+    $totalWeight = 0;
+
+    foreach ($similarities as $key => $value) {
+        $weightedSum += $value * $weights[$key];
+        $totalWeight += $weights[$key];
+    }
+
+    return $totalWeight > 0 ? $weightedSum / $totalWeight : 0;
+}
+    
+    private function compareNamedEntities(array $entities1, array $entities2): float
+    {
+        $types1 = array_column($entities1, 'type');
+        $types2 = array_column($entities2, 'type');
+        
+        $typeSimilarity = $this->compareArrays($types1, $types2);
+        
+        $names1 = array_column($entities1, 'name');
+        $names2 = array_column($entities2, 'name');
+        
+        $nameSimilarity = $this->compareArrays($names1, $names2);
+        
+        return ($typeSimilarity + $nameSimilarity) / 2;
+    }
+    
+
+    private function compareArrays(array $arr1, array $arr2): float
+    {
+        $intersection = array_intersect($arr1, $arr2);
+        $union = array_unique(array_merge($arr1, $arr2));
+        return count($union) > 0 ? count($intersection) / count($union) : 0.0;
+    }
     
 
     private function calculateRecencyBoost(array $page1, array $page2): float

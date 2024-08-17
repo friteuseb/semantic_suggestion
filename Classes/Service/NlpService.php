@@ -19,14 +19,20 @@ class NlpService implements SingletonInterface, LoggerAwareInterface
     {
         $extensionConfiguration = GeneralUtility::makeInstance(ExtensionConfiguration::class);
         $config = $extensionConfiguration->get('semantic_suggestion');
+        
         $this->enabled = (bool)($config['enableNlpAnalysis'] ?? false);
 
         if ($this->enabled) {
+            $keyFilePath = $config['googleCloudKeyPath'] ?? '';
+            if (!file_exists($keyFilePath)) {
+                throw new \RuntimeException('Google Cloud key file not found: ' . $keyFilePath);
+            }
             $this->languageClient = new LanguageClient([
-                'keyFilePath' => $config['googleCloudKeyPath'] ?? null,
+                'keyFilePath' => $keyFilePath,
             ]);
         }
     }
+
 
     public function isEnabled(): bool
     {
@@ -35,38 +41,47 @@ class NlpService implements SingletonInterface, LoggerAwareInterface
 
     public function analyzeContent(string $content): array
     {
-        if (!$this->isEnabled()) {
+        if (!$this->isEnabled() || strlen(trim($content)) < 20) {
+            $this->logger->info('Content too short or NLP disabled, returning default analysis');
             return $this->getDefaultAnalysis();
         }
-
+    
         try {
-            $this->logger->info('Starting NLP analysis with Google Cloud');
+            $this->logger->info('Starting NLP analysis', ['content_length' => strlen($content)]);
             
             $annotation = $this->languageClient->annotateText($content);
-
-            $sentiment = $annotation->sentiment();
-            $entities = $annotation->entities();
-            $syntax = $annotation->tokens();
-
+    
+            $tokens = $annotation->tokens();
+            $wordCount = count($tokens);
+    
+            if ($wordCount == 0) {
+                $this->logger->warning('No words found in content, returning default analysis');
+                return $this->getDefaultAnalysis();
+            }
+    
             $result = [
-                'sentiment' => $this->getSentimentLabel($sentiment['score']),
-                'keyphrases' => $this->extractKeyphrases($entities),
-                'category' => $this->determineCategory($entities),
-                'named_entities' => $this->extractNamedEntities($entities),
-                'readability_score' => $this->calculateReadabilityScore($syntax),
+                'sentiment' => $this->getSentimentLabel($annotation->sentiment()),
+                'keyphrases' => $this->extractKeyphrases($annotation->entities()),
+                'category' => $this->determineCategory($annotation->categories()),
+                'named_entities' => $this->extractNamedEntities($annotation->entities()),
+                'readability_score' => $this->calculateReadabilityScore($annotation->sentences(), $tokens),
+                'word_count' => $wordCount,
+                'unique_word_count' => count(array_unique(array_column($tokens, 'text'))),
+                'complexity' => $this->calculateComplexity($tokens),
             ];
     
             $this->logger->info('NLP analysis completed', ['result' => $result]);
     
             return $result;
         } catch (\Exception $e) {
-            $this->logger->error('NLP analysis failed', ['exception' => $e]);
+            $this->logger->error('NLP analysis failed', ['exception' => $e->getMessage()]);
             return $this->getDefaultAnalysis();
         }
     }
 
-    protected function getSentimentLabel(float $score): string
+    protected function getSentimentLabel(array $sentiment): string
     {
+        $score = $sentiment['score'];
         if ($score > 0.25) return 'positive';
         if ($score < -0.25) return 'negative';
         return 'neutral';
@@ -77,16 +92,13 @@ class NlpService implements SingletonInterface, LoggerAwareInterface
         return array_slice(array_map(function($entity) {
             return $entity['name'];
         }, array_filter($entities, function($entity) {
-            return $entity['type'] === 'OTHER' && $entity['salience'] > 0.02;
+            return $entity['type'] === 'OTHER' && ($entity['salience'] ?? 0) > 0.02;
         })), 0, 5);
     }
 
-    protected function determineCategory(array $entities): string
+    protected function determineCategory(array $categories): string
     {
-        $categories = array_column(array_filter($entities, function($entity) {
-            return isset($entity['metadata']['mid']);
-        }), 'type');
-        return !empty($categories) ? $categories[0] : 'uncategorized';
+        return !empty($categories) ? $categories[0]['name'] : 'uncategorized';
     }
 
     protected function extractNamedEntities(array $entities): array
@@ -101,18 +113,31 @@ class NlpService implements SingletonInterface, LoggerAwareInterface
         }));
     }
 
-    protected function calculateReadabilityScore(array $syntax): float
+    protected function calculateReadabilityScore(array $sentences, array $tokens): float
     {
-        // Implement a readability score calculation based on syntax
-        // This is a simplified example and might need to be adjusted
-        $wordCount = count($syntax);
-        $sentenceCount = count(array_filter($syntax, function($token) {
-            return in_array($token['partOfSpeech']['tag'], ['PUNCT', 'X']);
-        }));
+        $wordCount = count($tokens);
+        $sentenceCount = count($sentences);
         
-        if ($sentenceCount == 0) return 0;
+        if ($sentenceCount == 0 || $wordCount == 0) {
+            return 0.0;
+        }
         
-        return (206.835 - 1.015 * ($wordCount / $sentenceCount) - 84.6 * ($wordCount / $sentenceCount)) / 100;
+        $averageWordsPerSentence = $wordCount / $sentenceCount;
+        return (206.835 - (1.015 * $averageWordsPerSentence)) / 100;
+    }
+
+    protected function calculateComplexity(array $tokens): float
+    {
+        $totalTokens = count($tokens);
+        if ($totalTokens == 0) {
+            return 0.0;
+        }
+        
+        $complexWords = array_filter($tokens, function($token) {
+            return strlen($token['text']) > 6;
+        });
+        
+        return count($complexWords) / $totalTokens;
     }
 
     protected function getDefaultAnalysis(): array
@@ -122,7 +147,10 @@ class NlpService implements SingletonInterface, LoggerAwareInterface
             'keyphrases' => [],
             'category' => 'uncategorized',
             'named_entities' => [],
-            'readability_score' => 0.0
+            'readability_score' => 0.0,
+            'word_count' => 0,
+            'unique_word_count' => 0,
+            'complexity' => 0.0,
         ];
     }
 }
