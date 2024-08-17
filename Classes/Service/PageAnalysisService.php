@@ -23,45 +23,37 @@ class PageAnalysisService implements LoggerAwareInterface
     protected $settings;
     protected $cache;
     protected $connectionPool;
-    protected $queryBuilder;
     protected $nlpService;
 
-
-        
     public function __construct(
         Context $context,
         ConfigurationManagerInterface $configurationManager,
+        NlpService $nlpService,
         ?CacheManager $cacheManager = null,
-        $dbConnection = null,
-        ?LoggerInterface $logger = null,
-        ?NlpService $nlpService = null
+        ?ConnectionPool $dbConnection = null
     ) {
         $this->context = $context;
         $this->configurationManager = $configurationManager;
-        $this->nlpService = $nlpService ?? GeneralUtility::makeInstance(NlpService::class);
-    
-        if ($logger) {
-            $this->setLogger($logger);
-        }
-    
-        if ($dbConnection instanceof ConnectionPool) {
-            $this->connectionPool = $dbConnection;
-        } elseif ($dbConnection instanceof QueryBuilder) {
-            $this->queryBuilder = $dbConnection;
-        } else {
-            $this->connectionPool = GeneralUtility::makeInstance(ConnectionPool::class);
-        }
-    
+        $this->nlpService = $nlpService;
+        
+        $this->connectionPool = $dbConnection ?? GeneralUtility::makeInstance(ConnectionPool::class);
+
+        $this->initializeSettings();
+        $this->initializeCache($cacheManager);
+    }
+
+    protected function initializeSettings(): void
+    {
         $this->settings = $this->configurationManager->getConfiguration(
             ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
             'semanticsuggestion_suggestions'
         );
-    
+
         $this->settings['recencyWeight'] = max(0, min(1, (float)($this->settings['recencyWeight'] ?? 0.2)));
         $this->settings['nlpWeight'] = max(0, min(1, (float)($this->settings['nlpWeight'] ?? 0.3)));
         $this->settings['proximityThreshold'] = (float)($this->settings['proximityThreshold'] ?? 0.5);
         $this->settings['maxSuggestions'] = (int)($this->settings['maxSuggestions'] ?? 5);
-    
+
         if (!isset($this->settings['analyzedFields']) || !is_array($this->settings['analyzedFields'])) {
             $this->settings['analyzedFields'] = [
                 'title' => 1.5,
@@ -71,7 +63,10 @@ class PageAnalysisService implements LoggerAwareInterface
                 'content' => 1.0
             ];
         }
-    
+    }
+
+    protected function initializeCache(?CacheManager $cacheManager): void
+    {
         if ($cacheManager) {
             try {
                 $this->cache = $cacheManager->getCache('semantic_suggestion');
@@ -84,220 +79,64 @@ class PageAnalysisService implements LoggerAwareInterface
     }
 
 
-    public function setSettings(array $settings): void
+
+    public function setLogger(LoggerInterface $logger): void
     {
-        $this->settings = array_merge($this->settings, $settings);
-        if (!isset($this->settings['recencyWeight'])) {
-            $this->settings['recencyWeight'] = 0.2;
-        }
-        $this->settings['recencyWeight'] = max(0, min(1, (float)$this->settings['recencyWeight']));
-    }
-
-    public function analyzePages(?int $parentPageId = null, ?int $depth = null): array
-    {
-        $startTime = microtime(true);
-    
-        $parentPageId = $parentPageId ?? (int)$this->settings['parentPageId'];
-        $depth = $depth ?? (int)$this->settings['recursive'];
-        $excludePages = GeneralUtility::intExplode(',', $this->settings['excludePages'] ?? '', true);
-        $proximityThreshold = (float)($this->settings['proximityThreshold'] ?? 0.5);
-        $maxSuggestions = (int)($this->settings['maxSuggestions'] ?? 5);
-    
-        $cacheIdentifier = 'semantic_analysis_' . $parentPageId . '_' . $depth;
-    
-        if ($this->cache->has($cacheIdentifier)) {
-            $cachedResult = $this->cache->get($cacheIdentifier);
-            $cachedResult['metrics']['fromCache'] = true;
-            $cachedResult['metrics']['executionTime'] = microtime(true) - $startTime;
-            return $cachedResult;
-        }
-    
-        try {
-            $pages = $this->getAllRelevantPages($parentPageId, $depth, $excludePages);
-            $totalPages = count($pages);
-            $analysisResults = [];
-    
-            foreach ($pages as $page) {
-                $pageData = $this->preparePageData($page);
-                if ($this->nlpService->isEnabled()) {
-                    $nlpResults = $this->getPageNlpResults($page['uid']);
-                    
-                    if (!$nlpResults) {
-                        $content = $this->getPageContent($page['uid']);
-                        $nlpResults = $this->nlpService->analyzeContent($content);
-                        $this->storeNlpResults($page['uid'], $nlpResults);
-                    }
-                    
-                    $pageData['nlp'] = $nlpResults;
-                }
-                
-                $analysisResults[$page['uid']] = $pageData;
-            }
-    
-            $similarityResults = $this->calculateSimilarities($analysisResults);
-            $analysisResults = $similarityResults['analysisResults'];
-            $similarityCalculations = $similarityResults['similarityCalculations'];
-    
-            $endTime = microtime(true);
-            $executionTime = $endTime - $startTime;
-    
-            $result = [
-                'results' => $analysisResults,
-                'metrics' => [
-                    'executionTime' => $executionTime,
-                    'totalPages' => $totalPages,
-                    'similarityCalculations' => $similarityCalculations,
-                    'fromCache' => false,
-                ],
-            ];
-    
-            $this->cache->set(
-                $cacheIdentifier,
-                $result,
-                ['tx_semanticsuggestion', 'pages_' . $parentPageId],
-                86400
-            );
-    
-            return $result;
-        } catch (\Exception $e) {
-            $this->logger?->error('Error during page analysis', ['exception' => $e->getMessage()]);
-            return [];
-        }
-    }
-
-private function getAllRelevantPages(?int $parentPageId, int $depth, array $excludePages): array
-{
-    $allPages = [];
-    
-    if ($parentPageId === null) {
-        // Si aucun parentPageId n'est spécifié, on récupère toutes les pages racines
-        $rootPages = $this->getRootPages();
-        foreach ($rootPages as $rootPage) {
-            $allPages = array_merge($allPages, $this->getAllSubpages($rootPage['uid'], $depth));
-        }
-    } else {
-        $allPages = $this->getAllSubpages($parentPageId, $depth);
-    }
-    
-    // Filtrer les pages exclues
-    return array_filter($allPages, function($page) use ($excludePages) {
-        return !in_array($page['uid'], $excludePages);
-    });
-}
-
-private function getRootPages(): array
-{
-    $queryBuilder = $this->getQueryBuilder();
-    return $queryBuilder
-        ->select('uid', 'title')
-        ->from('pages')
-        ->where(
-            $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
-            $queryBuilder->expr()->eq('hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
-            $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT))
-        )
-        ->executeQuery()
-        ->fetchAllAssociative();
-}
-
-
-    
-    protected function getPageNlpResults(int $pageId): ?array
-    {
-        $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_semanticsuggestion_nlp_results');
-        $result = $connection->select(['*'], 'tx_semanticsuggestion_nlp_results', ['page_uid' => $pageId])->fetch();
-    
-        if ($result) {
-            $result['keyphrases'] = json_decode($result['keyphrases'], true);
-            $result['named_entities'] = json_decode($result['named_entities'], true);
-            return $result;
-        }
-    
-        return null;
-    }
-    
-    protected function storeNlpResults(int $pageId, array $nlpResults)
-    {
-        $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_semanticsuggestion_nlp_results');
-    
-        $data = [
-            'page_uid' => $pageId,
-            'sentiment' => $nlpResults['sentiment'] ?? '',
-            'keyphrases' => json_encode($nlpResults['keyphrases'] ?? []),
-            'category' => $nlpResults['category'] ?? '',
-            'named_entities' => json_encode($nlpResults['named_entities'] ?? []),
-            'readability_score' => $nlpResults['readability_score'] ?? 0.0,
-            'word_count' => $nlpResults['word_count'] ?? 0,
-            'unique_word_count' => $nlpResults['unique_word_count'] ?? 0,
-            'complexity' => $nlpResults['complexity'] ?? 0.0,
-            'tstamp' => time()
-        ];
-    
-        $existingRecord = $connection->select(['uid'], 'tx_semanticsuggestion_nlp_results', ['page_uid' => $pageId])->fetch();
-    
-        if ($existingRecord) {
-            $connection->update('tx_semanticsuggestion_nlp_results', $data, ['uid' => $existingRecord['uid']]);
-        } else {
-            $data['crdate'] = time();
-            $connection->insert('tx_semanticsuggestion_nlp_results', $data);
-        }
-    
-        $this->logger->info('NLP results stored', ['pageId' => $pageId, 'data' => $data]);
+        $this->logger = $logger;
     }
 
 
-
+    
     protected function preparePageData(array $page): array
     {
         $preparedData = [];
         $nlpAnalysis = null;
-    
+
         if (!is_array($this->settings['analyzedFields'])) {
             $this->logger?->warning('analyzedFields is not an array', ['settings' => $this->settings]);
             return $preparedData;
         }
-    
+
         foreach ($this->settings['analyzedFields'] as $field => $weight) {
-            if ($field === 'content') {
-                try {
-                    $content = $this->getPageContent($page['uid']);
-                    if (empty(trim($content))) {
-                        $this->logger?->warning('Empty content for page', ['pageId' => $page['uid']]);
-                        continue;
-                    }
-                    
-                    $preparedData['content'] = [
-                        'content' => $content,
-                        'weight' => (float)$weight
-                    ];
-                    
-                    if ($this->nlpService->isEnabled()) {
-                        $nlpAnalysis = $this->nlpService->analyzeContent($content);
-                        $preparedData['content']['nlp'] = $nlpAnalysis;
-                    }
-                } catch (\Exception $e) {
-                    $this->logger?->error('Error fetching page content', ['pageId' => $page['uid'], 'exception' => $e->getMessage()]);
-                }
-            } elseif (isset($page[$field]) && !empty(trim($page[$field]))) {
-                $preparedData[$field] = [
-                    'content' => $page[$field],
-                    'weight' => (float)$weight
-                ];
-                
-                if ($this->nlpService->isEnabled() && in_array($field, ['title', 'description', 'keywords'])) {
-                    $preparedData[$field]['nlp'] = $this->nlpService->analyzeContent($page[$field]);
+            $content = $this->getFieldContent($page, $field);
+            if (empty($content)) {
+                continue;
+            }
+
+            $preparedData[$field] = [
+                'content' => $content,
+                'weight' => (float)$weight
+            ];
+
+            if ($this->nlpService->isEnabled() && ($field === 'content' || in_array($field, ['title', 'description', 'keywords']))) {
+                $preparedData[$field]['nlp'] = $this->nlpService->analyzeContent($content);
+                if ($field === 'content') {
+                    $nlpAnalysis = $preparedData[$field]['nlp'];
                 }
             }
         }
-    
+
         $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
-    
+
         if ($nlpAnalysis) {
             $preparedData['nlp'] = $nlpAnalysis;
             $this->logger->debug('NLP analysis result', ['pageId' => $page['uid'], 'nlpAnalysis' => $nlpAnalysis]);
         }
-    
+
         return $preparedData;
+    }
+
+    protected function getFieldContent(array $page, string $field): string
+    {
+        if ($field === 'content') {
+            try {
+                return $this->getPageContent($page['uid']);
+            } catch (\Exception $e) {
+                $this->logger?->error('Error fetching page content', ['pageId' => $page['uid'], 'exception' => $e->getMessage()]);
+                return '';
+            }
+        }
+        return $page[$field] ?? '';
     }
 
 
@@ -385,7 +224,7 @@ private function getRootPages(): array
         try {
             $queryBuilder = $this->getQueryBuilder();
             $languageUid = $this->getCurrentLanguageUid();
-
+    
             $content = $queryBuilder
                 ->select('bodytext')
                 ->from('tt_content')
@@ -397,10 +236,13 @@ private function getRootPages(): array
                 )
                 ->executeQuery()
                 ->fetchAllAssociative();
-
-            return implode(' ', array_column($content, 'bodytext'));
+    
+            $fullContent = implode(' ', array_column($content, 'bodytext'));
+            $this->logger->info('Retrieved page content', ['pageId' => $pageId, 'content_length' => strlen($fullContent)]);
+    
+            return $fullContent;
         } catch (\Exception $e) {
-            $this->logger?->error('Error fetching page content', ['pageId' => $pageId, 'exception' => $e->getMessage()]);
+            $this->logger->error('Error fetching page content', ['pageId' => $pageId, 'exception' => $e->getMessage()]);
             throw $e;
         }
     }

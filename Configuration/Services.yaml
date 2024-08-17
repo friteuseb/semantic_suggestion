@@ -7,12 +7,19 @@ services:
   TalanHdf\SemanticSuggestion\:
     resource: '../Classes/*'
 
+  TalanHdf\SemanticSuggestion\Service\NlpService:
+    public: true
+
   TalanHdf\SemanticSuggestion\Service\PageAnalysisService:
     arguments:
       $context: '@TYPO3\CMS\Core\Context\Context'
       $configurationManager: '@TYPO3\CMS\Extbase\Configuration\ConfigurationManager'
+      $nlpService: '@TalanHdf\SemanticSuggestion\Service\NlpService'
       $cacheManager: '@TYPO3\CMS\Core\Cache\CacheManager'
       $dbConnection: '@TYPO3\CMS\Core\Database\ConnectionPool'
+    calls:
+      - method: setLogger
+        arguments: ['@TYPO3\CMS\Core\Log\LogManager']
     public: true
 
   TalanHdf\SemanticSuggestion\Controller\SuggestionsController:
@@ -28,5 +35,3 @@ services:
     tags:
       - name: 'console.command'
         command: 'semanticsuggestion:nlpanalysis'
-
-  
