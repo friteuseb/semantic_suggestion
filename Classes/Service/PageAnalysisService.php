@@ -441,18 +441,24 @@ private function getRootPages(): array
         ];
     }
     
- private function calculateSimilarity(array $page1, array $page2): array
+    private function calculateSimilarity(array $page1, array $page2): array
     {
+        $this->logger->debug('Starting similarity calculation', [
+            'page1' => $page1['uid'] ?? 'unknown',
+            'page2' => $page2['uid'] ?? 'unknown'
+        ]);
+
         $words1 = $this->getWeightedWords($page1);
         $words2 = $this->getWeightedWords($page2);
-    
+
         $intersection = array_intersect_key($words1, $words2);
         $union = $words1 + $words2;
-    
+
         $intersectionSum = array_sum($intersection);
         $unionSum = array_sum($union);
-    
+
         if ($unionSum === 0) {
+            $this->logger->debug('No common words found, returning zero similarity');
             return [
                 'semanticSimilarity' => 0.0,
                 'recencyBoost' => 0.0,
@@ -460,22 +466,53 @@ private function getRootPages(): array
                 'finalSimilarity' => 0.0
             ];
         }
-    
+
         $semanticSimilarity = min($intersectionSum / $unionSum, 1.0);
         $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
         
         $nlpSimilarity = 0.0;
         if ($this->nlpService->isEnabled() && isset($page1['nlp']) && isset($page2['nlp'])) {
             $nlpSimilarity = $this->nlpService->calculateNlpSimilarity($page1['nlp'], $page2['nlp']);
+            $this->logger->debug('NLP similarity calculated', ['nlpSimilarity' => $nlpSimilarity]);
+        } else {
+            $this->logger->debug('NLP similarity not calculated', [
+                'nlpEnabled' => $this->nlpService->isEnabled(),
+                'nlpDataPresent' => isset($page1['nlp']) && isset($page2['nlp'])
+            ]);
         }
 
-        $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
-        $nlpWeight = $this->settings['nlpWeight'] ?? 0.3;
+        $recencyWeight = $this->settings['recencyWeight'] ?? 0.1;
+        $nlpWeight = $this->settings['nlpWeight'] ?? 0.4;  // Augmenté à 0.4 pour donner plus d'importance à NLP
         $semanticWeight = 1 - $recencyWeight - $nlpWeight;
+
+        // Assurez-vous que la somme des poids est égale à 1
+        $totalWeight = $recencyWeight + $nlpWeight + $semanticWeight;
+        if (abs($totalWeight - 1.0) > 0.001) {
+            $this->logger->warning('Total weight is not 1, adjusting weights', [
+                'recencyWeight' => $recencyWeight,
+                'nlpWeight' => $nlpWeight,
+                'semanticWeight' => $semanticWeight
+            ]);
+            $recencyWeight /= $totalWeight;
+            $nlpWeight /= $totalWeight;
+            $semanticWeight /= $totalWeight;
+        }
 
         $finalSimilarity = ($semanticSimilarity * $semanticWeight) + 
                            ($recencyBoost * $recencyWeight) + 
                            ($nlpSimilarity * $nlpWeight);
+
+        $this->logger->debug('Similarity calculation completed', [
+            'semanticSimilarity' => $semanticSimilarity,
+            'recencyBoost' => $recencyBoost,
+            'nlpSimilarity' => $nlpSimilarity,
+            'finalSimilarity' => $finalSimilarity,
+            'weights' => [
+                'semantic' => $semanticWeight,
+                'recency' => $recencyWeight,
+                'nlp' => $nlpWeight
+            ]
+        ]);
 
         return [
             'semanticSimilarity' => $semanticSimilarity,
