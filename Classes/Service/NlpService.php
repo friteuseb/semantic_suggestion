@@ -15,10 +15,14 @@ class NlpService implements SingletonInterface, LoggerAwareInterface
     protected $languageClient;
     protected $enabled;
 
-    public function __construct()
+
+  public function __construct(array $config = null)
     {
-        $extensionConfiguration = GeneralUtility::makeInstance(ExtensionConfiguration::class);
-        $config = $extensionConfiguration->get('semantic_suggestion');
+        if ($config === null) {
+            // Utiliser la configuration TYPO3 si aucune configuration n'est fournie
+            $extensionConfiguration = \TYPO3\CMS\Core\Utility\GeneralUtility::makeInstance(\TYPO3\CMS\Core\Configuration\ExtensionConfiguration::class);
+            $config = $extensionConfiguration->get('semantic_suggestion');
+        }
         
         $this->enabled = (bool)($config['enableNlpAnalysis'] ?? false);
 
@@ -33,10 +37,13 @@ class NlpService implements SingletonInterface, LoggerAwareInterface
         }
     }
 
+
+
     public function isEnabled(): bool
     {
         return $this->enabled;
     }
+
 
     public function analyzeContent(string $content): array
     {
@@ -50,31 +57,32 @@ class NlpService implements SingletonInterface, LoggerAwareInterface
             
             $annotation = $this->languageClient->annotateText([
                 'content' => $content,
-                'language' => 'fr',
                 'features' => [
                     'extractSyntax' => true,
                     'extractEntities' => true,
                     'extractDocumentSentiment' => true,
                     'classifyText' => true,
                 ],
+                'language' => 'fr',
                 'encodingType' => 'UTF8'
             ]);
 
+    
             $tokens = $annotation->tokens();
             $wordCount = count($tokens);
-
+    
             $this->logger->info('NLP analysis raw results', [
                 'word_count' => $wordCount,
                 'sentiment' => $annotation->sentiment(),
                 'entities_count' => count($annotation->entities()),
                 'categories_count' => count($annotation->categories()),
             ]);
-
+    
             if ($wordCount == 0) {
                 $this->logger->warning('No words found in content, returning default analysis');
                 return $this->getDefaultAnalysis();
             }
-
+    
             $result = [
                 'sentiment' => $this->getSentimentLabel($annotation->sentiment()),
                 'keyphrases' => $this->extractKeyphrases($annotation->entities()),
@@ -85,15 +93,18 @@ class NlpService implements SingletonInterface, LoggerAwareInterface
                 'unique_word_count' => count(array_unique(array_column($tokens, 'lemma'))),
                 'complexity' => $this->calculateComplexity($tokens),
             ];
-
+    
             $this->logger->info('NLP analysis completed', ['result' => $result]);
-
+    
             return $result;
         } catch (\Exception $e) {
             $this->logger->error('NLP analysis failed', ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return $this->getDefaultAnalysis();
         }
     }
+
+
+
 
     protected function getSentimentLabel(array $sentiment): string
     {
