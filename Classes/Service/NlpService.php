@@ -25,11 +25,11 @@ class NlpService implements SingletonInterface, LoggerAwareInterface
         
         $this->enabled = (bool)($config['enableNlpAnalysis'] ?? false);
         
-        // Utiliser l'URL de DDEV en environnement de développement
+        // Utiliser host.docker.internal si nous sommes dans DDEV
         if (getenv('IS_DDEV_PROJECT') === 'true') {
-            $this->apiUrl = 'http://python.' . getenv('DDEV_SITENAME') . '.ddev.site:5000/analyze';
+            $this->apiUrl = str_replace('localhost', 'host.docker.internal', $config['pythonApiUrl'] ?? 'http://localhost:5000/analyze');
         } else {
-            $this->apiUrl = $config['pythonApiUrl'] ?? 'http://localhost:5000/analyze';
+            $this->apiUrl = $config['pythonApiUrl'] ?? 'http://0.0.0.0:5000/analyze';
         }
 
         if ($this->enabled) {
@@ -41,6 +41,12 @@ class NlpService implements SingletonInterface, LoggerAwareInterface
     {
         return $this->enabled;
     }
+
+    public function getApiUrl(): string
+{
+    return $this->apiUrl;
+}
+
 
     public function analyzeContent(string $content): array
     {
