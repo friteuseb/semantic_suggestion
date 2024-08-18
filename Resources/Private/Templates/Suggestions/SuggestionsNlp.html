@@ -3,28 +3,36 @@
 
 <f:section name="content">
     <h2>Pages suggérées</h2>
+
     <f:if condition="{suggestions}">
         <f:then>
             <f:for each="{suggestions}" as="suggestion">
                 <div class="suggestion">
                     <h3>{suggestion.data.title}</h3>
-                    <p>Similarité: {suggestion.similarity -> f:format.number(decimals: 2)}</p>
+                    <p>Similarité: <f:format.number decimals="2">{suggestion.similarity}</f:format.number></p>
+                    
                     <f:if condition="{suggestion.nlp}">
-                        <p>Sentiment: {suggestion.nlp.sentiment}</p>
-                        <p>Phrases clés:</p>
-                        <ul>
-                            <f:for each="{suggestion.nlp.keyphrases}" as="keyphrase">
-                                <li>{keyphrase}</li>
-                            </f:for>
-                        </ul>
-                        <p>Catégorie: {suggestion.nlp.category}</p>
-                        <p>Entités nommées:</p>
-                        <ul>
-                            <f:for each="{suggestion.nlp.named_entities}" as="entity">
-                                <li>{entity}</li>
-                            </f:for>
-                        </ul>
-                        <p>Score de lisibilité: {suggestion.nlp.readability_score -> f:format.number(decimals: 1)}</p>
+                        <div class="nlp-data">
+                            <p>Sentiment: {suggestion.nlp.sentiment}</p>
+                            
+                            <h4>Phrases clés:</h4>
+                            <ul>
+                                <f:for each="{suggestion.nlp.keyphrases}" as="keyphrase">
+                                    <li>{keyphrase}</li>
+                                </f:for>
+                            </ul>
+                            
+                            <p>Catégorie: {suggestion.nlp.category}</p>
+                            
+                            <h4>Entités nommées:</h4>
+                            <ul>
+                                <f:for each="{suggestion.nlp.named_entities}" as="entity">
+                                    <li>{entity.text} ({entity.label})</li>
+                                </f:for>
+                            </ul>
+                            
+                            <p>Score de lisibilité: <f:format.number decimals="1">{suggestion.nlp.readability_score}</f:format.number></p>
+                        </div>
                     </f:if>
                 </div>
             </f:for>

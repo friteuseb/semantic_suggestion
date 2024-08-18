@@ -17,22 +17,156 @@ class NlpAnalysisTask extends AbstractTask
     protected $pageAnalysisService;
     protected ?LoggerInterface $logger = null;
 
+    // New configuration properties
+    protected $parentPageId;
+    protected $recursive;
+    protected $excludePages;
+    protected $proximityThreshold;
+    protected $maxSuggestions;
+    protected $excerptLength;
+    protected $recencyWeight;
+    protected $nlpWeight;
+
     public function __construct()
     {
         parent::__construct();
         $this->initializeServices();
+        $this->loadDefaultConfiguration();
+        $this->configurationManager = GeneralUtility::makeInstance(ConfigurationManagerInterface::class);
+        $this->pageAnalysisService = GeneralUtility::makeInstance(\TalanHdf\SemanticSuggestion\Service\PageAnalysisService::class);
+ 
+
+          // Initialize with default values
+        $this->parentPageId = 0;
+        $this->recursive = 0;
+        $this->excludePages = '';  // Initialize with an empty string
+        $this->proximityThreshold = 0.5;
+        $this->maxSuggestions = 5;
+        $this->excerptLength = 150;
+        $this->recencyWeight = 0.2;
+        $this->nlpWeight = 0.3;
+    }
+
+    protected function getTypoScriptConfiguration(): array
+    {
+        $fullTypoScript = $this->configurationManager->getConfiguration(
+            ConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
+        );
+    
+        return $fullTypoScript['plugin.']['tx_semanticsuggestion_suggestions.']['settings.'] ?? [];
+    }
+
+    
+    protected function loadDefaultConfiguration()
+    {
+        $settings = $this->getSettings();
+        $this->parentPageId = $settings['parentPageId'];
+        $this->recursive = $settings['recursive'];
+        $this->excludePages = $settings['excludePages'];
+        $this->proximityThreshold = $settings['proximityThreshold'];
+        $this->maxSuggestions = $settings['maxSuggestions'];
+        $this->excerptLength = $settings['excerptLength'];
+        $this->recencyWeight = $settings['recencyWeight'];
+        $this->nlpWeight = $settings['nlpWeight'];
+    }
+
+    // Getters and setters for each property
+    public function getParentPageId()
+    {
+        return $this->parentPageId;
+    }
+
+    public function setParentPageId($parentPageId)
+    {
+        $this->parentPageId = $parentPageId;
+    }
+
+    public function getRecursive()
+    {
+        return $this->recursive;
+    }
+
+    public function setRecursive($recursive)
+    {
+        $this->recursive = $recursive;
+    }
+
+    public function getExcludePages()
+    {
+        return $this->excludePages;
+    }
+
+    public function setExcludePages($excludePages)
+    {
+        $this->excludePages = $excludePages;
+    }
+
+    public function getProximityThreshold()
+    {
+        return $this->proximityThreshold;
+    }
+
+    public function setProximityThreshold($proximityThreshold)
+    {
+        $this->proximityThreshold = $proximityThreshold;
+    }
+
+    public function getMaxSuggestions()
+    {
+        return $this->maxSuggestions;
+    }
+
+    public function setMaxSuggestions($maxSuggestions)
+    {
+        $this->maxSuggestions = $maxSuggestions;
+    }
+
+    public function getExcerptLength()
+    {
+        return $this->excerptLength;
+    }
+
+    public function setExcerptLength($excerptLength)
+    {
+        $this->excerptLength = $excerptLength;
+    }
+
+    public function getRecencyWeight()
+    {
+        return $this->recencyWeight;
+    }
+
+    public function setRecencyWeight($recencyWeight)
+    {
+        $this->recencyWeight = $recencyWeight;
+    }
+
+    public function getNlpWeight()
+    {
+        return $this->nlpWeight;
+    }
+
+    public function setNlpWeight($nlpWeight)
+    {
+        $this->nlpWeight = $nlpWeight;
     }
 
     public function execute()
     {
         try {
-            $this->initializeServices();
-            $settings = $this->getSettings();
+            $config = $this->getTypoScriptConfiguration();
     
             $analysisData = $this->pageAnalysisService->analyzePages(
-                $settings['parentPageId'],
-                $settings['recursive'],
-                $settings['excludePages']
+                (int)($config['parentPageId'] ?? 0),
+                (int)($config['recursive'] ?? 0),
+                GeneralUtility::intExplode(',', $config['excludePages'] ?? '', true),
+                [
+                    'proximityThreshold' => (float)($config['proximityThreshold'] ?? 0.5),
+                    'maxSuggestions' => (int)($config['maxSuggestions'] ?? 5),
+                    'excerptLength' => (int)($config['excerptLength'] ?? 150),
+                    'recencyWeight' => (float)($config['recencyWeight'] ?? 0.2),
+                    'nlpWeight' => (float)($config['nlpWeight'] ?? 0.3)
+                ]
             );
     
             if (!isset($analysisData['results']) || !is_array($analysisData['results'])) {
@@ -42,20 +176,18 @@ class NlpAnalysisTask extends AbstractTask
             $totalPages = count($analysisData['results']);
             $this->initializeTaskProgress($totalPages);
     
-            $processedPages = 0;
             foreach ($analysisData['results'] as $pageId => $pageData) {
                 if (isset($pageData['nlp'])) {
                     $this->storeNlpResults($pageId, $pageData['nlp']);
                 }
-                $processedPages++;
-                $this->updateTaskProgress($processedPages);
+                $this->updateTaskProgress($pageId);
             }
     
             $this->finalizeTaskProgress();
     
             $this->logger?->info('Analyse NLP terminée', [
                 'totalPages' => $totalPages,
-                'executionTime' => $analysisData['metrics']['executionTime']
+                'executionTime' => $analysisData['metrics']['executionTime'] ?? 0
             ]);
     
             return true;
@@ -65,6 +197,8 @@ class NlpAnalysisTask extends AbstractTask
             return false;
         }
     }
+
+
     
     protected function updateProgress($current, $total)
     {

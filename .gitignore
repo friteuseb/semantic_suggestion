@@ -55,3 +55,7 @@ extension_report.json
 /.git
 
 *.env
+
+# Python Evn
+/Resources/Private/Python/myenv/
+/Resources/Private/Python/nlp_venv/

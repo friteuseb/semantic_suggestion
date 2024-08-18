@@ -113,20 +113,24 @@ class PageAnalysisService implements LoggerAwareInterface
             $pages = $this->getAllRelevantPages($parentPageId, $depth, $excludePages);
             $totalPages = count($pages);
             $analysisResults = [];
+            $nlpAnalyzedPages = 0;
     
             foreach ($pages as $page) {
                 $pageData = $this->preparePageData($page);
                 $nlpResults = $this->getPageNlpResults($page['uid']);
                 
-                if ($nlpResults) {
-                    $pageData['nlp'] = $nlpResults;
-                } else {
+                if (!$nlpResults && $this->nlpService->isEnabled()) {
                     $content = $this->getPageContent($page['uid']);
                     $nlpResults = $this->nlpService->analyzeContent($content);
                     $this->storeNlpResults($page['uid'], $nlpResults);
+                    $nlpAnalyzedPages++;
+                }
+                
+                if ($nlpResults) {
                     $pageData['nlp'] = $nlpResults;
                 }
                 
+                $this->logger->info('Page analyzed', ['pageId' => $page['uid'], 'hasNlp' => isset($pageData['nlp'])]);
                 $analysisResults[$page['uid']] = $pageData;
             }
     
@@ -248,37 +252,19 @@ private function getRootPages(): array
             return $preparedData;
         }
     
+        $content = $this->getPageContent($page['uid']);
+    
         foreach ($this->settings['analyzedFields'] as $field => $weight) {
             if ($field === 'content') {
-                try {
-                    $content = $this->getPageContent($page['uid']);
-                    $preparedData['content'] = [
-                        'content' => $content,
-                        'weight' => (float)$weight
-                    ];
-                    
-                    // Analyse NLP pour le contenu principal
-                    if ($this->nlpService->isEnabled()) {
-                        $nlpAnalysis = $this->nlpService->analyzeContent($content);
-                        $preparedData['content']['nlp'] = $nlpAnalysis;
-                    }
-                } catch (\Exception $e) {
-                    $this->logger?->error('Error fetching page content', ['pageId' => $page['uid'], 'exception' => $e->getMessage()]);
-                    $preparedData['content'] = [
-                        'content' => '',
-                        'weight' => (float)$weight
-                    ];
-                }
+                $preparedData['content'] = [
+                    'content' => $content,
+                    'weight' => (float)$weight
+                ];
             } elseif (isset($page[$field])) {
                 $preparedData[$field] = [
                     'content' => $page[$field],
                     'weight' => (float)$weight
                 ];
-                
-                // Analyse NLP pour les autres champs importants
-                if ($this->nlpService->isEnabled() && in_array($field, ['title', 'description', 'keywords'])) {
-                    $preparedData[$field]['nlp'] = $this->nlpService->analyzeContent($page[$field]);
-                }
             } else {
                 $preparedData[$field] = [
                     'content' => '',
@@ -287,12 +273,13 @@ private function getRootPages(): array
             }
         }
     
-        $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
-    
-        if ($nlpAnalysis) {
+        if ($this->nlpService->isEnabled()) {
+            $nlpAnalysis = $this->nlpService->analyzeContent($content);
             $preparedData['nlp'] = $nlpAnalysis;
             $this->logger->debug('NLP analysis result', ['pageId' => $page['uid'], 'nlpAnalysis' => $nlpAnalysis]);
         }
+    
+        $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
     
         return $preparedData;
     }
@@ -454,7 +441,7 @@ private function getRootPages(): array
         ];
     }
     
-    private function calculateSimilarity(array $page1, array $page2): array
+ private function calculateSimilarity(array $page1, array $page2): array
     {
         $words1 = $this->getWeightedWords($page1);
         $words2 = $this->getWeightedWords($page2);
@@ -478,29 +465,18 @@ private function getRootPages(): array
         $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
         
         $nlpSimilarity = 0.0;
-        if ($this->nlpService->isEnabled()) {
-            $nlpData1 = $page1['nlp'] ?? [];
-            $nlpData2 = $page2['nlp'] ?? [];
-            $nlpSimilarity = $this->calculateNlpSimilarity($nlpData1, $nlpData2);
+        if ($this->nlpService->isEnabled() && isset($page1['nlp']) && isset($page2['nlp'])) {
+            $nlpSimilarity = $this->nlpService->calculateNlpSimilarity($page1['nlp'], $page2['nlp']);
         }
-    
+
         $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
         $nlpWeight = $this->settings['nlpWeight'] ?? 0.3;
         $semanticWeight = 1 - $recencyWeight - $nlpWeight;
-    
+
         $finalSimilarity = ($semanticSimilarity * $semanticWeight) + 
                            ($recencyBoost * $recencyWeight) + 
                            ($nlpSimilarity * $nlpWeight);
-    
-        $this->logger?->info('Similarity calculation', [
-            'page1' => $page1['uid'] ?? 'unknown',
-            'page2' => $page2['uid'] ?? 'unknown',
-            'semanticSimilarity' => $semanticSimilarity, 
-            'recencyBoost' => $recencyBoost,
-            'nlpSimilarity' => $nlpSimilarity,
-            'finalSimilarity' => $finalSimilarity
-        ]);
-    
+
         return [
             'semanticSimilarity' => $semanticSimilarity,
             'recencyBoost' => $recencyBoost,
@@ -522,51 +498,6 @@ private function getRootPages(): array
         ];
     }
 
-    
-    private function calculateNlpSimilarity(array $nlpData1, array $nlpData2): float
-    {
-        $similarities = [];
-    
-        // Compare sentiments
-        $similarities[] = $nlpData1['sentiment'] === $nlpData2['sentiment'] ? 1.0 : 0.0;
-    
-        // Compare categories
-        $similarities[] = $nlpData1['category'] === $nlpData2['category'] ? 1.0 : 0.0;
-    
-        // Compare keyphrases
-        $keywordSimilarity = $this->calculateJaccardSimilarity(
-            $nlpData1['keyphrases'] ?? [],
-            $nlpData2['keyphrases'] ?? []
-        );
-        $similarities[] = $keywordSimilarity;
-    
-        // Compare named entities
-        $entitiesSimilarity = $this->calculateJaccardSimilarity(
-            $nlpData1['named_entities'] ?? [],
-            $nlpData2['named_entities'] ?? []
-        );
-        $similarities[] = $entitiesSimilarity;
-    
-        // Compare readability scores
-        $readabilityDiff = abs(($nlpData1['readability_score'] ?? 0) - ($nlpData2['readability_score'] ?? 0));
-        $readabilitySimilarity = 1 - min($readabilityDiff / 100, 1); // Assuming readability score is 0-100
-        $similarities[] = $readabilitySimilarity;
-    
-        // Calculate average similarity
-        return array_sum($similarities) / count($similarities);
-    }
-    
-    private function calculateJaccardSimilarity(array $set1, array $set2): float
-    {
-        $intersection = array_intersect($set1, $set2);
-        $union = array_unique(array_merge($set1, $set2));
-        
-        if (empty($union)) {
-            return 0.0;
-        }
-        
-        return count($intersection) / count($union);
-    }
 
     
 
