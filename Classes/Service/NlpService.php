@@ -69,6 +69,7 @@ class NlpService implements SingletonInterface, LoggerAwareInterface
                 return $this->getDefaultAnalysis();
             }
 
+            // Assurez-vous que tous les champs attendus sont présents et du bon type
             $processedResult = [
                 'sentiment' => $this->ensureString($result['sentiment'] ?? 'neutral'),
                 'keyphrases' => $this->ensureArray($result['keyphrases'] ?? []),
@@ -90,15 +91,81 @@ class NlpService implements SingletonInterface, LoggerAwareInterface
         }
     }
 
+
+ 
+    
+    public function calculateNlpSimilarity(array $nlpData1, array $nlpData2): float
+    {
+        $similarities = [];
+
+        // Sentiment similarity (weight: 0.2)
+        $similarities[] = 0.2 * ($this->ensureString($nlpData1['sentiment'] ?? '') === $this->ensureString($nlpData2['sentiment'] ?? '') ? 1.0 : 0.0);
+
+        // Keyphrases similarity (weight: 0.3)
+        $similarities[] = 0.3 * $this->calculateJaccardSimilarity(
+            $this->ensureArray($nlpData1['keyphrases'] ?? []),
+            $this->ensureArray($nlpData2['keyphrases'] ?? [])
+        );
+
+        // Category similarity (weight: 0.2)
+        $similarities[] = 0.2 * ($this->ensureString($nlpData1['category'] ?? '') === $this->ensureString($nlpData2['category'] ?? '') ? 1.0 : 0.0);
+
+        // Named entities similarity (weight: 0.2)
+        $similarities[] = 0.2 * $this->calculateJaccardSimilarity(
+            $this->extractEntityTexts($this->ensureArray($nlpData1['named_entities'] ?? [])),
+            $this->extractEntityTexts($this->ensureArray($nlpData2['named_entities'] ?? []))
+        );
+
+        // Readability score similarity (weight: 0.1)
+        $readabilityDiff = abs($this->ensureFloat($nlpData1['readability_score'] ?? 0) - $this->ensureFloat($nlpData2['readability_score'] ?? 0));
+        $similarities[] = 0.1 * (1 - min($readabilityDiff / 100, 1));
+
+        $this->logger->debug('NLP similarity calculation', [
+            'similarities' => $similarities,
+            'total' => array_sum($similarities)
+        ]);
+
+        return array_sum($similarities);
+    }
+
+    private function extractEntityTexts(array $entities): array
+    {
+        return array_map(function($entity) {
+            return is_array($entity) ? ($entity['text'] ?? '') : $entity;
+        }, $entities);
+    }
+
+    private function ensureArray($value): array
+    {
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            return (json_last_error() === JSON_ERROR_NONE) ? $decoded : [$value];
+        }
+        return is_array($value) ? $value : [$value];
+    }
+
+  
+    private function calculateJaccardSimilarity(array $set1, array $set2): float
+    {
+        if (empty($set1) && empty($set2)) {
+            return 1.0;  // Two empty sets are considered identical
+        }
+
+        $intersection = array_intersect($set1, $set2);
+        $union = array_unique(array_merge($set1, $set2));
+        
+        if (empty($union)) {
+            return 0.0;
+        }
+        
+        return count($intersection) / count($union);
+    }
+
     private function ensureString($value): string
     {
         return is_array($value) ? json_encode($value) : (string)$value;
     }
 
-    private function ensureArray($value): array
-    {
-        return is_array($value) ? $value : [];
-    }
 
     private function ensureFloat($value): float
     {
@@ -111,57 +178,7 @@ class NlpService implements SingletonInterface, LoggerAwareInterface
     }
 
 
-    
-    public function calculateNlpSimilarity(array $nlpData1, array $nlpData2): float
-    {
-        $similarities = [];
-
-        // Compare sentiments (poids: 0.1)
-        $similarities[] = 0.1 * ($nlpData1['sentiment'] === $nlpData2['sentiment'] ? 1.0 : 0.0);
-
-        // Compare keyphrases (poids: 0.5)
-        $keywordSimilarity = $this->calculateJaccardSimilarity(
-            $nlpData1['keyphrases'] ?? [],
-            $nlpData2['keyphrases'] ?? []
-        );
-        $similarities[] = 0.5 * $keywordSimilarity;
-
-        // Compare categories (poids: 0.2)
-        $similarities[] = 0.2 * ($nlpData1['category'] === $nlpData2['category'] ? 1.0 : 0.0);
-
-        // Compare readability scores (poids: 0.2)
-        $readabilityDiff = abs(($nlpData1['readability_score'] ?? 0) - ($nlpData2['readability_score'] ?? 0));
-        $readabilitySimilarity = 1 - min($readabilityDiff / 100, 1);
-        $similarities[] = 0.2 * $readabilitySimilarity;
-
-        $totalSimilarity = array_sum($similarities);
-
-        $this->logger->debug('NLP similarity calculated', [
-            'keyphrases1' => $nlpData1['keyphrases'] ?? [],
-            'keyphrases2' => $nlpData2['keyphrases'] ?? [],
-            'keywordSimilarity' => $keywordSimilarity,
-            'categorySimilarity' => $nlpData1['category'] === $nlpData2['category'],
-            'readabilitySimilarity' => $readabilitySimilarity,
-            'totalSimilarity' => $totalSimilarity
-        ]);
-
-        return $totalSimilarity;
-    }
-
-    private function calculateJaccardSimilarity(array $set1, array $set2): float
-    {
-        $intersection = array_intersect($set1, $set2);
-        $union = array_unique(array_merge($set1, $set2));
-        
-        if (empty($union)) {
-            return 0.0;
-        }
-        
-        return count($intersection) / count($union);
-    }
-
-
-
+ 
     protected function getDefaultAnalysis(): array
     {
         return [

@@ -113,25 +113,29 @@ class PageAnalysisService implements LoggerAwareInterface
             $pages = $this->getAllRelevantPages($parentPageId, $depth, $excludePages);
             $totalPages = count($pages);
             $analysisResults = [];
-            $nlpAnalyzedPages = 0;
+            $errorPages = [];
     
             foreach ($pages as $page) {
-                $pageData = $this->preparePageData($page);
-                $nlpResults = $this->getPageNlpResults($page['uid']);
-                
-                if (!$nlpResults && $this->nlpService->isEnabled()) {
-                    $content = $this->getPageContent($page['uid']);
-                    $nlpResults = $this->nlpService->analyzeContent($content);
-                    $this->storeNlpResults($page['uid'], $nlpResults);
-                    $nlpAnalyzedPages++;
+                try {
+                    $pageData = $this->preparePageData($page);
+                    $nlpResults = $this->getPageNlpResults($page['uid']);
+                    
+                    if (!$nlpResults && $this->nlpService->isEnabled()) {
+                        $content = $this->getPageContent($page['uid']);
+                        $nlpResults = $this->nlpService->analyzeContent($content);
+                        $this->storeNlpResults($page['uid'], $nlpResults);
+                    }
+                    
+                    if ($nlpResults) {
+                        $pageData['nlp'] = $nlpResults;
+                    }
+                    
+                    $this->logger->info('Page analyzed', ['pageId' => $page['uid'], 'hasNlp' => isset($pageData['nlp'])]);
+                    $analysisResults[$page['uid']] = $pageData;
+                } catch (\Exception $e) {
+                    $this->logger->error('Error analyzing page', ['pageId' => $page['uid'], 'error' => $e->getMessage()]);
+                    $errorPages[] = $page['uid'];
                 }
-                
-                if ($nlpResults) {
-                    $pageData['nlp'] = $nlpResults;
-                }
-                
-                $this->logger->info('Page analyzed', ['pageId' => $page['uid'], 'hasNlp' => isset($pageData['nlp'])]);
-                $analysisResults[$page['uid']] = $pageData;
             }
     
             $similarityResults = $this->calculateSimilarities($analysisResults);
@@ -146,6 +150,8 @@ class PageAnalysisService implements LoggerAwareInterface
                 'metrics' => [
                     'executionTime' => $executionTime,
                     'totalPages' => $totalPages,
+                    'analyzedPages' => count($analysisResults),
+                    'errorPages' => $errorPages,
                     'similarityCalculations' => $similarityCalculations,
                     'fromCache' => false,
                 ],
@@ -160,8 +166,14 @@ class PageAnalysisService implements LoggerAwareInterface
     
             return $result;
         } catch (\Exception $e) {
-            $this->logger?->error('Error during page analysis', ['exception' => $e->getMessage()]);
-            return [];
+            $this->logger->error('Error during page analysis', ['exception' => $e->getMessage()]);
+            return [
+                'results' => [],
+                'metrics' => [
+                    'error' => $e->getMessage(),
+                    'fromCache' => false,
+                ],
+            ];
         }
     }
 
@@ -215,7 +227,7 @@ private function getRootPages(): array
     
         return null;
     }
-    
+
     protected function storeNlpResults(int $pageId, array $nlpResults)
     {
         $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_semanticsuggestion_nlp_results');
@@ -227,6 +239,13 @@ private function getRootPages(): array
             'category' => $nlpResults['category'] ?? '',
             'named_entities' => json_encode($nlpResults['named_entities'] ?? []),
             'readability_score' => $nlpResults['readability_score'] ?? 0.0,
+            'themes' => json_encode($nlpResults['themes'] ?? []),
+            'detailed_entities' => json_encode($nlpResults['detailed_entities'] ?? []),
+            'word_embeddings' => json_encode($nlpResults['word_embeddings'] ?? []),
+            'language' => $nlpResults['language'] ?? 'unknown',
+            'word_count' => $nlpResults['word_count'] ?? 0,
+            'sentence_count' => $nlpResults['sentence_count'] ?? 0,
+            'average_sentence_length' => $nlpResults['average_sentence_length'] ?? 0,
             'tstamp' => time()
         ];
     

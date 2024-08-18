@@ -7,6 +7,13 @@ CREATE TABLE tx_semanticsuggestion_nlp_results (
     category varchar(255) DEFAULT '' NOT NULL,
     named_entities text,
     readability_score float DEFAULT '0' NOT NULL,
+    themes text,
+    detailed_entities text,
+    word_embeddings text,
+    language varchar(50) DEFAULT 'unknown' NOT NULL,
+    word_count int(11) DEFAULT '0' NOT NULL,
+    sentence_count int(11) DEFAULT '0' NOT NULL,
+    average_sentence_length float DEFAULT '0' NOT NULL,
     tstamp int(11) unsigned DEFAULT '0' NOT NULL,
     crdate int(11) unsigned DEFAULT '0' NOT NULL,
 
@@ -14,7 +21,6 @@ CREATE TABLE tx_semanticsuggestion_nlp_results (
     KEY parent (pid),
     KEY page (page_uid)
 );
-
 CREATE TABLE tx_semanticsuggestion_nlp_task_progress (
     uid int(11) unsigned NOT NULL auto_increment,
     task_id int(11) unsigned NOT NULL,
