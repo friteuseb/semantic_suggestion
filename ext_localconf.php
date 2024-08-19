@@ -61,7 +61,6 @@ defined('TYPO3') or die();
         'description' => 'LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang.xlf:nlpAnalysisTask.description',
         'additionalFields' => \TalanHdf\SemanticSuggestion\Task\NlpAnalysisTaskAdditionalFieldProvider::class
     ];
-
-    
+   
 
 })();

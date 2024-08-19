@@ -13,7 +13,9 @@
     "require": {
         "typo3/cms-core": "^12.0 || ^13.0",
         "ext-json": "*",
-        "guzzlehttp/guzzle": "^7.0"
+        "guzzlehttp/guzzle": "^7.0",
+        "typo3/cms-dashboard": "^12.0"
+
     },
     "autoload": {
         "psr-4": {
@@ -24,13 +26,5 @@
         "typo3/cms": {
             "extension-key": "semantic_suggestion"
         }
-    },
-    "scripts": {
-        "post-install-cmd": [
-            "bash install_dependencies.sh"
-        ],
-        "post-update-cmd": [
-            "bash install_dependencies.sh"
-        ]
-    }
+    } 
 }

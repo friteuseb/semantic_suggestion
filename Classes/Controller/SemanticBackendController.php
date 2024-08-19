@@ -7,6 +7,9 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TalanHdf\SemanticSuggestion\Service\PageAnalysisService;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TalanHdf\SemanticSuggestion\Widgets\SentimentDistributionWidget;
+use TalanHdf\SemanticSuggestion\Widgets\Provider\SentimentDistributionDataProvider;
+
 
 class SemanticBackendController extends ActionController
 {
@@ -63,8 +66,13 @@ class SemanticBackendController extends ActionController
             $statistics = $this->calculateStatistics($analysisResults, $proximityThreshold);
             
             if ($nlpEnabled) {
-                $nlpStatistics = $this->calculateNlpStatistics($analysisResults);
+                $sentimentDistribution = $this->calculateSentimentDistribution($analysisResults);
+                $dataProvider = new SentimentDistributionDataProvider($sentimentDistribution);
+                $widget = new SentimentDistributionWidget($dataProvider);
+                
+                $moduleTemplate->assign('sentimentWidget', $widget);
             }
+            
         } else {
             $this->addFlashMessage(
                 'The analysis did not return valid results. Please check your configuration and try again.',
@@ -87,7 +95,10 @@ class SemanticBackendController extends ActionController
                 \TYPO3\CMS\Core\Messaging\AbstractMessage::WARNING
             );
         }    
-                $moduleTemplate->assignMultiple([
+    
+        $moduleTemplate->assign('nlpEnabled', $nlpEnabled);
+    
+        $moduleTemplate->assignMultiple([
             'parentPageId' => $parentPageId,
             'depth' => $depth,
             'proximityThreshold' => $proximityThreshold,
@@ -96,7 +107,6 @@ class SemanticBackendController extends ActionController
             'statistics' => $statistics,
             'analysisResults' => $analysisResults,
             'performanceMetrics' => $performanceMetrics,
-            'nlpEnabled' => $nlpEnabled,
             'nlpStatistics' => $nlpStatistics,
         ]);
     
@@ -196,6 +206,56 @@ private function calculateNlpStatistics(array $analysisResults): array
         'topWords' => $allTopWords,
         'commonSuggestions' => array_slice(array_count_values($allSuggestions), 0, 5, true),
     ];
+}
+
+private function calculateSentimentDistribution(array $analysisResults): array
+{
+    $distribution = ['Très négatif' => 0, 'Négatif' => 0, 'Neutre' => 0, 'Positif' => 0, 'Très positif' => 0];
+    foreach ($analysisResults as $pageData) {
+        if (isset($pageData['nlp']['sentiment'])) {
+            $sentiment = $this->convertSentimentToText($pageData['nlp']['sentiment']);
+            $distribution[$sentiment]++;
+        }
+    }
+    return $distribution;
+}
+
+private function convertSentimentToText(string $sentiment): string
+{
+    switch ($sentiment) {
+        case '1 stars':
+            return 'Très négatif';
+        case '2 stars':
+            return 'Négatif';
+        case '3 stars':
+            return 'Neutre';
+        case '4 stars':
+            return 'Positif';
+        case '5 stars':
+            return 'Très positif';
+        default:
+            return 'Non défini';
+    }
+}
+
+private function getPagesNeedingAttention(array $analysisResults): array
+{
+    $pagesNeedingAttention = [];
+    foreach ($analysisResults as $pageId => $pageData) {
+        if (isset($pageData['nlp'])) {
+            $readabilityScore = $pageData['nlp']['readability_score'] ?? 0;
+            $semanticCoherence = $pageData['nlp']['semantic_coherence'] ?? 0;
+            if ($readabilityScore < 0.5 || $semanticCoherence < 0.5) {
+                $pagesNeedingAttention[] = [
+                    'id' => $pageId,
+                    'title' => $pageData['title']['content'] ?? 'Page ' . $pageId,
+                    'readabilityScore' => $readabilityScore,
+                    'semanticCoherence' => $semanticCoherence
+                ];
+            }
+        }
+    }
+    return $pagesNeedingAttention;
 }
 
 

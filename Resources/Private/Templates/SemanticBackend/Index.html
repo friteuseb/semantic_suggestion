@@ -248,10 +248,53 @@
     <!-- Point d'extension pour le contenu NLP -->
     <f:if condition="{nlpEnabled}">
         <h2>Debug render partial</h2>
-        <f:render partial="NlpStatistics" arguments="{nlpStatistics: nlpStatistics}" />
+       <!-- <f:render partial="NlpStatistics" arguments="{nlpStatistics: nlpStatistics}" />-->
     </f:if>
 
+        <div class="panel panel-default">
+            <div class="panel-heading">Distribution des sentiments</div>
+            <div class="panel-body">
+                {sentimentWidget.renderWidgetContent() -> f:format.raw()}
+            </div>
+        </div>
     
+        <f:be.pageRenderer>
+            <script>
+                require(['TYPO3/CMS/Dashboard/Contrib/chartjs', 'TYPO3/CMS/Dashboard/ChartInitializer'], function(Chart, ChartInitializer) {
+                    ChartInitializer.initialize('#sentimentDistributionChart');
+                    var chartData = {sentimentWidget.eventData.graphConfig -> f:format.json() -> f:format.raw()};
+                    new Chart(document.getElementById('sentimentDistributionChart').getContext('2d'), chartData);
+                });
+            </script>
+        </f:be.pageRenderer>
+   
+    <!-- Tableau des pages nécessitant une attention -->
+    <div class="panel panel-default">
+        <div class="panel-heading">Pages nécessitant une attention</div>
+        <div class="panel-body">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Titre</th>
+                        <th>Score de lisibilité</th>
+                        <th>Cohérence sémantique</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <f:for each="{pagesNeedingAttention}" as="page">
+                        <tr>
+                            <td>{page.id}</td>
+                            <td>{page.title}</td>
+                            <td>{page.readabilityScore -> f:format.number(decimals: 2)}</td>
+                            <td>{page.semanticCoherence -> f:format.number(decimals: 2)}</td>
+                        </tr>
+                    </f:for>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 </div>
 </f:section>
 </html>

@@ -1,4 +1,58 @@
 <html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers" data-namespace-typo3-fluid="true">
+
+
+    <div class="panel panel-default">
+        <div class="panel-heading">Distribution des sentiments</div>
+        <div class="panel-body">
+            <canvas id="sentimentChart" width="400" height="200"></canvas>
+        </div>
+    </div>
+
+    <f:be.pageRenderer includeJavaScriptModules="{0: '@vendor/chart.js'}"/>
+    <script type="module">
+        import Chart from '@vendor/chart.js';
+
+        const ctx = document.getElementById('sentimentChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: [
+                    <f:for each="{sentimentDistribution}" as="count" key="sentiment">
+                        '{sentiment}',
+                    </f:for>
+                ],
+                datasets: [{
+                    data: [
+                        <f:for each="{sentimentDistribution}" as="count">
+                            {count},
+                        </f:for>
+                    ],
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.8)',
+                        'rgba(255, 159, 64, 0.8)',
+                        'rgba(255, 205, 86, 0.8)',
+                        'rgba(75, 192, 192, 0.8)',
+                        'rgba(54, 162, 235, 0.8)'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Distribution des sentiments'
+                    }
+                }
+            }
+        });
+    </script>
+
+
+
 <div class="panel panel-default">
     <div class="panel-heading">NLP Statistics</div>
     <div class="panel-body">
