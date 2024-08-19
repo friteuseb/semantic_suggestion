@@ -254,8 +254,7 @@
         <div class="panel panel-default">
             <div class="panel-heading">Distribution des sentiments</div>
             <div class="panel-body">
-                {sentimentWidget.renderWidgetContent() -> f:format.raw()}
-            </div>
+                <f:format.raw>{sentimentWidget.renderWidgetContent()}</f:format.raw>            </div>
         </div>
     
         <f:be.pageRenderer>

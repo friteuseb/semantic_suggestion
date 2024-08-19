@@ -10,10 +10,12 @@ use TalanHdf\SemanticSuggestion\Widgets\Provider\SentimentDistributionDataProvid
 class SentimentDistributionWidget implements WidgetInterface, EventDataInterface, AdditionalCssInterface, RequireJsModuleInterface
 {
     private $dataProvider;
+    private $options;
 
-    public function __construct(SentimentDistributionDataProvider $dataProvider)
+    public function __construct(SentimentDistributionDataProvider $dataProvider, array $options = [])
     {
         $this->dataProvider = $dataProvider;
+        $this->options = $options;
     }
 
     public function renderWidgetContent(): string
@@ -54,5 +56,11 @@ class SentimentDistributionWidget implements WidgetInterface, EventDataInterface
             'TYPO3/CMS/Dashboard/Contrib/chartjs',
             'TYPO3/CMS/Dashboard/ChartInitializer',
         ];
+    }
+
+    // Ajout de la méthode manquante
+    public function getOptions(): array
+    {
+        return $this->options;
     }
 }
