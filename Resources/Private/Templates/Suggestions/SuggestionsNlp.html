@@ -3,7 +3,7 @@
 <f:section name="content">
     <h2>Pages suggérées</h2>
     <p>NLP Enabled: {nlpEnabled}</p>
-    <p>API URL: {f:uri.action(action: 'analyze', controller: 'Api', pluginName: 'Api', extensionName: 'SemanticSuggestion')}</p>
+    <p>API URL: {apiUrl}</p>
 
     <f:for each="{suggestions}" as="suggestion">
         <div class="suggestion">
@@ -13,41 +13,87 @@
             <f:if condition="{suggestion.nlp}">
                 <p>Sentiment: {suggestion.nlp.sentiment}</p>
                 
-                <p>Phrases clés: 
-                    <f:if condition="{suggestion.nlp.keyphrases}">
+                <f:if condition="{suggestion.nlp.keyphrases}">
+                    <p>Phrases clés: 
                         <f:for each="{suggestion.nlp.keyphrases}" as="keyphrase" iteration="iterator">
                             {keyphrase -> f:format.htmlspecialchars()}<f:if condition="{iterator.isLast}"><f:else>, </f:else></f:if>
                         </f:for>
-                    </f:if>
-                </p>
+                    </p>
+                </f:if>
                 
                 <p>Catégorie: {suggestion.nlp.category}</p>
                 
-                <p>Entités nommées:
-                    <f:if condition="{suggestion.nlp.named_entities}">
+                <f:if condition="{suggestion.nlp.named_entities}">
+                    <p>Entités nommées:
                         <f:for each="{suggestion.nlp.named_entities}" as="entity" iteration="iterator">
                             <f:if condition="{entity.text} && {entity.label}">
                                 {entity.text -> f:format.htmlspecialchars()} ({entity.label -> f:format.htmlspecialchars()})<f:if condition="{iterator.isLast}"><f:else>, </f:else></f:if>
                             </f:if>
                         </f:for>
+                    </p>
+                </f:if>
+                
+                <p>Score de lisibilité: {suggestion.nlp.readability_score -> f:format.number(decimals: 2)}
+                    <f:if condition="{suggestion.nlp.readability_score} > 90">
+                        (Très facile à lire)
+                    </f:if>
+                    <f:if condition="{suggestion.nlp.readability_score} <= 90 && {suggestion.nlp.readability_score} > 70">
+                        (Facile à lire)
+                    </f:if>
+                    <f:if condition="{suggestion.nlp.readability_score} <= 70 && {suggestion.nlp.readability_score} > 50">
+                        (Assez facile à lire)
+                    </f:if>
+                    <f:if condition="{suggestion.nlp.readability_score} <= 50 && {suggestion.nlp.readability_score} > 30">
+                        (Difficile à lire)
+                    </f:if>
+                    <f:if condition="{suggestion.nlp.readability_score} <= 30">
+                        (Très difficile à lire)
                     </f:if>
                 </p>
-                
-                <p>Score de lisibilité: {suggestion.nlp.readability_score -> f:format.number(decimals: 2)}</p>
                 <p>Nombre de mots: {suggestion.nlp.word_count}</p>
                 <p>Nombre de phrases: {suggestion.nlp.sentence_count}</p>
                 <p>Longueur moyenne des phrases: {suggestion.nlp.average_sentence_length -> f:format.number(decimals: 2)}</p>
-                <p>Diversité lexicale: {suggestion.nlp.lexical_diversity -> f:format.number(decimals: 2)}</p>
+                <p>Diversité lexicale: {suggestion.nlp.lexical_diversity -> f:format.number(decimals: 2)}
+                    (
+                    <f:if condition="{suggestion.nlp.lexical_diversity} > 0.7">
+                        Très élevée
+                    </f:if>
+                    <f:if condition="{suggestion.nlp.lexical_diversity} <= 0.7 && {suggestion.nlp.lexical_diversity} > 0.5">
+                        Élevée
+                    </f:if>
+                    <f:if condition="{suggestion.nlp.lexical_diversity} <= 0.5 && {suggestion.nlp.lexical_diversity} > 0.3">
+                        Moyenne
+                    </f:if>
+                    <f:if condition="{suggestion.nlp.lexical_diversity} <= 0.3">
+                        Faible
+                    </f:if>
+                    )
+                </p>
                 
-                <p>Top N-grams: 
-                    <f:if condition="{suggestion.nlp.top_n_grams}">
+                <f:if condition="{suggestion.nlp.top_n_grams}">
+                    <p>Top N-grams: 
                         <f:for each="{suggestion.nlp.top_n_grams}" as="ngram" iteration="iterator">
                             {ngram -> f:format.htmlspecialchars()}<f:if condition="{iterator.isLast}"><f:else>, </f:else></f:if>
                         </f:for>
-                    </f:if>
-                </p>
+                    </p>
+                </f:if>
                 
-                <p>Cohérence sémantique: {suggestion.nlp.semantic_coherence -> f:format.number(decimals: 2)}</p>
+                <p>Cohérence sémantique: {suggestion.nlp.semantic_coherence -> f:format.number(decimals: 2)}
+                    (
+                    <f:if condition="{suggestion.nlp.semantic_coherence} > 0.7">
+                        Très cohérent
+                    </f:if>
+                    <f:if condition="{suggestion.nlp.semantic_coherence} <= 0.7 && {suggestion.nlp.semantic_coherence} > 0.5">
+                        Cohérent
+                    </f:if>
+                    <f:if condition="{suggestion.nlp.semantic_coherence} <= 0.5 && {suggestion.nlp.semantic_coherence} > 0.3">
+                        Moyennement cohérent
+                    </f:if>
+                    <f:if condition="{suggestion.nlp.semantic_coherence} <= 0.3">
+                        Peu cohérent
+                    </f:if>
+                    )
+                </p>
                 
                 <f:if condition="{suggestion.nlp.sentiment_distribution}">
                     <p>Distribution des sentiments:

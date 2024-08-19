@@ -63,15 +63,18 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
         $this->logger->info('NLP Enabled Status', ['nlpEnabled' => $nlpEnabled]);
         
         if ($nlpEnabled) {
-            $this->enrichSuggestionsWithNlp($viewData['suggestions']);
+            $viewData['suggestions'] = $this->enrichSuggestionsWithNlp($viewData['suggestions']);
         }
-    
+
+        $formattedSuggestions = $this->formatSuggestions($viewData['suggestions']);
+        
         $templatePath = $nlpEnabled
             ? 'EXT:semantic_suggestion/Resources/Private/Templates/Suggestions/SuggestionsNlp.html'
             : 'EXT:semantic_suggestion/Resources/Private/Templates/Suggestions/List.html';
     
         $this->view->setTemplatePathAndFilename(GeneralUtility::getFileAbsFileName($templatePath));
         $this->view->assignMultiple($viewData);
+        $this->view->assign('suggestions', $formattedSuggestions);
         $this->view->assign('nlpEnabled', $nlpEnabled);
         $this->view->assign('apiUrl', $this->nlpService->getApiUrl());
         $this->view->assign('debugConfig', $nlpConfig);
@@ -80,6 +83,88 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
         return $this->htmlResponse();
     }
 
+
+    private function getNlpResultsForPages(array $pageUids): array
+    {
+        $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_semanticsuggestion_nlp_results');
+        
+        $queryBuilder = $connection->createQueryBuilder();
+        $nlpResults = $queryBuilder
+            ->select('*')
+            ->from('tx_semanticsuggestion_nlp_results')
+            ->where(
+                $queryBuilder->expr()->in('page_uid', $queryBuilder->createNamedParameter($pageUids, Connection::PARAM_INT_ARRAY))
+            )
+            ->execute()
+            ->fetchAll();
+
+        $this->logger->debug('NLP results fetched', ['count' => count($nlpResults)]);
+
+        $nlpResultsByPageUid = [];
+        foreach ($nlpResults as $result) {
+            $nlpResultsByPageUid[$result['page_uid']] = [
+                'sentiment' => $result['sentiment'],
+                'keyphrases' => json_decode($result['keyphrases'], true),
+                'category' => $result['category'],
+                'named_entities' => json_decode($result['named_entities'], true),
+                'readability_score' => $result['readability_score'],
+                'word_count' => $result['word_count'],
+                'sentence_count' => $result['sentence_count'],
+                'average_sentence_length' => $result['average_sentence_length'],
+                'lexical_diversity' => $result['lexical_diversity'],
+                'top_n_grams' => json_decode($result['top_n_grams'], true),
+                'semantic_coherence' => $result['semantic_coherence'],
+                'sentiment_distribution' => json_decode($result['sentiment_distribution'], true),
+            ];
+        }
+
+        return $nlpResultsByPageUid;
+    }
+
+    private function formatSuggestions(array $suggestions): array
+    {
+        return array_map(function ($suggestion) {
+            if (isset($suggestion['nlp'])) {
+                $suggestion['nlp'] = $this->formatNlpData($suggestion['nlp']);
+            }
+            return $suggestion;
+        }, $suggestions);
+    }
+
+    private function formatNlpData(array $nlpData): array
+    {
+        $formatted = $nlpData;
+        $jsonFields = ['keyphrases', 'named_entities', 'top_n_grams', 'sentiment_distribution'];
+        
+        foreach ($jsonFields as $field) {
+            if (isset($formatted[$field]) && is_string($formatted[$field])) {
+                $formatted[$field] = json_decode($formatted[$field], true) ?? [];
+            }
+        }
+
+        // Convertir le sentiment en texte
+        $formatted['sentiment'] = $this->convertSentimentToText($formatted['sentiment'] ?? '');
+
+        return $formatted;
+    }
+
+    private function convertSentimentToText(string $sentiment): string
+    {
+        switch ($sentiment) {
+            case '1 stars':
+                return 'Très négatif';
+            case '2 stars':
+                return 'Négatif';
+            case '3 stars':
+                return 'Neutre';
+            case '4 stars':
+                return 'Positif';
+            case '5 stars':
+                return 'Très positif';
+            default:
+                return $sentiment;
+        }
+    }
 
     protected function getCachedOrGenerateSuggestions(int $currentPageId): array
     {
@@ -102,48 +187,7 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
 
         return $viewData;
     }
-    protected function enrichSuggestionsWithNlp(array &$suggestions): void
-    {
-        $this->logger->info('Enriching suggestions with NLP data');
 
-        $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_semanticsuggestion_nlp_results');
-        $pageUids = array_column($suggestions, 'data');
-        $pageUids = array_column($pageUids, 'uid');
-        
-        $this->logger->debug('Page UIDs for NLP enrichment', ['uids' => $pageUids]);
-
-        $queryBuilder = $connection->createQueryBuilder();
-        $nlpResults = $queryBuilder
-            ->select('*')
-            ->from('tx_semanticsuggestion_nlp_results')
-            ->where(
-                $queryBuilder->expr()->in('page_uid', $queryBuilder->createNamedParameter($pageUids, Connection::PARAM_INT_ARRAY))
-            )
-            ->execute()
-            ->fetchAll();
-
-        $this->logger->debug('NLP results fetched', ['count' => count($nlpResults)]);
-
-        $nlpResultsByPageUid = array_column($nlpResults, null, 'page_uid');
-        
-        foreach ($suggestions as &$suggestion) {
-            $pageUid = $suggestion['data']['uid'];
-            if (isset($nlpResultsByPageUid[$pageUid])) {
-                $nlpResult = $nlpResultsByPageUid[$pageUid];
-                $suggestion['nlp'] = [
-                    'sentiment' => $nlpResult['sentiment'],
-                    'keyphrases' => json_decode($nlpResult['keyphrases'], true),
-                    'category' => $nlpResult['category'],
-                    'named_entities' => json_decode($nlpResult['named_entities'], true),
-                    'readability_score' => $nlpResult['readability_score'],
-                ];
-                $this->logger->debug('NLP data added to suggestion', ['pageUid' => $pageUid, 'nlpData' => $suggestion['nlp']]);
-            } else {
-                $this->logger->warning('No NLP data found for page', ['pageUid' => $pageUid]);
-            }
-        }
-    }
-    
 
     protected function generateSuggestions(int $currentPageId): array
     {
@@ -223,7 +267,7 @@ protected function findSimilarPages(array $analysisResults, int $currentPageId, 
             }
             
             $pageData = $pageRepository->getPage($pageId);
-            $pageData['tt_content'] = $this->getPageContents($pageId);
+            $pageData['tt_content'] = $this->pageAnalysisService->getPageContentForAnalysis($pageId);
             $excerpt = $this->prepareExcerpt($pageData, (int)($this->settings['excerptLength'] ?? 150));
 
             $recencyScore = $this->calculateRecencyScore($pageData['tstamp']);
@@ -286,30 +330,31 @@ protected function findSimilarPages(array $analysisResults, int $currentPageId, 
         return !empty($fileObjects) ? $fileObjects[0] : null;
     }
 
-    protected function getPageContents(int $pageId): string
+
+
+    private function enrichSuggestionsWithNlp(array $suggestions): array
     {
-        $contentObject = GeneralUtility::makeInstance(ContentObjectRenderer::class);
-        $contentObject->start([], 'pages');
-    
-        $content = '';
-        $commonColPos = [0, 1, 2, 3, 8, 9];
-    
-        foreach ($commonColPos as $colPos) {
-            $conf = [
-                'table' => 'tt_content',
-                'select.' => [
-                    'orderBy' => 'sorting',
-                    'where' => 'colPos = ' . $colPos,
-                    'pidInList' => $pageId
-                ]
-            ];
-    
-            $colPosContent = $contentObject->cObjGetSingle('CONTENT', $conf);
-            if (!empty(trim($colPosContent))) {
-                $content .= ' ' . $colPosContent;
+        $this->logger->info('Enriching suggestions with NLP data');
+
+        $pageUids = array_column(array_column($suggestions, 'data'), 'uid');
+        $this->logger->debug('Page UIDs for NLP enrichment', ['uids' => $pageUids]);
+
+        $nlpResultsByPageUid = $this->getNlpResultsForPages($pageUids);
+
+        foreach ($suggestions as &$suggestion) {
+            $pageUid = $suggestion['data']['uid'];
+            if (isset($nlpResultsByPageUid[$pageUid])) {
+                $suggestion['nlp'] = $nlpResultsByPageUid[$pageUid];
+                $this->logger->debug('NLP data added to suggestion', ['pageUid' => $pageUid, 'nlpData' => $suggestion['nlp']]);
+            } else {
+                $this->logger->info('No existing NLP data found for page, performing new analysis', ['pageUid' => $pageUid]);
+                $content = $this->pageAnalysisService->getPageContent($pageUid);
+                $nlpResults = $this->nlpService->analyzeContent($content);
+                $this->nlpService->storeNlpResults($pageUid, $nlpResults);
+                $suggestion['nlp'] = $nlpResults;
             }
         }
-    
-        return $content;
+
+        return $suggestions;
     }
 }

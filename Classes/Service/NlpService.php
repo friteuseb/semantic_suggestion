@@ -7,6 +7,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use GuzzleHttp\Client;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 
 class NlpService implements SingletonInterface, LoggerAwareInterface
 {
@@ -64,7 +65,9 @@ class NlpService implements SingletonInterface, LoggerAwareInterface
                     'analyze_lexical_diversity' => true,
                     'analyze_top_n_grams' => true,
                     'analyze_semantic_coherence' => true,
-                    'analyze_sentiment_distribution' => true
+                    'analyze_sentiment_distribution' => true,
+                    'analyze_categories' => true, // Nouvelle option pour la classification améliorée
+                    'improve_named_entities' => true // Nouvelle option pour l'amélioration des entités nommées
                 ]
             ]);
 
@@ -79,7 +82,7 @@ class NlpService implements SingletonInterface, LoggerAwareInterface
                 'sentiment' => $result['sentiment'] ?? 'neutral',
                 'keyphrases' => $result['keyphrases'] ?? [],
                 'category' => $result['category'] ?? 'Non catégorisé',
-                'named_entities' => $result['named_entities'] ?? [],
+                'named_entities' => $this->filterNamedEntities($result['named_entities'] ?? []),
                 'readability_score' => $result['readability_score'] ?? 0.0,
                 'word_count' => $result['word_count'] ?? 0,
                 'sentence_count' => $result['sentence_count'] ?? 0,
@@ -100,6 +103,69 @@ class NlpService implements SingletonInterface, LoggerAwareInterface
         }
     }
 
+    private function filterNamedEntities(array $entities): array
+    {
+        $filteredEntities = [];
+        $seenEntities = [];
+
+        foreach ($entities as $entity) {
+            $key = $entity['text'] . '|' . $entity['label'];
+            if (!isset($seenEntities[$key]) && strlen($entity['text']) > 1) {
+                $filteredEntities[] = $entity;
+                $seenEntities[$key] = true;
+            }
+        }
+
+        return $filteredEntities;
+    }
+
+    public function getPageNlpResults(int $pageId): ?array
+    {
+        $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_semanticsuggestion_nlp_results');
+        $result = $connection->select(['*'], 'tx_semanticsuggestion_nlp_results', ['page_uid' => $pageId])->fetch();
+
+        if ($result) {
+            $result['keyphrases'] = json_decode($result['keyphrases'], true);
+            $result['named_entities'] = json_decode($result['named_entities'], true);
+            $result['top_n_grams'] = json_decode($result['top_n_grams'], true);
+            $result['sentiment_distribution'] = json_decode($result['sentiment_distribution'], true);
+            return $result;
+        }
+
+        return null;
+    }
+
+    public function storeNlpResults(int $pageId, array $nlpResults)
+    {
+        $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_semanticsuggestion_nlp_results');
+
+        $data = [
+            'page_uid' => $pageId,
+            'sentiment' => $nlpResults['sentiment'] ?? '',
+            'keyphrases' => json_encode($nlpResults['keyphrases'] ?? []),
+            'category' => $nlpResults['category'] ?? '',
+            'named_entities' => json_encode($nlpResults['named_entities'] ?? []),
+            'readability_score' => $nlpResults['readability_score'] ?? 0.0,
+            'word_count' => $nlpResults['word_count'] ?? 0,
+            'sentence_count' => $nlpResults['sentence_count'] ?? 0,
+            'average_sentence_length' => $nlpResults['average_sentence_length'] ?? 0.0,
+            'language' => $nlpResults['language'] ?? '',
+            'lexical_diversity' => $nlpResults['lexical_diversity'] ?? 0.0,
+            'top_n_grams' => json_encode($nlpResults['top_n_grams'] ?? []),
+            'semantic_coherence' => $nlpResults['semantic_coherence'] ?? 0.0,
+            'sentiment_distribution' => json_encode($nlpResults['sentiment_distribution'] ?? []),
+            'tstamp' => time()
+        ];
+
+        $existingRecord = $connection->select(['uid'], 'tx_semanticsuggestion_nlp_results', ['page_uid' => $pageId])->fetch();
+
+        if ($existingRecord) {
+            $connection->update('tx_semanticsuggestion_nlp_results', $data, ['uid' => $existingRecord['uid']]);
+        } else {
+            $data['crdate'] = time();
+            $connection->insert('tx_semanticsuggestion_nlp_results', $data);
+        }
+    }
 
  
     public function calculateNlpSimilarity(array $nlpData1, array $nlpData2): float

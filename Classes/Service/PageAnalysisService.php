@@ -118,12 +118,12 @@ class PageAnalysisService implements LoggerAwareInterface
             foreach ($pages as $page) {
                 try {
                     $pageData = $this->preparePageData($page);
-                    $nlpResults = $this->getPageNlpResults($page['uid']);
+                    $nlpResults = $this->nlpService->getPageNlpResults($page['uid']);
                     
                     if (!$nlpResults && $this->nlpService->isEnabled()) {
                         $content = $this->getPageContent($page['uid']);
                         $nlpResults = $this->nlpService->analyzeContent($content);
-                        $this->storeNlpResults($page['uid'], $nlpResults);
+                        $this->nlpService->storeNlpResults($page['uid'], $nlpResults);
                     }
                     
                     if ($nlpResults) {
@@ -214,54 +214,7 @@ private function getRootPages(): array
 
 
     
-    protected function getPageNlpResults(int $pageId): ?array
-    {
-        $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_semanticsuggestion_nlp_results');
-        $result = $connection->select(['*'], 'tx_semanticsuggestion_nlp_results', ['page_uid' => $pageId])->fetch();
-    
-        if ($result) {
-            $result['keyphrases'] = json_decode($result['keyphrases'], true);
-            $result['named_entities'] = json_decode($result['named_entities'], true);
-            return $result;
-        }
-    
-        return null;
-    }
 
-     
-        protected function storeNlpResults(int $pageId, array $nlpResults)
-        {
-            $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_semanticsuggestion_nlp_results');
-        
-            $data = [
-                'page_uid' => $pageId,
-                'sentiment' => $nlpResults['sentiment'] ?? '',
-                'keyphrases' => json_encode($nlpResults['keyphrases'] ?? []),
-                'category' => $nlpResults['category'] ?? '',
-                'named_entities' => json_encode($nlpResults['named_entities'] ?? []),
-                'readability_score' => $nlpResults['readability_score'] ?? 0.0,
-                'word_count' => $nlpResults['word_count'] ?? 0,
-                'sentence_count' => $nlpResults['sentence_count'] ?? 0,
-                'average_sentence_length' => $nlpResults['average_sentence_length'] ?? 0.0,
-                'language' => $nlpResults['language'] ?? '',
-                'lexical_diversity' => $nlpResults['lexical_diversity'] ?? 0.0,
-                'top_n_grams' => json_encode($nlpResults['top_n_grams'] ?? []),
-                'semantic_coherence' => $nlpResults['semantic_coherence'] ?? 0.0,
-                'sentiment_distribution' => json_encode($nlpResults['sentiment_distribution'] ?? []),
-                'tstamp' => time()
-            ];
-        
-            $existingRecord = $connection->select(['uid'], 'tx_semanticsuggestion_nlp_results', ['page_uid' => $pageId])->fetch();
-        
-            if ($existingRecord) {
-                $connection->update('tx_semanticsuggestion_nlp_results', $data, ['uid' => $existingRecord['uid']]);
-            } else {
-                $data['crdate'] = time();
-                $connection->insert('tx_semanticsuggestion_nlp_results', $data);
-            }
-        }
-    
- 
 
 
     protected function preparePageData(array $page): array
@@ -411,6 +364,12 @@ private function getRootPages(): array
             throw $e;
         }
     }
+
+    public function getPageContentForAnalysis(int $pageId): string
+    {
+        return $this->getPageContent($pageId);
+    }
+
 
     private function getWeightedWords(array $pageData): array
     {
