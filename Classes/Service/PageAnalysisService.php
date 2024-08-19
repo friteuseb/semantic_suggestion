@@ -228,37 +228,40 @@ private function getRootPages(): array
         return null;
     }
 
-    protected function storeNlpResults(int $pageId, array $nlpResults)
-    {
-        $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_semanticsuggestion_nlp_results');
-    
-        $data = [
-            'page_uid' => $pageId,
-            'sentiment' => $nlpResults['sentiment'] ?? '',
-            'keyphrases' => json_encode($nlpResults['keyphrases'] ?? []),
-            'category' => $nlpResults['category'] ?? '',
-            'named_entities' => json_encode($nlpResults['named_entities'] ?? []),
-            'readability_score' => $nlpResults['readability_score'] ?? 0.0,
-            'themes' => json_encode($nlpResults['themes'] ?? []),
-            'detailed_entities' => json_encode($nlpResults['detailed_entities'] ?? []),
-            'word_embeddings' => json_encode($nlpResults['word_embeddings'] ?? []),
-            'language' => $nlpResults['language'] ?? 'unknown',
-            'word_count' => $nlpResults['word_count'] ?? 0,
-            'sentence_count' => $nlpResults['sentence_count'] ?? 0,
-            'average_sentence_length' => $nlpResults['average_sentence_length'] ?? 0,
-            'tstamp' => time()
-        ];
-    
-        $existingRecord = $connection->select(['uid'], 'tx_semanticsuggestion_nlp_results', ['page_uid' => $pageId])->fetch();
-    
-        if ($existingRecord) {
-            $connection->update('tx_semanticsuggestion_nlp_results', $data, ['uid' => $existingRecord['uid']]);
-        } else {
-            $data['crdate'] = time();
-            $connection->insert('tx_semanticsuggestion_nlp_results', $data);
+     
+        protected function storeNlpResults(int $pageId, array $nlpResults)
+        {
+            $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_semanticsuggestion_nlp_results');
+        
+            $data = [
+                'page_uid' => $pageId,
+                'sentiment' => $nlpResults['sentiment'] ?? '',
+                'keyphrases' => json_encode($nlpResults['keyphrases'] ?? []),
+                'category' => $nlpResults['category'] ?? '',
+                'named_entities' => json_encode($nlpResults['named_entities'] ?? []),
+                'readability_score' => $nlpResults['readability_score'] ?? 0.0,
+                'word_count' => $nlpResults['word_count'] ?? 0,
+                'sentence_count' => $nlpResults['sentence_count'] ?? 0,
+                'average_sentence_length' => $nlpResults['average_sentence_length'] ?? 0.0,
+                'language' => $nlpResults['language'] ?? '',
+                'lexical_diversity' => $nlpResults['lexical_diversity'] ?? 0.0,
+                'top_n_grams' => json_encode($nlpResults['top_n_grams'] ?? []),
+                'semantic_coherence' => $nlpResults['semantic_coherence'] ?? 0.0,
+                'sentiment_distribution' => json_encode($nlpResults['sentiment_distribution'] ?? []),
+                'tstamp' => time()
+            ];
+        
+            $existingRecord = $connection->select(['uid'], 'tx_semanticsuggestion_nlp_results', ['page_uid' => $pageId])->fetch();
+        
+            if ($existingRecord) {
+                $connection->update('tx_semanticsuggestion_nlp_results', $data, ['uid' => $existingRecord['uid']]);
+            } else {
+                $data['crdate'] = time();
+                $connection->insert('tx_semanticsuggestion_nlp_results', $data);
+            }
         }
-    }
-
+    
+ 
 
 
     protected function preparePageData(array $page): array

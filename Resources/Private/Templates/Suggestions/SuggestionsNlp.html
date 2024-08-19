@@ -1,54 +1,71 @@
 <html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers" data-namespace-typo3-fluid="true">
 <f:layout name="Default" />
-
 <f:section name="content">
     <h2>Pages suggérées</h2>
+    <p>NLP Enabled: {nlpEnabled}</p>
+    <p>API URL: {f:uri.action(action: 'analyze', controller: 'Api', pluginName: 'Api', extensionName: 'SemanticSuggestion')}</p>
 
-    <div class="debug-info">
-        <p>NLP Enabled: {nlpEnabled}</p>
-        <p>API URL: {apiUrl}</p>
-    </div>
-
-    <f:if condition="{suggestions}">
-        <f:then>
-            <f:for each="{suggestions}" as="suggestion">
-                <div class="suggestion">
-                    <h3>{suggestion.data.title}</h3>
-                    <p>Similarité: <f:format.number decimals="2">{suggestion.similarity}</f:format.number></p>
-                    
-                    <f:if condition="{suggestion.nlp}">
-                        <div class="nlp-data">
-                            <p>Sentiment: {suggestion.nlp.sentiment}</p>
-                            
-                            <h4>Phrases clés:</h4>
-                            <f:if condition="{suggestion.nlp.keyphrases}">
-                                <ul>
-                                    <f:for each="{suggestion.nlp.keyphrases}" as="keyphrase">
-                                        <li>{keyphrase}</li>
-                                    </f:for>
-                                </ul>
-                            </f:if>
-                            
-                            <p>Catégorie: {suggestion.nlp.category}</p>
-                            
-                            <h4>Entités nommées:</h4>
-                            <f:if condition="{suggestion.nlp.named_entities}">
-                                <ul>
-                                    <f:for each="{suggestion.nlp.named_entities}" as="entity">
-                                        <li>{entity.text} ({entity.label})</li>
-                                    </f:for>
-                                </ul>
-                            </f:if>
-                            
-                            <p>Score de lisibilité: <f:format.number decimals="1">{suggestion.nlp.readability_score}</f:format.number></p>
-                        </div>
+    <f:for each="{suggestions}" as="suggestion">
+        <div class="suggestion">
+            <h3>{suggestion.data.title}</h3>
+            <p>Similarité: {suggestion.similarity -> f:format.number(decimals: 2)}</p>
+            
+            <f:if condition="{suggestion.nlp}">
+                <p>Sentiment: {suggestion.nlp.sentiment}</p>
+                
+                <p>Phrases clés: 
+                    <f:if condition="{suggestion.nlp.keyphrases}">
+                        <f:for each="{suggestion.nlp.keyphrases}" as="keyphrase" iteration="iterator">
+                            {keyphrase -> f:format.htmlspecialchars()}<f:if condition="{iterator.isLast}"><f:else>, </f:else></f:if>
+                        </f:for>
                     </f:if>
-                </div>
-            </f:for>
-        </f:then>
-        <f:else>
-            <p>Aucune suggestion trouvée pour cette page.</p>
-        </f:else>
-    </f:if>
+                </p>
+                
+                <p>Catégorie: {suggestion.nlp.category}</p>
+                
+                <p>Entités nommées:
+                    <f:if condition="{suggestion.nlp.named_entities}">
+                        <f:for each="{suggestion.nlp.named_entities}" as="entity" iteration="iterator">
+                            <f:if condition="{entity.text} && {entity.label}">
+                                {entity.text -> f:format.htmlspecialchars()} ({entity.label -> f:format.htmlspecialchars()})<f:if condition="{iterator.isLast}"><f:else>, </f:else></f:if>
+                            </f:if>
+                        </f:for>
+                    </f:if>
+                </p>
+                
+                <p>Score de lisibilité: {suggestion.nlp.readability_score -> f:format.number(decimals: 2)}</p>
+                <p>Nombre de mots: {suggestion.nlp.word_count}</p>
+                <p>Nombre de phrases: {suggestion.nlp.sentence_count}</p>
+                <p>Longueur moyenne des phrases: {suggestion.nlp.average_sentence_length -> f:format.number(decimals: 2)}</p>
+                <p>Diversité lexicale: {suggestion.nlp.lexical_diversity -> f:format.number(decimals: 2)}</p>
+                
+                <p>Top N-grams: 
+                    <f:if condition="{suggestion.nlp.top_n_grams}">
+                        <f:for each="{suggestion.nlp.top_n_grams}" as="ngram" iteration="iterator">
+                            {ngram -> f:format.htmlspecialchars()}<f:if condition="{iterator.isLast}"><f:else>, </f:else></f:if>
+                        </f:for>
+                    </f:if>
+                </p>
+                
+                <p>Cohérence sémantique: {suggestion.nlp.semantic_coherence -> f:format.number(decimals: 2)}</p>
+                
+                <f:if condition="{suggestion.nlp.sentiment_distribution}">
+                    <p>Distribution des sentiments:
+                        <f:if condition="{suggestion.nlp.sentiment_distribution.POSITIVE}">
+                            Positif: {suggestion.nlp.sentiment_distribution.POSITIVE -> f:format.number(decimals: 2)},
+                        </f:if>
+                        <f:if condition="{suggestion.nlp.sentiment_distribution.NEGATIVE}">
+                            Négatif: {suggestion.nlp.sentiment_distribution.NEGATIVE -> f:format.number(decimals: 2)},
+                        </f:if>
+                        <f:if condition="{suggestion.nlp.sentiment_distribution.NEUTRAL}">
+                            Neutre: {suggestion.nlp.sentiment_distribution.NEUTRAL -> f:format.number(decimals: 2)}
+                        </f:if>
+                    </p>
+                </f:if>
+            </f:if>
+            
+            <p>{suggestion.excerpt -> f:format.crop(maxCharacters: 200)}</p>
+        </div>
+    </f:for>
 </f:section>
 </html>
