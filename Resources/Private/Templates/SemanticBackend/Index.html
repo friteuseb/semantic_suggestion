@@ -251,48 +251,86 @@
        <!-- <f:render partial="NlpStatistics" arguments="{nlpStatistics: nlpStatistics}" />-->
     </f:if>
 
-        <div class="panel panel-default">
-            <div class="panel-heading">Distribution des sentiments</div>
-            <div class="panel-body">
-                <f:format.raw>{sentimentWidget.renderWidgetContent()}</f:format.raw>            </div>
-        </div>
-    
-        <f:be.pageRenderer>
-            <script>
-                require(['TYPO3/CMS/Dashboard/Contrib/chartjs', 'TYPO3/CMS/Dashboard/ChartInitializer'], function(Chart, ChartInitializer) {
-                    ChartInitializer.initialize('#sentimentDistributionChart');
-                    var chartData = {sentimentWidget.eventData.graphConfig -> f:format.json() -> f:format.raw()};
-                    new Chart(document.getElementById('sentimentDistributionChart').getContext('2d'), chartData);
-                });
-            </script>
-        </f:be.pageRenderer>
-   
-    <!-- Tableau des pages nécessitant une attention -->
+
+    <f:debug>{nlpStatistics}</f:debug>
+    <f:debug>{nlpEnabled}</f:debug>
+
     <div class="panel panel-default">
-        <div class="panel-heading">Pages nécessitant une attention</div>
+        <div class="panel-heading">Statistiques NLP globales</div>
         <div class="panel-body">
             <table class="table table-striped table-hover">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Titre</th>
-                        <th>Score de lisibilité</th>
-                        <th>Cohérence sémantique</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <f:for each="{pagesNeedingAttention}" as="page">
-                        <tr>
-                            <td>{page.id}</td>
-                            <td>{page.title}</td>
-                            <td>{page.readabilityScore -> f:format.number(decimals: 2)}</td>
-                            <td>{page.semanticCoherence -> f:format.number(decimals: 2)}</td>
-                        </tr>
-                    </f:for>
-                </tbody>
+                <tr>
+                    <th>Score de lisibilité moyen</th>
+                    <td>{nlpStatistics.averageReadabilityScore}</td>
+                </tr>
+                <tr>
+                    <th>Nombre moyen de mots par page</th>
+                    <td>{nlpStatistics.averageWordCount}</td>
+                </tr>
+                <tr>
+                    <th>Nombre moyen de phrases par page</th>
+                    <td>{nlpStatistics.averageSentenceCount}</td>
+                </tr>
+                <tr>
+                    <th>Cohérence sémantique moyenne</th>
+                    <td>{nlpStatistics.averageSemanticCoherence}</td>
+                </tr>
             </table>
         </div>
     </div>
+
+    <div class="panel panel-default">
+        <div class="panel-heading">Distribution des sentiments</div>
+        <div class="panel-body">
+            <table class="table table-striped table-hover">
+                <tr>
+                    <th>Sentiment</th>
+                    <th>Nombre de pages</th>
+                </tr>
+                <f:for each="{nlpStatistics.sentimentDistribution}" as="count" key="sentiment">
+                    <tr>
+                        <td>{sentiment -> f:format.case(mode: 'capital')}</td>
+                        <td>{count}</td>
+                    </tr>
+                </f:for>
+            </table>
+        </div>
+    </div>
+
+    <div class="panel panel-default">
+        <div class="panel-heading">Pages nécessitant une attention</div>
+        <div class="panel-body">
+            <h4>Pages avec un faible score de lisibilité</h4>
+            <table class="table table-striped table-hover">
+                <tr>
+                    <th>ID de la page</th>
+                    <th>Score de lisibilité</th>
+                </tr>
+                <f:for each="{nlpStatistics.lowReadabilityPages}" as="score" key="pageId">
+                    <tr>
+                        <td>{pageId}</td>
+                        <td>{score}</td>
+                    </tr>
+                </f:for>
+            </table>
+
+            <h4>Pages avec une faible cohérence sémantique</h4>
+            <table class="table table-striped table-hover">
+                <tr>
+                    <th>ID de la page</th>
+                    <th>Cohérence sémantique</th>
+                </tr>
+                <f:for each="{nlpStatistics.lowCoherencePages}" as="score" key="pageId">
+                    <tr>
+                        <td>{pageId}</td>
+                        <td>{score}</td>
+                    </tr>
+                </f:for>
+            </table>
+        </div>
+    </div>
+
+
 
 </div>
 </f:section>

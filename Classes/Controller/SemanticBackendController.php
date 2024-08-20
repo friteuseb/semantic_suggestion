@@ -7,8 +7,6 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TalanHdf\SemanticSuggestion\Service\PageAnalysisService;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
-use TalanHdf\SemanticSuggestion\Widgets\SentimentDistributionWidget;
-use TalanHdf\SemanticSuggestion\Widgets\Provider\SentimentDistributionDataProvider;
 
 
 class SemanticBackendController extends ActionController
@@ -62,17 +60,23 @@ class SemanticBackendController extends ActionController
             if (!empty($excludePages)) {
                 $analysisResults = array_diff_key($analysisResults, array_flip($excludePages));
             }
-    
+        
             $statistics = $this->calculateStatistics($analysisResults, $proximityThreshold);
             
             if ($nlpEnabled) {
+                $nlpStatistics = $this->calculateNlpStatistics($analysisResults);
                 $sentimentDistribution = $this->calculateSentimentDistribution($analysisResults);
-                $dataProvider = new SentimentDistributionDataProvider($sentimentDistribution);
-                $widget = new SentimentDistributionWidget($dataProvider);
-                
-                $moduleTemplate->assign('sentimentWidget', $widget);
+                $pagesNeedingAttention = $this->getPagesNeedingAttention($analysisResults);
+            } else {
+                // Fournir des données vides si NLP n'est pas activé
+                $nlpStatistics = [];
+                $sentimentDistribution = [];
+                $pagesNeedingAttention = [];
             }
-            
+            $moduleTemplate->assign('sentimentDistribution', $sentimentDistribution);
+            $moduleTemplate->assign('pagesNeedingAttention', $pagesNeedingAttention);
+            $moduleTemplate->assign('nlpStatistics', $nlpStatistics);
+        
         } else {
             $this->addFlashMessage(
                 'The analysis did not return valid results. Please check your configuration and try again.',
@@ -80,7 +84,7 @@ class SemanticBackendController extends ActionController
                 \TYPO3\CMS\Core\Messaging\AbstractMessage::ERROR
             );
         }
-    
+
         if (isset($analysisData['metrics']) && is_array($analysisData['metrics'])) {
             $performanceMetrics = [
                 'executionTime' => $analysisData['metrics']['executionTime'] ?? 0,
@@ -108,6 +112,10 @@ class SemanticBackendController extends ActionController
             'analysisResults' => $analysisResults,
             'performanceMetrics' => $performanceMetrics,
             'nlpStatistics' => $nlpStatistics,
+            'nlpEnabled' => $nlpEnabled,
+            'nlpStatistics' => $nlpStatistics,
+            'sentimentDistribution' => $sentimentDistribution ?? [],
+            'pagesNeedingAttention' => $pagesNeedingAttention ?? [],
         ]);
     
         $moduleTemplate->setContent($this->view->render());
@@ -166,47 +174,48 @@ class SemanticBackendController extends ActionController
 
 private function calculateNlpStatistics(array $analysisResults): array
 {
+    $totalReadabilityScore = 0;
     $totalWordCount = 0;
-    $totalUniqueWordCount = 0;
-    $totalComplexity = 0;
-    $allTopWords = [];
-    $allSuggestions = [];
+    $totalSentenceCount = 0;
+    $totalSemanticCoherence = 0;
+    $languages = [];
+    $sentiments = [];
+    $lowReadabilityPages = [];
+    $lowCoherencePages = [];
 
-    foreach ($analysisResults as $pageData) {
-        if (isset($pageData['nlp'])) {
-            $nlpData = $pageData['nlp'];
-            $totalWordCount += $nlpData['wordCount'] ?? 0;
-            $totalUniqueWordCount += $nlpData['uniqueWordCount'] ?? 0;
-            $totalComplexity += $nlpData['textComplexity'] ?? 0;
-            
-            if (isset($nlpData['topWords'])) {
-                foreach ($nlpData['topWords'] as $word => $count) {
-                    if (!isset($allTopWords[$word])) {
-                        $allTopWords[$word] = 0;
-                    }
-                    $allTopWords[$word] += $count;
-                }
-            }
+    foreach ($analysisResults as $pageId => $result) {
+        if (!isset($result['nlp'])) continue;
+        
+        $nlp = $result['nlp'];
+        $totalReadabilityScore += $nlp['readability_score'];
+        $totalWordCount += $nlp['word_count'];
+        $totalSentenceCount += $nlp['sentence_count'];
+        $totalSemanticCoherence += $nlp['semantic_coherence'];
+        $languages[$nlp['language']] = ($languages[$nlp['language']] ?? 0) + 1;
+        $sentiments[$nlp['sentiment']] = ($sentiments[$nlp['sentiment']] ?? 0) + 1;
 
-            if (isset($nlpData['suggestions'])) {
-                $allSuggestions = array_merge($allSuggestions, $nlpData['suggestions']);
-            }
+        if ($nlp['readability_score'] < 130) {
+            $lowReadabilityPages[$pageId] = $nlp['readability_score'];
+        }
+        if ($nlp['semantic_coherence'] < 0.1) {
+            $lowCoherencePages[$pageId] = $nlp['semantic_coherence'];
         }
     }
 
-    $pageCount = count($analysisResults);
-    
-    arsort($allTopWords);
-    $allTopWords = array_slice($allTopWords, 0, 10, true);
+    $count = count($analysisResults);
 
     return [
-        'averageWordCount' => $pageCount > 0 ? $totalWordCount / $pageCount : 0,
-        'averageUniqueWordCount' => $pageCount > 0 ? $totalUniqueWordCount / $pageCount : 0,
-        'averageComplexity' => $pageCount > 0 ? $totalComplexity / $pageCount : 0,
-        'topWords' => $allTopWords,
-        'commonSuggestions' => array_slice(array_count_values($allSuggestions), 0, 5, true),
+        'averageReadabilityScore' => $count > 0 ? round($totalReadabilityScore / $count, 2) : 0,
+        'averageWordCount' => $count > 0 ? round($totalWordCount / $count) : 0,
+        'averageSentenceCount' => $count > 0 ? round($totalSentenceCount / $count, 1) : 0,
+        'averageSemanticCoherence' => $count > 0 ? round($totalSemanticCoherence / $count, 3) : 0,
+        'languageDistribution' => $languages,
+        'sentimentDistribution' => $sentiments,
+        'lowReadabilityPages' => $lowReadabilityPages,
+        'lowCoherencePages' => $lowCoherencePages,
     ];
 }
+
 
 private function calculateSentimentDistribution(array $analysisResults): array
 {
@@ -218,24 +227,6 @@ private function calculateSentimentDistribution(array $analysisResults): array
         }
     }
     return $distribution;
-}
-
-private function convertSentimentToText(string $sentiment): string
-{
-    switch ($sentiment) {
-        case '1 stars':
-            return 'Très négatif';
-        case '2 stars':
-            return 'Négatif';
-        case '3 stars':
-            return 'Neutre';
-        case '4 stars':
-            return 'Positif';
-        case '5 stars':
-            return 'Très positif';
-        default:
-            return 'Non défini';
-    }
 }
 
 private function getPagesNeedingAttention(array $analysisResults): array
@@ -258,6 +249,23 @@ private function getPagesNeedingAttention(array $analysisResults): array
     return $pagesNeedingAttention;
 }
 
+private function convertSentimentToText(string $sentiment): string
+{
+    switch ($sentiment) {
+        case '1 stars':
+            return 'Très négatif';
+        case '2 stars':
+            return 'Négatif';
+        case '3 stars':
+            return 'Neutre';
+        case '4 stars':
+            return 'Positif';
+        case '5 stars':
+            return 'Très positif';
+        default:
+            return 'Non défini';
+    }
+}
 
 
 

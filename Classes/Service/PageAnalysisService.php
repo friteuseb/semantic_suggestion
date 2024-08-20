@@ -216,49 +216,64 @@ private function getRootPages(): array
     
 
 
+protected function preparePageData(array $page): array
+{
+    $preparedData = [];
+    $nlpAnalysis = null;
 
-    protected function preparePageData(array $page): array
-    {
-        $preparedData = [];
-        $nlpAnalysis = null;
-    
-        if (!is_array($this->settings['analyzedFields'])) {
-            $this->logger?->warning('analyzedFields is not an array', ['settings' => $this->settings]);
-            return $preparedData;
-        }
-    
-        $content = $this->getPageContent($page['uid']);
-    
-        foreach ($this->settings['analyzedFields'] as $field => $weight) {
-            if ($field === 'content') {
-                $preparedData['content'] = [
-                    'content' => $content,
-                    'weight' => (float)$weight
-                ];
-            } elseif (isset($page[$field])) {
-                $preparedData[$field] = [
-                    'content' => $page[$field],
-                    'weight' => (float)$weight
-                ];
-            } else {
-                $preparedData[$field] = [
-                    'content' => '',
-                    'weight' => (float)$weight
-                ];
-            }
-        }
-    
-        if ($this->nlpService->isEnabled()) {
-            $nlpAnalysis = $this->nlpService->analyzeContent($content);
-            $preparedData['nlp'] = $nlpAnalysis;
-            $this->logger->debug('NLP analysis result', ['pageId' => $page['uid'], 'nlpAnalysis' => $nlpAnalysis]);
-        }
-    
-        $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
-    
+    if (!is_array($this->settings['analyzedFields'])) {
+        $this->logger?->warning('analyzedFields is not an array', ['settings' => $this->settings]);
         return $preparedData;
     }
 
+    $content = $this->getPageContent($page['uid']);
+
+    foreach ($this->settings['analyzedFields'] as $field => $weight) {
+        if ($field === 'content') {
+            $preparedData['content'] = [
+                'content' => $content,
+                'weight' => (float)$weight
+            ];
+        } elseif (isset($page[$field])) {
+            $preparedData[$field] = [
+                'content' => $page[$field],
+                'weight' => (float)$weight
+            ];
+        } else {
+            $preparedData[$field] = [
+                'content' => '',
+                'weight' => (float)$weight
+            ];
+        }
+    }
+
+    if ($this->nlpService->isEnabled()) {
+        $this->logger->info('NLP service is enabled, attempting analysis', ['pageId' => $page['uid']]);
+        
+        // Vérifier d'abord si des résultats NLP existent déjà en base de données
+        $existingNlpResults = $this->nlpService->getPageNlpResults($page['uid']);
+        
+        if ($existingNlpResults) {
+            $this->logger->info('Existing NLP results found', ['pageId' => $page['uid']]);
+            $nlpAnalysis = $existingNlpResults;
+        } else {
+            $this->logger->info('No existing NLP results, performing new analysis', ['pageId' => $page['uid']]);
+            $nlpAnalysis = $this->nlpService->analyzeContent($content);
+            
+            // Stocker les nouveaux résultats NLP en base de données
+            $this->nlpService->storeNlpResults($page['uid'], $nlpAnalysis);
+        }
+        
+        $preparedData['nlp'] = $nlpAnalysis;
+        $this->logger->debug('NLP analysis result', ['pageId' => $page['uid'], 'nlpAnalysis' => $nlpAnalysis]);
+    } else {
+        $this->logger->info('NLP service is disabled', ['pageId' => $page['uid']]);
+    }
+
+    $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
+
+    return $preparedData;
+}
 
 
     private function getAllSubpages(int $parentId, int $depth = 0): array
@@ -613,6 +628,11 @@ private function getRootPages(): array
     {
         return $this->connectionPool;
     }
+
+    public function getPublicPageContent(int $pageId): string
+{
+    return $this->getPageContent($pageId);
+}
 
     private function createFallbackCache(): FrontendInterface
     {
