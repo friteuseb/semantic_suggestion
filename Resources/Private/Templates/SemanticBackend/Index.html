@@ -4,68 +4,13 @@
 
 <f:layout name="Default" />
 
-<f:section name="content">
+<f:section name="Content">
     <style>
-        .semantic-analysis-container {
-            max-height: 800px;
-            overflow-y: auto;
-            padding: 15px;
-        }
-        .stat-card {
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .stat-card h3 {
-            margin-top: 0;
-            border-bottom: 1px solid #dee2e6;
-            padding-bottom: 10px;
-        }
-        .stat-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-        }
-        .stat-item {
-            background-color: #ffffff;
-            border-radius: 4px;
-            padding: 10px;
-            text-align: center;
-        }
-        .stat-value {
-            font-size: 1.5em;
-            font-weight: bold;
-            color: #007bff;
-        }
-        .stat-label {
-            font-size: 0.9em;
-            color: #6c757d;
-        }
-        .compact-table {
-            width: 100%;
-            font-size: 0.9em;
-        }
-        .compact-table th, .compact-table td {
-            padding: 8px;
-            border-bottom: 1px solid #dee2e6;
-        }
-        .compact-table th {
-            background-color: #e9ecef;
-        }
-        .progress-bar {
-            height: 20px;
-            background-color: #e9ecef;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        .progress-bar-fill {
-            height: 100%;
-            background-color: #007bff;
-            transition: width 0.5s ease-in-out;
+        .panel .table {
+            margin-bottom: 0;
         }
     </style>
+
 
     <div class="semantic-analysis-container">
         <h1>Semantic Suggestion Analysis</h1>
@@ -76,163 +21,188 @@
             </div>
         </f:if>
 
-        <div class="stat-card">
+        <div class="panel panel-default bg-light p-3">
             <h3>Configuration &amp; General Statistics</h3>
-            <div class="stat-grid">
-                <div class="stat-item">
-                    <div class="stat-value">{parentPageId}</div>
-                    <div class="stat-label">Parent Page ID</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value">{depth}</div>
-                    <div class="stat-label">Depth</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value">{proximityThreshold -> f:format.number(decimals: 2)}</div>
-                    <div class="stat-label">Proximity Threshold</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value">{maxSuggestions}</div>
-                    <div class="stat-label">Max Suggestions</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value">{statistics.totalPages}</div>
-                    <div class="stat-label">Total Validated Pages Analyzed</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value">{statistics.averageSimilarity -> f:format.number(decimals: 2)}</div>
-                    <div class="stat-label">Average Similarity Score</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value">{excludePages}</div>
-                    <div class="stat-label">Excluded Pages</div>
-                </div>
+
+            <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 g-3">
+                <f:render section="Card" arguments="{icon: 'apps-pagetree-drag-move-into', header: parentPageId, content: 'Parent Page ID'}" />
+                <f:render section="Card" arguments="{icon: 'apps-pagetree-category-expand-all', header: depth, content: 'Depth'}" />
+                <f:render section="Card" arguments="{icon: 'actions-insert', header: '{proximityThreshold -> f:format.number(decimals: 2)}', content: 'Proximity Threshold'}" />
+                <f:render section="Card" arguments="{icon: 'actions-plus-square', header: maxSuggestions, content: 'Max Suggestions'}" />
+                <f:render section="Card" arguments="{icon: 'apps-pagetree-page-default', header: statistics.totalPages, content: 'Total Validated Pages Analyzed'}" />
+                <f:render section="Card" arguments="{icon: 'apps-toolbar-menu-search', header: '{statistics.averageSimilarity -> f:format.number(decimals: 2)}', content: 'Average Similarity Score'}" />
+                <f:render section="Card" arguments="{icon: 'status-status-permission-denied', header: 'Exclusions', content: '<strong>Pages :</strong> {excludePages}', colClass: 'col-sm-12 col-md-6'}" />
             </div>
         </div>
 
-    
 
-        <div class="stat-card">
+
+        <div class="panel panel-default bg-light p-3">
             <h3>Performance Metrics</h3>
-            <div class="stat-grid">
-                <div class="stat-item">
-                    <div class="stat-value">{performanceMetrics.executionTime -> f:format.number(decimals: 2)}</div>
-                    <div class="stat-label">Execution Time (seconds)</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value">{performanceMetrics.totalPages}</div>
-                    <div class="stat-label">Total Pages Analyzed</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value">{performanceMetrics.similarityCalculations}</div>
-                    <div class="stat-label">Similarity Calculations</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value">{performanceMetrics.fromCache}</div>
-                    <div class="stat-label">Results from Cache</div>
-                </div>
+
+            <div class="row row-cols-xs-2 row-cols-lg-4 g-3">
+                <f:if condition="{performanceMetrics.executionTime} > 3">
+                    <f:then>{f:variable(name: 'execTimeCardClass', value: 'bg-danger text-white')}</f:then>
+                    <f:else if="{performanceMetrics.executionTime} > 1">{f:variable(name: 'execTimeCardClass', value: 'bg-warning text-white')}</f:else>
+                </f:if>
+
+                <f:render section="Card" arguments="{icon: 'actions-clock', header: '{performanceMetrics.executionTime -> f:format.number(decimals: 2)}', content: 'Execution Time (seconds)', cardClass: execTimeCardClass}" />
+                <f:render section="Card" arguments="{icon: 'apps-pagetree-page-default', header: performanceMetrics.totalPages, content: 'Total Pages Analyzed'}" />
+                <f:render section="Card" arguments="{icon: 'actions-barcode-read', header: performanceMetrics.similarityCalculations, content: 'Similarity Calculations'}" />
+
+                <f:if condition="{performanceMetrics.fromCache} == 'Yes'">
+                    <f:then>{f:variable(name: 'cachedCardClass', value: 'bg-success text-white')}</f:then>
+                    <f:else>{f:variable(name: 'cachedCardClass', value: 'bg-danger text-white')}</f:else>
+                </f:if>
+                <f:render section="Card" arguments="{icon: 'apps-toolbar-menu-cache', header: performanceMetrics.fromCache, content: 'Results from Cache', cardClass: cachedCardClass}" />
             </div>
         </div>
 
-        
-        <div class="stat-card">
-            <h3>Top 5 Most Similar Page Pairs</h3>
-            <table class="compact-table">
+
+        <h3>Top 5 Most Similar Page Pairs</h3>
+        <div class="panel panel-default">
+            <table class="table table-striped table-hover">
                 <thead>
-                    <tr>
-                        <th>Page 1</th>
-                        <th>Page 2</th>
-                        <th>Similarity Score</th>
-                    </tr>
+                <tr>
+                    <th>Page 1</th>
+                    <th>Page 2</th>
+                    <th>Similarity Score</th>
+                </tr>
                 </thead>
                 <tbody>
-                    <f:for each="{statistics.topSimilarPairs}" as="pair">
-                        <tr>
-                            <td>{analysisResults.{pair.page1}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pair.page1})</td>
-                            <td>{analysisResults.{pair.page2}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pair.page2})</td>
-                            <td>
-                                <div class="progress-bar">
-                                    <div class="progress-bar-fill" style="width: {pair.score * 100}%;"></div>
-                                </div>
-                                {pair.score -> f:format.number(decimals: 2)}
-                            </td>
-                        </tr>
-                    </f:for>
-                </tbody>
-            </table>
-        </div>
-     
-        <div class="stat-card">
-            <h3>Distribution of Similarity Scores</h3>
-            <table class="compact-table">
-                <thead>
+                <f:for each="{statistics.topSimilarPairs}" as="pair">
                     <tr>
-                        <th>Score Range</th>
-                        <th>Count</th>
-                        <th>Distribution</th>
+                        <td>{analysisResults.{pair.page1}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pair.page1})</td>
+                        <td>{analysisResults.{pair.page2}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pair.page2})</td>
+                        <td>
+                            <f:variable name="roundedScore" value="{pair.score -> f:format.number(decimals: 2)}" />
+                            <f:variable name="scorePercentage" value="{roundedScore * 100}" />
+
+                            <f:render section="ProgressBar" arguments="{value: scorePercentage, label: roundedScore, enableColors: 1}" />
+                        </td>
                     </tr>
-                </thead>
-                <tbody>
-                    <f:variable name="totalCount" value="0" />
-                    <f:for each="{statistics.distributionScores}" as="count">
-                        <f:variable name="totalCount" value="{totalCount + count}" />
-                    </f:for>
-                    
-                    <f:for each="{statistics.distributionScores}" as="count" key="range">
-                        <tr>
-                            <td>{range}</td>
-                            <td>{count}</td>
-                            <td>
-                                <f:if condition="{totalCount} > 0">
-                                    <f:then>
-                                        <f:variable name="percentage" value="{count / totalCount * 100}" />
-                                        <div class="progress-bar">
-                                            <div class="progress-bar-fill" style="width: {percentage}%;"></div>
-                                        </div>
-                                        {percentage -> f:format.number(decimals: 1)}%
-                                    </f:then>
-                                    <f:else>
-                                        <div class="progress-bar">
-                                            <div class="progress-bar-fill" style="width: 0%;"></div>
-                                        </div>
-                                        0%
-                                    </f:else>
-                                </f:if>
-                            </td>
-                        </tr>
-                    </f:for>
+                </f:for>
                 </tbody>
             </table>
         </div>
 
-
-        <div class="stat-card">
-            <h3>Top 5 Pages with Most Similarities</h3>
-            <table class="compact-table">
+        <h3>Distribution of Similarity Scores</h3>
+        <div class="panel panel-default">
+            <table class="table table-striped table-hover">
                 <thead>
-                    <tr>
-                        <th>Page</th>
-                        <th>Number of Significant Similarities</th>
-                    </tr>
+                <tr>
+                    <th>Score Range</th>
+                    <th>Count</th>
+                    <th>Distribution</th>
+                </tr>
                 </thead>
                 <tbody>
-                    <f:for each="{statistics.topSimilarPages}" as="count" key="pageId">
-                        <tr>
-                            <td>{analysisResults.{pageId}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pageId})</td>
-                            <td>{count}</td>
-                        </tr>
-                    </f:for>
+                <f:variable name="totalCount" value="0" />
+                <f:for each="{statistics.distributionScores}" as="count">
+                    <f:variable name="totalCount" value="{totalCount + count}" />
+                </f:for>
+
+                <f:for each="{statistics.distributionScores}" as="count" key="range">
+                    <tr>
+                        <td>{range}</td>
+                        <td>{count}</td>
+                        <td>
+                            <f:if condition="{totalCount} > 0">
+                                <f:then>
+                                    <f:variable name="percentage" value="{count / totalCount * 100}" />
+                                    <f:render section="ProgressBar" arguments="{value: percentage, label: '{percentage -> f:format.number(decimals: 1)}%'}" />
+                                </f:then>
+                                <f:else>
+                                    <f:render section="ProgressBar" />
+                                </f:else>
+                            </f:if>
+                        </td>
+                    </tr>
+                </f:for>
                 </tbody>
             </table>
         </div>
 
-    <!-- Point d'extension pour le contenu NLP -->
-    <f:if condition="{nlpEnabled}">
-        <h2>Debug render partial</h2>
-        <f:render partial="NlpStatistics" arguments="{nlpStatistics: nlpStatistics}" />
+        <h3>Top 5 Pages with Most Similarities</h3>
+        <div class="panel panel-default">
+            <table class="table table-striped table-hover">
+                <thead>
+                <tr>
+                    <th>Page</th>
+                    <th>Number of Significant Similarities</th>
+                </tr>
+                </thead>
+                <tbody>
+                <f:for each="{statistics.topSimilarPages}" as="count" key="pageId">
+                    <tr>
+                        <td>{analysisResults.{pageId}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pageId})</td>
+                        <td>{count}</td>
+                    </tr>
+                </f:for>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Point d'extension pour le contenu NLP -->
+        <f:if condition="{nlpEnabled}">
+            <h2>Debug render partial</h2>
+            <f:render partial="NlpStatistics" arguments="{nlpStatistics: nlpStatistics}" />
+        </f:if>
+    </div>
+</f:section>
+
+<f:section name="ProgressBar">
+    <f:variable name="value" value="{value ? value : 0}" />
+    <f:variable name="label" value="{label ? label : 0}" />
+
+    <f:if condition="{enableColors}">
+        <f:if condition="{value} > 70">
+            <f:then>
+                <f:variable name="progressColor" value="bg-danger" />
+            </f:then>
+            <f:else if="{value} > 50">
+                <f:variable name="progressColor" value="bg-warning" />
+            </f:else>
+            <f:else if="{value} > 30">
+                <f:variable name="progressColor" value="bg-success" />
+            </f:else>
+            <f:else>
+                <f:variable name="progressColor" value="bg-default" />
+            </f:else>
+        </f:if>
     </f:if>
 
-    
-</div>
+
+    <div class="progress">
+        <div class="progress-bar progress-bar-striped {progressColor}" role="progressbar" style="width: {value}%;" aria-valuenow="{value}" aria-valuemin="0" aria-valuemax="100">
+            <f:if condition="{value} > 10">
+                {label}
+            </f:if>
+        </div>
+
+        <f:variable name="rest" value="{100 - value}" />
+        <div class="progress-bar" role="progressbar" style="width: {rest}%;background-color:#dedede;color:#222222;text-align:left;padding-left:4px;" aria-valuenow="{rest}" aria-valuemin="0" aria-valuemax="100">
+            <f:if condition="{value} <= 10">
+                {label}
+            </f:if>
+        </div>
+    </div>
+</f:section>
+
+<f:section name="Card">
+    <div class="col {colClass}">
+        <div class="card h-100 {cardClass}">
+            <div class="card-header fs-2 fw-bold">
+                <f:if condition="{icon}">
+                    <div class="card-icon {iconClass}">
+                        <core:icon identifier="{icon}" size="medium" alternativeMarkupIdentifier="inline" />
+                    </div>
+                </f:if>
+
+                {header -> f:format.raw()}
+            </div>
+            <div class="card-body">{content -> f:format.raw()}</div>
+        </div>
+    </div>
 </f:section>
 </html>
