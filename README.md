@@ -253,7 +253,8 @@ Access the module under the "Web" menu in the TYPO3 backend.
 
 ### Performance Metrics
 
-![Backend module performance metrics](Documentation/Medias/backend_module_performance_metrics.jpg)
+![Backend module performance metrics](Documentation/Medias/backend_module_performance_metrics.png)
+![Backend module performance metrics - No cache](Documentation/Medias/backend_module_performance_metrics_no_cache.png)
 
 The backend module provides crucial performance metrics to help optimize the extension's operation:
 
