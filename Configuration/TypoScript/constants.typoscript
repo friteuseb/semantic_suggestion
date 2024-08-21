@@ -7,44 +7,45 @@ plugin.tx_semanticsuggestion_suggestions {
         # cat=plugin.tx_semanticsuggestion_suggestions/file; type=string; label=Path to template layouts (FE)
         layoutRootPath = EXT:semantic_suggestion/Resources/Private/Layouts/
     }
-    persistence {
-        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=string; label=Default storage PID
-        storagePid =
-    }
+    
     settings {
-        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Parent Page ID: The ID of the parent page from which to start the analysis
+        # Page Tree Configuration
+        # cat=plugin.tx_semanticsuggestion_suggestions/pageTree; type=int+; label=Parent Page ID: The ID of the parent page from which to start the analysis
         parentPageId = 1
-        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Proximity Threshold: Minimum similarity score to consider pages as related (0.0 to 1.0)
-        proximityThreshold = 0.5
-        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Maximum Suggestions: Maximum number of similar pages to display
-        maxSuggestions = 3
-        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Recursive Depth: How deep to search in the page tree (0 = only direct children)
+        # cat=plugin.tx_semanticsuggestion_suggestions/pageTree; type=int+; label=Recursive Depth: How deep to search in the page tree (0 = only direct children)
         recursive = 1
-        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=string; label=Exclude Pages: Comma-separated list of page UIDs to exclude from suggestions
+        # cat=plugin.tx_semanticsuggestion_suggestions/pageTree; type=string; label=Exclude Pages: Comma-separated list of page UIDs to exclude from suggestions
         excludePages = 
-        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Excerpt Length: Number of characters to show in the suggestion's text excerpt
+
+        # Suggestion Display Configuration
+        # cat=plugin.tx_semanticsuggestion_suggestions/display; type=float; label=Proximity Threshold: Minimum similarity score to consider pages as related (0.0 to 1.0)
+        proximityThreshold = 0.5
+        # cat=plugin.tx_semanticsuggestion_suggestions/display; type=int+; label=Maximum Suggestions: Maximum number of similar pages to display
+        maxSuggestions = 3
+        # cat=plugin.tx_semanticsuggestion_suggestions/display; type=int+; label=Excerpt Length: Number of characters to show in the suggestion's text excerpt
         excerptLength = 100
 
-
-        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Recency Weight: Importance of the page's recency in similarity calculation (0.0 to 1.0)
+        # Recency Configuration
+        # cat=plugin.tx_semanticsuggestion_suggestions/recency; type=float; label=Recency Weight: Importance of the page's recency in similarity calculation (0.0 to 1.0)
         recencyWeight = 0.2
-        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Recency Window: Number of days to consider for recency calculations
+        # cat=plugin.tx_semanticsuggestion_suggestions/recency; type=int+; label=Recency Window: Number of days to consider for recency calculations
         recencyWindow = 30
-        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Minimum Recency Difference: Minimum difference in days to apply recency boost
+        # cat=plugin.tx_semanticsuggestion_suggestions/recency; type=int+; label=Minimum Recency Difference: Minimum difference in days to apply recency boost
         minRecencyDifference = 1
-        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Recency Decay Factor: Factor for logarithmic decay of recency importance (0.1 to 1.0)
+        # cat=plugin.tx_semanticsuggestion_suggestions/recency; type=float; label=Recency Decay Factor: Factor for logarithmic decay of recency importance (0.1 to 1.0)
         recencyDecayFactor = 0.5
 
+        # Field Weights for Similarity Calculation
         analyzedFields {
-            # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Title Weight: Importance of the page title in similarity calculation
+            # cat=plugin.tx_semanticsuggestion_suggestions/fieldWeights; type=float; label=Title Weight: Importance of the page title in similarity calculation
             title = 1.5
-            # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Description Weight: Importance of the page description in similarity calculation
+            # cat=plugin.tx_semanticsuggestion_suggestions/fieldWeights; type=float; label=Description Weight: Importance of the page description in similarity calculation
             description = 1.0
-            # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Keywords Weight: Importance of the page keywords in similarity calculation
+            # cat=plugin.tx_semanticsuggestion_suggestions/fieldWeights; type=float; label=Keywords Weight: Importance of the page keywords in similarity calculation
             keywords = 2.0
-            # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Abstract Weight: Importance of the page abstract in similarity calculation
+            # cat=plugin.tx_semanticsuggestion_suggestions/fieldWeights; type=float; label=Abstract Weight: Importance of the page abstract in similarity calculation
             abstract = 1.2
-            # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Content Weight: Importance of the main page content in similarity calculation
+            # cat=plugin.tx_semanticsuggestion_suggestions/fieldWeights; type=float; label=Content Weight: Importance of the main page content in similarity calculation
             content = 1.0
         }
     }
