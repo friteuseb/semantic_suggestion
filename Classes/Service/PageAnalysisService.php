@@ -270,35 +270,10 @@ class PageAnalysisService implements LoggerAwareInterface
         }
     
         $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
-    
-        $this->logger?->info('Checking NLP integration');
-        if (\TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion_nlp')) {
-            $this->logger?->info('semantic_suggestion_nlp is loaded');
-    
-            // Appel du hook NLP 
-            if (isset($GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['semantic_suggestion']['nlpAnalysis'])) {
-                foreach ($GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['semantic_suggestion']['nlpAnalysis'] as $hookClassAndMethod) {
-                    [$hookClass, $hookMethod] = explode('->', $hookClassAndMethod);
-                    $hookInstance = GeneralUtility::makeInstance($hookClass);
-                    if (method_exists($hookInstance, $hookMethod)) {
-                        $analyzeParams = [
-                            'pageId' => $page['uid'],
-                            'content' => $preparedData['content']['content'],
-                            'analysis' => []
-                        ];
-                        $hookInstance->$hookMethod($analyzeParams);
-                        
-                        // Récupérer les résultats NLP
-                        $preparedData['nlp'] = $analyzeParams['analysis']['nlp'] ?? [];
-                    }
-                }
-            }
-        
-            return $preparedData;
-        }
-         // Retourner $preparedData même si l'extension NLP n'est pas chargée
+
         return $preparedData; 
 
+    
     }
 
 private function getAllSubpages(int $parentId, int $depth = 0): array
@@ -408,20 +383,20 @@ protected function getPageContent(int $pageId): string
 private function getWeightedWords(array $pageData): array
 {
     $weightedWords = [];
+    $language = $this->getCurrentLanguage();
 
     foreach ($pageData as $field => $data) {
         if (!isset($data['content']) || !is_string($data['content'])) {
             continue;
         }
 
-        $words = str_word_count(strtolower($data['content']), 1);
+        $text = $this->normalizeText($data['content']);
+        $words = str_word_count($text, 1);
+        $words = $this->removeStopWords($words, $language);
         $weight = $data['weight'] ?? 1.0;
 
         foreach ($words as $word) {
-            if (!isset($weightedWords[$word])) {
-                $weightedWords[$word] = 0;
-            }
-            $weightedWords[$word] += $weight;
+            $weightedWords[$word] = ($weightedWords[$word] ?? 0) + $weight;
         }
     }
 
@@ -430,85 +405,97 @@ private function getWeightedWords(array $pageData): array
 
 
 
-private function calculateSimilarity(array $page1, array $page2): array
-{
-    $words1 = $this->getWeightedWords($page1);
-    $words2 = $this->getWeightedWords($page2);
+    private function calculateSimilarity(array $page1, array $page2): array
+    {
+        $language = $this->getCurrentLanguage();
 
-    $intersection = array_intersect_key($words1, $words2);
-    $union = $words1 + $words2;
+        // Normaliser et préparer le texte
+        $words1 = $this->prepareText($page1, $language);
+        $words2 = $this->prepareText($page2, $language);
 
-    $intersectionSum = array_sum($intersection);
-    $unionSum = array_sum($union);
+        // Calculer la similarité basée sur les mots
+        $similarity = $this->calculateWordSimilarity($words1, $words2);
 
-    if ($unionSum === 0) {
+        // Calculer la similarité basée sur les n-grammes
+        $ngramSimilarity = $this->calculateNGramSimilarity($words1, $words2);
+
+        // Calculer le boost de récence
+        $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
+
+        // Combiner les différents scores
+        $finalSimilarity = $this->combineSimilarityScores($similarity, $ngramSimilarity, $recencyBoost);
+
         return [
-            'semanticSimilarity' => 0.0,
-            'recencyBoost' => 0.0,
-            'finalSimilarity' => 0.0
+            'semanticSimilarity' => $similarity,
+            'ngramSimilarity' => $ngramSimilarity,
+            'recencyBoost' => $recencyBoost,
+            'finalSimilarity' => $finalSimilarity
         ];
     }
 
-    $semanticSimilarity = min($intersectionSum / $unionSum, 1.0);
-
-    $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
-
-    $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
-    $finalSimilarity = ($semanticSimilarity * (1 - $recencyWeight)) + ($recencyBoost * $recencyWeight);
-
-    // Intégration de la similarité NLP si disponible
-    if (isset($page1['nlp']) && isset($page2['nlp'])) {
-        $nlpSimilarity = $this->calculateNlpSimilarity($page1['nlp'], $page2['nlp']);
-        $nlpWeight = $this->settings['nlpWeight'] ?? 0.3;
-        $finalSimilarity = ($finalSimilarity * (1 - $nlpWeight)) + ($nlpSimilarity * $nlpWeight);
+    private function prepareText(array $pageData, string $language): array
+    {
+        $text = implode(' ', array_column($pageData, 'content'));
+        $text = $this->normalizeText($text);
+        $words = str_word_count($text, 1);
+        $words = $this->removeStopWords($words, $language);
+        return $words;
     }
 
-    $this->logger?->info('Similarity calculation', [
-        'page1' => $page1['uid'] ?? 'unknown',
-        'page2' => $page2['uid'] ?? 'unknown',
-        'semanticSimilarity' => $semanticSimilarity, 
-        'recencyBoost' => $recencyBoost,
-        'finalSimilarity' => $finalSimilarity,
-        'fieldScores' => [
-            'title' => $this->calculateFieldSimilarity($page1['title'] ?? [], $page2['title'] ?? []),
-            'description' => $this->calculateFieldSimilarity($page1['description'] ?? [], $page2['description'] ?? []),
-            'keywords' => $this->calculateFieldSimilarity($page1['keywords'] ?? [], $page2['keywords'] ?? []),
-            'content' => $this->calculateFieldSimilarity($page1['content'] ?? [], $page2['content'] ?? []),
-        ]
-    ]);
+    private function calculateWordSimilarity(array $words1, array $words2): float
+    {
+        $intersection = array_intersect($words1, $words2);
+        $union = array_unique(array_merge($words1, $words2));
+        return count($intersection) / count($union);
+    }
 
-    return [
-        'semanticSimilarity' => $semanticSimilarity,
-        'recencyBoost' => $recencyBoost,
-        'finalSimilarity' => min($finalSimilarity, 1.0)
-    ];
-}
+    private function calculateNGramSimilarity(array $words1, array $words2, int $n = 2): float
+    {
+        $ngrams1 = $this->generateNGrams($words1, $n);
+        $ngrams2 = $this->generateNGrams($words2, $n);
+        $intersection = array_intersect($ngrams1, $ngrams2);
+        $union = array_unique(array_merge($ngrams1, $ngrams2));
+        return count($intersection) / count($union);
+    }
 
-private function calculateNlpSimilarity(array $nlp1, array $nlp2): float
+    private function combineSimilarityScores(float $wordSimilarity, float $ngramSimilarity, float $recencyBoost): float
+    {
+        $weightWord = 0.4;
+        $weightNGram = 0.4;
+        $weightRecency = 0.2;
+
+        return ($wordSimilarity * $weightWord) + ($ngramSimilarity * $weightNGram) + ($recencyBoost * $weightRecency);
+    }
+
+
+    private function calculateTfIdfSimilarity(array $tfidf1, array $tfidf2): float
 {
-    $similarity = 0.0;
+    $dotProduct = 0;
+    $magnitude1 = 0;
+    $magnitude2 = 0;
 
-    // Comparaison des mots les plus fréquents
-    if (isset($nlp1['topWords']) && isset($nlp2['topWords'])) {
-        $commonTopWords = array_intersect($nlp1['topWords'], $nlp2['topWords']);
-        $similarity += count($commonTopWords) / max(count($nlp1['topWords']), count($nlp2['topWords']));
+    foreach ($tfidf1 as $term => $score) {
+        if (isset($tfidf2[$term])) {
+            $dotProduct += $score * $tfidf2[$term];
+        }
+        $magnitude1 += $score * $score;
     }
 
-    // Comparaison des entités nommées si disponibles
-    if (isset($nlp1['namedEntities']) && isset($nlp2['namedEntities'])) {
-        $commonEntities = array_intersect($nlp1['namedEntities'], $nlp2['namedEntities']);
-        $similarity += count($commonEntities) / max(count($nlp1['namedEntities']), count($nlp2['namedEntities']));
+    foreach ($tfidf2 as $score) {
+        $magnitude2 += $score * $score;
     }
 
-    // Comparaison des sentiments si disponibles
-    if (isset($nlp1['sentiment']) && isset($nlp2['sentiment'])) {
-        $similarity += 1 - abs($nlp1['sentiment'] - $nlp2['sentiment']);
+    $magnitude1 = sqrt($magnitude1);
+    $magnitude2 = sqrt($magnitude2);
+
+    if ($magnitude1 * $magnitude2 == 0) {
+        return 0;
     }
 
-    // Normalisez la similarité finale
-    $numFactors = 3; // Nombre de facteurs considérés (topWords, namedEntities, sentiment)
-    return $similarity / $numFactors;
+    return $dotProduct / ($magnitude1 * $magnitude2);
 }
+
+
 
 private function calculateRecencyBoost(array $page1, array $page2): float
 {
@@ -550,6 +537,92 @@ private function calculateRecencyBoost(array $page1, array $page2): float
 
     return $recencyDifference;
 }
+
+private function detectLanguage(string $text): string
+{
+    $langScores = [
+        'en' => 0, 'fr' => 0, 'es' => 0, 'de' => 0, 'it' => 0, 'pt' => 0
+    ];
+
+    $words = str_word_count(strtolower($text), 1);
+    foreach ($words as $word) {
+        foreach ($langScores as $lang => $score) {
+            if (in_array($word, $this->getStopWordsForLanguage($lang))) {
+                $langScores[$lang]++;
+            }
+        }
+    }
+
+    arsort($langScores);
+    return key($langScores); // Retourne la langue avec le score le plus élevé
+}
+
+private function removeStopWords(array $words, string $language): array
+{
+    $stopWords = $this->getStopWordsForLanguage($language);
+    return array_diff($words, $stopWords);
+}
+
+private function getStopWordsForLanguage(string $language): array
+{
+    $stopWords = [
+        'en' => ['the', 'is', 'at', 'which', 'on', 'and', 'a', 'an', 'of', 'to', 'in', 'that', 'it', 'with', 'as', 'for', 'was', 'were', 'be', 'by', 'this', 'are', 'from', 'or', 'but', 'not', 'they', 'can', 'we', 'there', 'so', 'no', 'up', 'if', 'out', 'about', 'into', 'when', 'who', 'what', 'where', 'how', 'why', 'will', 'would', 'should', 'could', 'their', 'my', 'your', 'his', 'her', 'its', 'our', 'have', 'has', 'had', 'do', 'does', 'did', 'than', 'then', 'too', 'more', 'over', 'only', 'just', 'like', 'also'], // Votre liste pour l'anglais
+        'fr' => ['le', 'la', 'les', 'est', 'à', 'de', 'des', 'et', 'un', 'une', 'du', 'en', 'dans', 'que', 'qui', 'où', 'par', 'pour', 'avec', 'sur', 'se', 'ce', 'sa', 'son', 'ses', 'au', 'aux', 'lui', 'elle', 'il', 'ils', 'elles', 'nous', 'vous', 'ne', 'pas', 'ni', 'plus', 'ou', 'mais', 'donc', 'car', 'si', 'tout', 'comme', 'cela', 'ont', 'été', 'était', 'être', 'sont', 'étant', 'ayant', 'avait', 'avaient'
+    ], // Votre liste pour le français
+        // ... autres langues
+    ];
+
+    return $stopWords[$language] ?? [];
+}
+
+private function normalizeText(string $text): string
+{
+    $text = iconv('UTF-8', 'ASCII//TRANSLIT', $text);
+    return preg_replace('/[^a-zA-Z0-9\s]/', '', $text);
+}
+
+
+private function generateNGrams(array $words, int $n = 2): array
+{
+    $ngrams = [];
+    $count = count($words);
+    for ($i = 0; $i < $count - $n + 1; $i++) {
+        $ngrams[] = implode(' ', array_slice($words, $i, $n));
+    }
+    return $ngrams;
+}
+
+
+private function findSimilarWords(string $word, array $wordList, int $maxDistance = 2): array
+{
+    $similar = [];
+    foreach ($wordList as $compareWord) {
+        if (levenshtein($word, $compareWord) <= $maxDistance) {
+            $similar[] = $compareWord;
+        }
+    }
+    return $similar;
+}
+
+
+private function calculateTfIdf(array $pageWords, array $allPagesWords): array
+{
+    $totalDocs = count($allPagesWords);
+    $tfidf = [];
+
+    foreach ($pageWords as $word => $count) {
+        $tf = $count / array_sum($pageWords);
+        $docsWithTerm = count(array_filter($allPagesWords, function($doc) use ($word) {
+            return isset($doc[$word]);
+        }));
+        $idf = log($totalDocs / (1 + $docsWithTerm));
+        $tfidf[$word] = $tf * $idf;
+    }
+
+    arsort($tfidf);
+    return $tfidf;
+}
+
 
 private function calculateFieldSimilarity($field1, $field2): float
 {if (!isset($field1['content']) || !isset($field2['content'])) {

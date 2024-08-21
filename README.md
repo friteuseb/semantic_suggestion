@@ -379,6 +379,24 @@ plugin.tx_semanticsuggestion {
     }
 }
 ```
+## Enhanced Semantic Analysis
+
+Our latest update introduces several improvements to the semantic analysis process:
+
+1. **Multi-lingual Support**: The system now handles stop words for multiple languages, improving the accuracy of analysis across different content languages.
+
+2. **N-gram Analysis**: In addition to individual word analysis, we now use n-grams to capture phrases and improve context understanding.
+
+3. **TF-IDF Scoring**: Term Frequency-Inverse Document Frequency (TF-IDF) has been implemented to better identify important terms within the context of your entire site.
+
+4. **Recency Boost**: A configurable recency boost factor allows newer content to be given more weight in similarity calculations.
+
+5. **Text Normalization**: Advanced text normalization techniques have been applied to improve comparison accuracy across different text formats and encodings.
+
+6. **Levenshtein Distance**: Similar word detection using Levenshtein distance helps in identifying related content even with minor spelling variations.
+
+These enhancements provide a more nuanced and accurate similarity analysis, leading to better content suggestions and improved semantic relationships between pages.
+
 
 ## 🌐 Multilingual Support
 
