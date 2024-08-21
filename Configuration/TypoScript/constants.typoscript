@@ -24,10 +24,16 @@ plugin.tx_semanticsuggestion_suggestions {
         excludePages = 
         # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Excerpt Length: Number of characters to show in the suggestion's text excerpt
         excerptLength = 100
+
+
         # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Recency Weight: Importance of the page's recency in similarity calculation (0.0 to 1.0)
         recencyWeight = 0.2
-        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=boolean; label=Enable NLP Analysis
-        enableNlpAnalysis = 0
+        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Recency Window: Number of days to consider for recency calculations
+        recencyWindow = 30
+        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=int+; label=Minimum Recency Difference: Minimum difference in days to apply recency boost
+        minRecencyDifference = 1
+        # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Recency Decay Factor: Factor for logarithmic decay of recency importance (0.1 to 1.0)
+        recencyDecayFactor = 0.5
 
         analyzedFields {
             # cat=plugin.tx_semanticsuggestion_suggestions//a; type=float; label=Title Weight: Importance of the page title in similarity calculation

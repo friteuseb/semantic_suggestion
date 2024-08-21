@@ -513,16 +513,42 @@ private function calculateNlpSimilarity(array $nlp1, array $nlp2): float
 private function calculateRecencyBoost(array $page1, array $page2): float
 {
     $now = time();
-    $maxAge = 30 * 24 * 3600; // 30 jours en secondes
-    $age1 = min($now - ($page1['content_modified_at'] ?? $now), $maxAge);
-    $age2 = min($now - ($page2['content_modified_at'] ?? $now), $maxAge);
-    
-    // Normaliser les âges entre 0 et 1
-    $normalizedAge1 = 1 - ($age1 / $maxAge);
-    $normalizedAge2 = 1 - ($age2 / $maxAge);
-    
+    $recencyWindow = (int)($this->settings['recencyWindow'] ?? 30) * 24 * 3600; // Convertir en secondes
+    $minRecencyDifference = (int)($this->settings['minRecencyDifference'] ?? 1) * 24 * 3600; // Convertir en secondes
+    $decayFactor = (float)($this->settings['recencyDecayFactor'] ?? 0.5);
+
+    $age1 = $now - ($page1['content_modified_at'] ?? $now);
+    $age2 = $now - ($page2['content_modified_at'] ?? $now);
+
+    // Appliquer le seuil minimal de différence
+    if (abs($age1 - $age2) < $minRecencyDifference) {
+        return 0;
+    }
+
+    // Normaliser les âges entre 0 et 1, en tenant compte de la fenêtre de récence
+    $normalizedAge1 = min($age1, $recencyWindow) / $recencyWindow;
+    $normalizedAge2 = min($age2, $recencyWindow) / $recencyWindow;
+
+    // Appliquer une fonction de décroissance logarithmique
+    $recencyBoost1 = 1 - (log(1 + $normalizedAge1 * 9) / log(10)) * $decayFactor;
+    $recencyBoost2 = 1 - (log(1 + $normalizedAge2 * 9) / log(10)) * $decayFactor;
+
     // Calculer la différence de récence
-    return abs($normalizedAge1 - $normalizedAge2);
+    $recencyDifference = abs($recencyBoost1 - $recencyBoost2);
+
+    $this->logger->debug('Recency boost calculation', [
+        'page1' => $page1['uid'] ?? 'unknown',
+        'page2' => $page2['uid'] ?? 'unknown',
+        'age1' => $age1,
+        'age2' => $age2,
+        'normalizedAge1' => $normalizedAge1,
+        'normalizedAge2' => $normalizedAge2,
+        'recencyBoost1' => $recencyBoost1,
+        'recencyBoost2' => $recencyBoost2,
+        'recencyDifference' => $recencyDifference
+    ]);
+
+    return $recencyDifference;
 }
 
 private function calculateFieldSimilarity($field1, $field2): float

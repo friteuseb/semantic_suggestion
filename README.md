@@ -153,6 +153,10 @@ The `analyzedFields` section allows you to configure the importance of different
 - `recursive`: The search depth in the page tree (0 = only direct children)
 - `excludePages`: Comma-separated list of page UIDs to exclude from analysis and suggestions
 - `recencyWeight`: Weight of recency in similarity calculation (0-1) 
+- `recencyWindow`: Number of days to consider for recency calculations (default: 30)
+- `minRecencyDifference`: Minimum difference in days to apply recency boost (default: 1)
+- `recencyDecayFactor`: Factor for logarithmic decay of recency importance (0.1 to 1.0, default: 0.5)
+
 </details>
 
 ### The Weight of Recency in Similarity Calculation (0-1)
@@ -184,6 +188,55 @@ Consider your specific use case:
 - Educational resource: Lower recency weight
 - General blog: Medium recency weight
 </details>
+
+
+#### New Configuration Parameters
+
+- `recencyWindow`: Number of days to consider for recency calculations (default: 30)
+- `minRecencyDifference`: Minimum difference in days to apply recency boost (default: 1)
+- `recencyDecayFactor`: Factor for logarithmic decay of recency importance (0.1 to 1.0, default: 0.5)
+
+#### How the Advanced Recency Boost Works
+
+1. **Time Window**: Only considers content changes within the specified `recencyWindow` (e.g., last 30 days).
+2. **Minimum Difference**: Ignores tiny time differences less than `minRecencyDifference` to avoid insignificant boosts.
+3. **Normalization**: Converts actual ages to a 0-1 scale within the recency window.
+4. **Logarithmic Decay**: Applies a logarithmic function to give more weight to recent changes while reducing the impact of older ones.
+5. **Configurable Decay**: Uses `recencyDecayFactor` to adjust the steepness of the decay curve.
+
+#### Recency Boost Calculation Process
+
+1. Calculate the age of each page in seconds.
+2. If the age difference is less than `minRecencyDifference`, return 0 (no boost).
+3. Normalize ages to 0-1 scale based on `recencyWindow`.
+4. Apply logarithmic decay: `1 - (log(1 + normalizedAge * 9) / log(10)) * decayFactor`
+5. Calculate the absolute difference between the decayed values of the two pages.
+
+#### Formula
+
+```
+recencyBoost = abs((1 - (log(1 + normalizedAge1 * 9) / log(10)) * decayFactor) - 
+                   (1 - (log(1 + normalizedAge2 * 9) / log(10)) * decayFactor))
+```
+
+Where:
+- `normalizedAge` is the page age divided by `recencyWindow`, capped at 1
+- `decayFactor` is the configured `recencyDecayFactor`
+
+#### Advantages of this Approach
+
+- **Meaningful Differences**: Ignores insignificant time differences.
+- **Balanced Importance**: Gives more weight to recent content without overshadowing relevance.
+- **Customizable**: Allows fine-tuning for different types of websites and content strategies.
+- **Gradual Decay**: Provides a smooth transition in importance as content ages.
+
+#### Configuring for Your Needs
+
+- **News Site**: Use a shorter `recencyWindow` (e.g., 7 days) and higher `recencyDecayFactor` (e.g., 0.8)
+- **Evergreen Content**: Use a longer `recencyWindow` (e.g., 90 days) and lower `recencyDecayFactor` (e.g., 0.3)
+- **Balanced Approach**: Keep default values or slightly adjust based on content update frequency
+
+By leveraging this advanced recency boost calculation, the Semantic Suggestion extension provides a nuanced and configurable way to balance content relevance with recency, suitable for a wide range of website types and content strategies.
 
 
 ## 🖥 Usage
