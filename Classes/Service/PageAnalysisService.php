@@ -566,12 +566,10 @@ private function getWeightedWords(array $pageData): array
     private function getStopWordsForLanguage(string $language): array
     {
         $stopWords = [
-            'en' => ['the', 'is', 'at', 'which', 'on', 'and', 'a', 'an', 'of', 'to', 'in', 'that', 'it', 'with', 'as', 'for', 'was', 'were', 'be', 'by', 'this', 'are', 'from', 'or', 'but', 'not', 'they', 'can', 'we', 'there', 'so', 'no', 'up', 'if', 'out', 'about', 'into', 'when', 'who', 'what', 'where', 'how', 'why', 'will', 'would', 'should', 'could', 'their', 'my', 'your', 'his', 'her', 'its', 'our', 'have', 'has', 'had', 'do', 'does', 'did', 'than', 'then', 'too', 'more', 'over', 'only', 'just', 'like', 'also'], // Votre liste pour l'anglais
-            'fr' => ['le', 'la', 'les', 'est', 'à', 'de', 'des', 'et', 'un', 'une', 'du', 'en', 'dans', 'que', 'qui', 'où', 'par', 'pour', 'avec', 'sur', 'se', 'ce', 'sa', 'son', 'ses', 'au', 'aux', 'lui', 'elle', 'il', 'ils', 'elles', 'nous', 'vous', 'ne', 'pas', 'ni', 'plus', 'ou', 'mais', 'donc', 'car', 'si', 'tout', 'comme', 'cela', 'ont', 'été', 'était', 'être', 'sont', 'étant', 'ayant', 'avait', 'avaient'
-        ], // Votre liste pour le français
-            // ... autres langues
+            'en' => ['the', 'is', 'at', 'which', 'on', 'and', 'a', 'an', 'of', 'to', 'in', 'that', 'it', 'with', 'as', 'for', 'was', 'were', 'be', 'by', 'this', 'are', 'from', 'or', 'but', 'not', 'they', 'can', 'we', 'there', 'so', 'no', 'up', 'if', 'out', 'about', 'into', 'when', 'who', 'what', 'where', 'how', 'why', 'will', 'would', 'should', 'could', 'their', 'my', 'your', 'his', 'her', 'its', 'our', 'have', 'has', 'had', 'do', 'does', 'did', 'than', 'then', 'too', 'more', 'over', 'only', 'just', 'like', 'also'],
+            'fr' => ['le', 'la', 'les', 'est', 'à', 'de', 'des', 'et', 'un', 'une', 'du', 'en', 'dans', 'que', 'qui', 'où', 'par', 'pour', 'avec', 'sur', 'se', 'ce', 'sa', 'son', 'ses', 'au', 'aux', 'lui', 'elle', 'il', 'ils', 'elles', 'nous', 'vous', 'ne', 'pas', 'ni', 'plus', 'ou', 'mais', 'donc', 'car', 'si', 'tout', 'comme', 'cela', 'ont', 'été', 'était', 'être', 'sont', 'étant', 'ayant', 'avait', 'avaient'],
         ];
-
+    
         return $stopWords[$language] ?? [];
     }
 

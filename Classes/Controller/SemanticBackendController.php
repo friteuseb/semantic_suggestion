@@ -60,7 +60,7 @@ class SemanticBackendController extends ActionController
     
             $statistics = $this->calculateStatistics($analysisResults, $proximityThreshold);
             $languageDistributionChart = $this->createLanguageDistributionChart($analysisResults);
-            $topNGramsTable = $this->getTopNGrams($analysisResults);
+            $topNGramsTable = $this->getTopNGrams($analysisResults, 10, 'fr'); 
             $recencyBoostChart = $this->createRecencyBoostChart($analysisResults);
         } else {
             $this->addFlashMessage(
@@ -188,12 +188,31 @@ private function createLanguageDistributionChart(array $analysisResults): string
     return $filename;
 }
 
-private function getTopNGrams(array $analysisResults, int $limit = 10): string
+private function tokenizeAndFilterStopWords(string $text, string $language = 'fr'): array
+{
+    $words = preg_split('/\s+/', strtolower($text));
+    $stopWords = $this->getStopWords($language);
+    return array_filter($words, function($word) use ($stopWords) {
+        return !in_array($word, $stopWords) && strlen($word) > 1;
+    });
+}
+
+private function getStopWords(string $language): array
+{
+    $stopWords = [
+        'en' => ['the', 'is', 'at', 'which', 'on', 'and', 'a', 'an', 'of', 'to', 'in', 'that', 'it', 'with', 'as', 'for', 'was', 'were', 'be', 'by', 'this', 'are', 'from', 'or', 'but', 'not', 'they', 'can', 'we', 'there', 'so', 'no', 'up', 'if', 'out', 'about', 'into', 'when', 'who', 'what', 'where', 'how', 'why', 'will', 'would', 'should', 'could', 'their', 'my', 'your', 'his', 'her', 'its', 'our', 'have', 'has', 'had', 'do', 'does', 'did', 'than', 'then', 'too', 'more', 'over', 'only', 'just', 'like', 'also'],
+        'fr' => ['le', 'la', 'les', 'est', 'à', 'de', 'des', 'et', 'un', 'une', 'du', 'en', 'dans', 'que', 'qui', 'où', 'par', 'pour', 'avec', 'sur', 'se', 'ce', 'sa', 'son', 'ses', 'au', 'aux', 'lui', 'elle', 'il', 'ils', 'elles', 'nous', 'vous', 'ne', 'pas', 'ni', 'plus', 'ou', 'mais', 'donc', 'car', 'si', 'tout', 'comme', 'cela', 'ont', 'été', 'était', 'être', 'sont', 'étant', 'ayant', 'avait', 'avaient'],
+    ];
+
+    return $stopWords[$language] ?? [];
+}
+
+private function getTopNGrams(array $analysisResults, int $limit = 10, string $language = 'fr'): string
 {
     $allNGrams = [];
     foreach ($analysisResults as $pageData) {
         $content = $pageData['content']['content'] ?? '';
-        $words = $this->tokenizeAndFilterStopWords($content);
+        $words = $this->tokenizeAndFilterStopWords($content, $language);
         $nGrams = $this->generateNGrams($words, 2);
         $allNGrams = array_merge($allNGrams, $nGrams);
     }
@@ -211,23 +230,13 @@ private function getTopNGrams(array $analysisResults, int $limit = 10): string
     return $table;
 }
 
-private function tokenizeAndFilterStopWords(string $text): array
-{
-    $words = preg_split('/\s+/', strtolower($text));
-    return array_filter($words, function($word) {
-        return !in_array($word, $this->stopWords) && strlen($word) > 1;
-    });
-}
-
 private function generateNGrams(array $words, int $n = 2): array
 {
     $ngrams = [];
     $count = count($words);
     for ($i = 0; $i < $count - $n + 1; $i++) {
         $ngram = array_slice($words, $i, $n);
-        if ($this->isValidNGram($ngram)) {
-            $ngrams[] = implode(' ', $ngram);
-        }
+        $ngrams[] = implode(' ', $ngram);
     }
     return $ngrams;
 }
@@ -245,7 +254,6 @@ private function isValidNGram(array $ngram): bool
 
 private function createRecencyBoostChart(array $analysisResults): string
 {
-    $graphicalFunctions = GeneralUtility::makeInstance(GraphicalFunctions::class);
     $width = 500;
     $height = 300;
     $image = imagecreatetruecolor($width, $height);
@@ -259,6 +267,10 @@ private function createRecencyBoostChart(array $analysisResults): string
     $maxAge = 30 * 24 * 3600; // 30 jours en secondes
     $now = time();
     
+    // Dessiner les axes
+    imageline($image, 50, $height-50, $width-50, $height-50, $black); // axe X
+    imageline($image, 50, 50, 50, $height-50, $black); // axe Y
+    
     foreach ($analysisResults as $pageData) {
         $age = $now - ($pageData['content_modified_at'] ?? $now);
         $boost = $this->pageAnalysisService->calculateRecencyBoost(
@@ -266,15 +278,15 @@ private function createRecencyBoostChart(array $analysisResults): string
             ['content_modified_at' => $now]
         );
         
-        $x = (int)(($age / $maxAge) * $width);  // Conversion explicite en int
-        $y = (int)($height - ($boost * $height));  // Conversion explicite en int
+        $x = 50 + (($age / $maxAge) * ($width - 100));
+        $y = ($height - 50) - ($boost * ($height - 100));
         
-        imagesetpixel($image, $x, $y, $red);
+        imagefilledellipse($image, (int)$x, (int)$y, 5, 5, $red);
     }
     
-    // Ajouter des axes
-    imageline($image, 0, $height-1, $width-1, $height-1, $black);
-    imageline($image, 0, 0, 0, $height-1, $black);
+    // Ajouter des étiquettes
+    imagestring($image, 3, $width-100, $height-40, 'Age (jours)', $black);
+    imagestringup($image, 3, 10, $height-100, 'Recency Boost', $black);
     
     $filename = 'typo3temp/assets/images/recency_boost_impact.png';
     imagepng($image, GeneralUtility::getFileAbsFileName($filename));
@@ -283,7 +295,107 @@ private function createRecencyBoostChart(array $analysisResults): string
     return $filename;
 }
 
+private function createWordCloud(array $analysisResults): string
+{
+    $words = [];
+    foreach ($analysisResults as $pageData) {
+        $content = $pageData['content']['content'] ?? '';
+        $pageWords = $this->tokenizeAndFilterStopWords($content);
+        foreach ($pageWords as $word) {
+            $words[$word] = ($words[$word] ?? 0) + 1;
+        }
+    }
 
+    arsort($words);
+    $topWords = array_slice($words, 0, 50, true);
 
+    $width = 800;
+    $height = 400;
+    $image = imagecreatetruecolor($width, $height);
+    $white = imagecolorallocate($image, 255, 255, 255);
+    imagefill($image, 0, 0, $white);
+
+    $colors = [
+        imagecolorallocate($image, 0, 0, 255),
+        imagecolorallocate($image, 255, 0, 0),
+        imagecolorallocate($image, 0, 255, 0),
+        imagecolorallocate($image, 128, 0, 128),
+    ];
+
+    $maxSize = 40;
+    $minSize = 10;
+    $maxCount = max($topWords);
+
+    foreach ($topWords as $word => $count) {
+        $size = $minSize + ($count / $maxCount) * ($maxSize - $minSize);
+        $x = rand($size, $width - $size);
+        $y = rand($size, $height - $size);
+        $color = $colors[array_rand($colors)];
+        imagettftext($image, $size, rand(-30, 30), $x, $y, $color, '/path/to/font.ttf', $word);
+    }
+
+    $filename = 'typo3temp/assets/images/word_cloud.png';
+    imagepng($image, GeneralUtility::getFileAbsFileName($filename));
+    imagedestroy($image);
+
+    return $filename;
+}
+
+private function createPageLengthDistribution(array $analysisResults): string
+{
+    $lengths = [];
+    foreach ($analysisResults as $pageData) {
+        $content = $pageData['content']['content'] ?? '';
+        $length = str_word_count($content);
+        $lengths[] = $length;
+    }
+
+    $width = 500;
+    $height = 300;
+    $image = imagecreatetruecolor($width, $height);
+    
+    $white = imagecolorallocate($image, 255, 255, 255);
+    $black = imagecolorallocate($image, 0, 0, 0);
+    $blue = imagecolorallocate($image, 0, 0, 255);
+    
+    imagefill($image, 0, 0, $white);
+    
+    $maxLength = max($lengths);
+    $binSize = $maxLength / 10;
+    $bins = array_fill(0, 10, 0);
+    
+    foreach ($lengths as $length) {
+        $binIndex = min(floor($length / $binSize), 9);
+        $bins[$binIndex]++;
+    }
+    
+    $maxBinCount = max($bins);
+    
+    // Dessiner les axes
+    imageline($image, 50, $height-50, $width-50, $height-50, $black); // axe X
+    imageline($image, 50, 50, 50, $height-50, $black); // axe Y
+    
+    $barWidth = ($width - 100) / count($bins);
+    
+    for ($i = 0; $i < count($bins); $i++) {
+        $barHeight = ($bins[$i] / $maxBinCount) * ($height - 100);
+        $x1 = 50 + $i * $barWidth;
+        $y1 = $height - 50 - $barHeight;
+        $x2 = $x1 + $barWidth - 2;
+        $y2 = $height - 50;
+        
+        imagefilledrectangle($image, (int)$x1, (int)$y1, (int)$x2, (int)$y2, $blue);
+    }
+    
+    // Ajouter des étiquettes
+    imagestring($image, 3, $width-100, $height-40, 'Page Length', $black);
+    imagestringup($image, 3, 10, $height-100, 'Number of Pages', $black);
+    
+    $filename = 'typo3temp/assets/images/page_length_distribution.png';
+    imagepng($image, GeneralUtility::getFileAbsFileName($filename));
+    imagedestroy($image);
+    
+    return $filename;
+}
 
 }
