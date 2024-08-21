@@ -7,6 +7,8 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TalanHdf\SemanticSuggestion\Service\PageAnalysisService;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Core\Imaging\GraphicalFunctions;
+
 
 class SemanticBackendController extends ActionController
 {
@@ -40,31 +42,26 @@ class SemanticBackendController extends ActionController
         $maxSuggestions = (int)($extensionConfig['maxSuggestions'] ?? 5);
         $excludePages = GeneralUtility::intExplode(',', $extensionConfig['excludePages'] ?? '', true);
     
-        // Vérifier si l'analyse NLP est activée
-        $nlpEnabled = \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion_nlp');
-        $nlpConfig = $nlpEnabled ? GeneralUtility::makeInstance(\TYPO3\CMS\Core\Configuration\ExtensionConfiguration::class)->get('semantic_suggestion_nlp') : [];
-        $nlpEnabled = $nlpEnabled && ($nlpConfig['enableNlpAnalysis'] ?? false);
-    
         $analysisData = $this->pageAnalysisService->analyzePages($parentPageId, $depth);
     
         $analysisResults = [];
         $performanceMetrics = [];
         $statistics = [];
-        $nlpStatistics = [];
+        $languageDistributionChart = '';
+        $topNGramsTable = '';
+        $recencyBoostChart = '';
     
         if (is_array($analysisData) && isset($analysisData['results']) && is_array($analysisData['results'])) {
             $analysisResults = $analysisData['results'];
             
-            // Filter out excluded pages from analysis results
             if (!empty($excludePages)) {
                 $analysisResults = array_diff_key($analysisResults, array_flip($excludePages));
             }
     
             $statistics = $this->calculateStatistics($analysisResults, $proximityThreshold);
-            
-            if ($nlpEnabled) {
-                $nlpStatistics = $this->calculateNlpStatistics($analysisResults);
-            }
+            $languageDistributionChart = $this->createLanguageDistributionChart($analysisResults);
+            $topNGramsTable = $this->getTopNGrams($analysisResults);
+            $recencyBoostChart = $this->createRecencyBoostChart($analysisResults);
         } else {
             $this->addFlashMessage(
                 'The analysis did not return valid results. Please check your configuration and try again.',
@@ -87,7 +84,8 @@ class SemanticBackendController extends ActionController
                 \TYPO3\CMS\Core\Messaging\AbstractMessage::WARNING
             );
         }    
-                $moduleTemplate->assignMultiple([
+    
+        $moduleTemplate->assignMultiple([
             'parentPageId' => $parentPageId,
             'depth' => $depth,
             'proximityThreshold' => $proximityThreshold,
@@ -96,8 +94,9 @@ class SemanticBackendController extends ActionController
             'statistics' => $statistics,
             'analysisResults' => $analysisResults,
             'performanceMetrics' => $performanceMetrics,
-            'nlpEnabled' => $nlpEnabled,
-            'nlpStatistics' => $nlpStatistics,
+            'languageDistributionChart' => $languageDistributionChart,
+            'topNGramsTable' => $topNGramsTable,
+            'recencyBoostChart' => $recencyBoostChart,
         ]);
     
         $moduleTemplate->setContent($this->view->render());
@@ -153,49 +152,135 @@ class SemanticBackendController extends ActionController
         'topSimilarPages' => arsort($pagesSimilarityCount) ? array_slice($pagesSimilarityCount, 0, 5, true) : [],
     ];
 }
-
-private function calculateNlpStatistics(array $analysisResults): array
+private function createLanguageDistributionChart(array $analysisResults): string
 {
-    $totalWordCount = 0;
-    $totalUniqueWordCount = 0;
-    $totalComplexity = 0;
-    $allTopWords = [];
-    $allSuggestions = [];
-
+    $languageData = [];
     foreach ($analysisResults as $pageData) {
-        if (isset($pageData['nlp'])) {
-            $nlpData = $pageData['nlp'];
-            $totalWordCount += $nlpData['wordCount'] ?? 0;
-            $totalUniqueWordCount += $nlpData['uniqueWordCount'] ?? 0;
-            $totalComplexity += $nlpData['textComplexity'] ?? 0;
-            
-            if (isset($nlpData['topWords'])) {
-                foreach ($nlpData['topWords'] as $word => $count) {
-                    if (!isset($allTopWords[$word])) {
-                        $allTopWords[$word] = 0;
-                    }
-                    $allTopWords[$word] += $count;
-                }
-            }
-
-            if (isset($nlpData['suggestions'])) {
-                $allSuggestions = array_merge($allSuggestions, $nlpData['suggestions']);
-            }
-        }
+        $lang = $pageData['language'] ?? 'unknown';
+        $languageData[$lang] = ($languageData[$lang] ?? 0) + 1;
     }
 
-    $pageCount = count($analysisResults);
+    $graphicalFunctions = GeneralUtility::makeInstance(GraphicalFunctions::class);
+    $width = 400;
+    $height = 300;
+    $image = imagecreatetruecolor($width, $height);
     
-    arsort($allTopWords);
-    $allTopWords = array_slice($allTopWords, 0, 10, true);
-
-    return [
-        'averageWordCount' => $pageCount > 0 ? $totalWordCount / $pageCount : 0,
-        'averageUniqueWordCount' => $pageCount > 0 ? $totalUniqueWordCount / $pageCount : 0,
-        'averageComplexity' => $pageCount > 0 ? $totalComplexity / $pageCount : 0,
-        'topWords' => $allTopWords,
-        'commonSuggestions' => array_slice(array_count_values($allSuggestions), 0, 5, true),
+    $colors = [
+        'en' => imagecolorallocate($image, 255, 0, 0),
+        'de' => imagecolorallocate($image, 0, 255, 0),
+        'fr' => imagecolorallocate($image, 0, 0, 255),
+        'unknown' => imagecolorallocate($image, 128, 128, 128),
     ];
+    
+    $total = array_sum($languageData);
+    $startAngle = 0;
+    
+    foreach ($languageData as $lang => $count) {
+        $endAngle = $startAngle + ($count / $total) * 360;
+        imagefilledarc($image, $width/2, $height/2, $width-10, $height-10, $startAngle, $endAngle, $colors[$lang] ?? $colors['unknown'], IMG_ARC_PIE);
+        $startAngle = $endAngle;
+    }
+    
+    $filename = 'typo3temp/assets/images/language_distribution.png';
+    imagepng($image, GeneralUtility::getFileAbsFileName($filename));
+    imagedestroy($image);
+    
+    return $filename;
+}
+
+private function getTopNGrams(array $analysisResults, int $limit = 10): string
+{
+    $allNGrams = [];
+    foreach ($analysisResults as $pageData) {
+        $content = $pageData['content']['content'] ?? '';
+        $words = $this->tokenizeAndFilterStopWords($content);
+        $nGrams = $this->generateNGrams($words, 2);
+        $allNGrams = array_merge($allNGrams, $nGrams);
+    }
+    
+    $nGramCounts = array_count_values($allNGrams);
+    arsort($nGramCounts);
+    $topNGrams = array_slice($nGramCounts, 0, $limit, true);
+    
+    $table = '<table class="table table-striped"><tr><th>N-gram</th><th>Count</th></tr>';
+    foreach ($topNGrams as $nGram => $count) {
+        $table .= "<tr><td>" . htmlspecialchars($nGram) . "</td><td>$count</td></tr>";
+    }
+    $table .= '</table>';
+    
+    return $table;
+}
+
+private function tokenizeAndFilterStopWords(string $text): array
+{
+    $words = preg_split('/\s+/', strtolower($text));
+    return array_filter($words, function($word) {
+        return !in_array($word, $this->stopWords) && strlen($word) > 1;
+    });
+}
+
+private function generateNGrams(array $words, int $n = 2): array
+{
+    $ngrams = [];
+    $count = count($words);
+    for ($i = 0; $i < $count - $n + 1; $i++) {
+        $ngram = array_slice($words, $i, $n);
+        if ($this->isValidNGram($ngram)) {
+            $ngrams[] = implode(' ', $ngram);
+        }
+    }
+    return $ngrams;
+}
+
+private function isValidNGram(array $ngram): bool
+{
+    // Un n-gram est valide si au moins un mot n'est pas un mot vide
+    foreach ($ngram as $word) {
+        if (!in_array($word, $this->stopWords)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+private function createRecencyBoostChart(array $analysisResults): string
+{
+    $graphicalFunctions = GeneralUtility::makeInstance(GraphicalFunctions::class);
+    $width = 500;
+    $height = 300;
+    $image = imagecreatetruecolor($width, $height);
+    
+    $white = imagecolorallocate($image, 255, 255, 255);
+    $black = imagecolorallocate($image, 0, 0, 0);
+    $red = imagecolorallocate($image, 255, 0, 0);
+    
+    imagefill($image, 0, 0, $white);
+    
+    $maxAge = 30 * 24 * 3600; // 30 jours en secondes
+    $now = time();
+    
+    foreach ($analysisResults as $pageData) {
+        $age = $now - ($pageData['content_modified_at'] ?? $now);
+        $boost = $this->pageAnalysisService->calculateRecencyBoost(
+            ['content_modified_at' => $pageData['content_modified_at'] ?? $now],
+            ['content_modified_at' => $now]
+        );
+        
+        $x = (int)(($age / $maxAge) * $width);  // Conversion explicite en int
+        $y = (int)($height - ($boost * $height));  // Conversion explicite en int
+        
+        imagesetpixel($image, $x, $y, $red);
+    }
+    
+    // Ajouter des axes
+    imageline($image, 0, $height-1, $width-1, $height-1, $black);
+    imageline($image, 0, 0, 0, $height-1, $black);
+    
+    $filename = 'typo3temp/assets/images/recency_boost_impact.png';
+    imagepng($image, GeneralUtility::getFileAbsFileName($filename));
+    imagedestroy($image);
+    
+    return $filename;
 }
 
 

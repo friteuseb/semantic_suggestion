@@ -383,7 +383,7 @@ protected function getPageContent(int $pageId): string
 private function getWeightedWords(array $pageData): array
 {
     $weightedWords = [];
-    $language = $this->getCurrentLanguage();
+    $language = $this->getCurrentLanguageUid();
 
     foreach ($pageData as $field => $data) {
         if (!isset($data['content']) || !is_string($data['content'])) {
@@ -407,7 +407,7 @@ private function getWeightedWords(array $pageData): array
 
     private function calculateSimilarity(array $page1, array $page2): array
     {
-        $language = $this->getCurrentLanguage();
+        $language = $this->getCurrentLanguageUid();
 
         // Normaliser et préparer le texte
         $words1 = $this->prepareText($page1, $language);
@@ -468,207 +468,215 @@ private function getWeightedWords(array $pageData): array
     }
 
 
-    private function calculateTfIdfSimilarity(array $tfidf1, array $tfidf2): float
-{
-    $dotProduct = 0;
-    $magnitude1 = 0;
-    $magnitude2 = 0;
+        private function calculateTfIdfSimilarity(array $tfidf1, array $tfidf2): float
+    {
+        $dotProduct = 0;
+        $magnitude1 = 0;
+        $magnitude2 = 0;
 
-    foreach ($tfidf1 as $term => $score) {
-        if (isset($tfidf2[$term])) {
-            $dotProduct += $score * $tfidf2[$term];
+        foreach ($tfidf1 as $term => $score) {
+            if (isset($tfidf2[$term])) {
+                $dotProduct += $score * $tfidf2[$term];
+            }
+            $magnitude1 += $score * $score;
         }
-        $magnitude1 += $score * $score;
+
+        foreach ($tfidf2 as $score) {
+            $magnitude2 += $score * $score;
+        }
+
+        $magnitude1 = sqrt($magnitude1);
+        $magnitude2 = sqrt($magnitude2);
+
+        if ($magnitude1 * $magnitude2 == 0) {
+            return 0;
+        }
+
+        return $dotProduct / ($magnitude1 * $magnitude2);
     }
 
-    foreach ($tfidf2 as $score) {
-        $magnitude2 += $score * $score;
+
+
+    public function calculateRecencyBoost(array $page1, array $page2): float
+    {
+        $now = time();
+        $recencyWindow = (int)($this->settings['recencyWindow'] ?? 30) * 24 * 3600; // Convertir en secondes
+        $minRecencyDifference = (int)($this->settings['minRecencyDifference'] ?? 1) * 24 * 3600; // Convertir en secondes
+        $decayFactor = (float)($this->settings['recencyDecayFactor'] ?? 0.5);
+
+        $age1 = $now - ($page1['content_modified_at'] ?? $now);
+        $age2 = $now - ($page2['content_modified_at'] ?? $now);
+
+        // Appliquer le seuil minimal de différence
+        if (abs($age1 - $age2) < $minRecencyDifference) {
+            return 0;
+        }
+
+        // Normaliser les âges entre 0 et 1, en tenant compte de la fenêtre de récence
+        $normalizedAge1 = min($age1, $recencyWindow) / $recencyWindow;
+        $normalizedAge2 = min($age2, $recencyWindow) / $recencyWindow;
+
+        // Appliquer une fonction de décroissance logarithmique
+        $recencyBoost1 = 1 - (log(1 + $normalizedAge1 * 9) / log(10)) * $decayFactor;
+        $recencyBoost2 = 1 - (log(1 + $normalizedAge2 * 9) / log(10)) * $decayFactor;
+
+        // Calculer la différence de récence
+        $recencyDifference = abs($recencyBoost1 - $recencyBoost2);
+
+        $this->logger->debug('Recency boost calculation', [
+            'page1' => $page1['uid'] ?? 'unknown',
+            'page2' => $page2['uid'] ?? 'unknown',
+            'age1' => $age1,
+            'age2' => $age2,
+            'normalizedAge1' => $normalizedAge1,
+            'normalizedAge2' => $normalizedAge2,
+            'recencyBoost1' => $recencyBoost1,
+            'recencyBoost2' => $recencyBoost2,
+            'recencyDifference' => $recencyDifference
+        ]);
+
+        return $recencyDifference;
     }
 
-    $magnitude1 = sqrt($magnitude1);
-    $magnitude2 = sqrt($magnitude2);
+    private function detectLanguage(string $text): string
+    {
+        $langScores = [
+            'en' => 0, 'fr' => 0, 'es' => 0, 'de' => 0, 'it' => 0, 'pt' => 0
+        ];
 
-    if ($magnitude1 * $magnitude2 == 0) {
-        return 0;
-    }
-
-    return $dotProduct / ($magnitude1 * $magnitude2);
-}
-
-
-
-private function calculateRecencyBoost(array $page1, array $page2): float
-{
-    $now = time();
-    $recencyWindow = (int)($this->settings['recencyWindow'] ?? 30) * 24 * 3600; // Convertir en secondes
-    $minRecencyDifference = (int)($this->settings['minRecencyDifference'] ?? 1) * 24 * 3600; // Convertir en secondes
-    $decayFactor = (float)($this->settings['recencyDecayFactor'] ?? 0.5);
-
-    $age1 = $now - ($page1['content_modified_at'] ?? $now);
-    $age2 = $now - ($page2['content_modified_at'] ?? $now);
-
-    // Appliquer le seuil minimal de différence
-    if (abs($age1 - $age2) < $minRecencyDifference) {
-        return 0;
-    }
-
-    // Normaliser les âges entre 0 et 1, en tenant compte de la fenêtre de récence
-    $normalizedAge1 = min($age1, $recencyWindow) / $recencyWindow;
-    $normalizedAge2 = min($age2, $recencyWindow) / $recencyWindow;
-
-    // Appliquer une fonction de décroissance logarithmique
-    $recencyBoost1 = 1 - (log(1 + $normalizedAge1 * 9) / log(10)) * $decayFactor;
-    $recencyBoost2 = 1 - (log(1 + $normalizedAge2 * 9) / log(10)) * $decayFactor;
-
-    // Calculer la différence de récence
-    $recencyDifference = abs($recencyBoost1 - $recencyBoost2);
-
-    $this->logger->debug('Recency boost calculation', [
-        'page1' => $page1['uid'] ?? 'unknown',
-        'page2' => $page2['uid'] ?? 'unknown',
-        'age1' => $age1,
-        'age2' => $age2,
-        'normalizedAge1' => $normalizedAge1,
-        'normalizedAge2' => $normalizedAge2,
-        'recencyBoost1' => $recencyBoost1,
-        'recencyBoost2' => $recencyBoost2,
-        'recencyDifference' => $recencyDifference
-    ]);
-
-    return $recencyDifference;
-}
-
-private function detectLanguage(string $text): string
-{
-    $langScores = [
-        'en' => 0, 'fr' => 0, 'es' => 0, 'de' => 0, 'it' => 0, 'pt' => 0
-    ];
-
-    $words = str_word_count(strtolower($text), 1);
-    foreach ($words as $word) {
-        foreach ($langScores as $lang => $score) {
-            if (in_array($word, $this->getStopWordsForLanguage($lang))) {
-                $langScores[$lang]++;
+        $words = str_word_count(strtolower($text), 1);
+        foreach ($words as $word) {
+            foreach ($langScores as $lang => $score) {
+                if (in_array($word, $this->getStopWordsForLanguage($lang))) {
+                    $langScores[$lang]++;
+                }
             }
         }
+
+        arsort($langScores);
+        return key($langScores); // Retourne la langue avec le score le plus élevé
     }
 
-    arsort($langScores);
-    return key($langScores); // Retourne la langue avec le score le plus élevé
-}
-
-private function removeStopWords(array $words, string $language): array
-{
-    $stopWords = $this->getStopWordsForLanguage($language);
-    return array_diff($words, $stopWords);
-}
-
-private function getStopWordsForLanguage(string $language): array
-{
-    $stopWords = [
-        'en' => ['the', 'is', 'at', 'which', 'on', 'and', 'a', 'an', 'of', 'to', 'in', 'that', 'it', 'with', 'as', 'for', 'was', 'were', 'be', 'by', 'this', 'are', 'from', 'or', 'but', 'not', 'they', 'can', 'we', 'there', 'so', 'no', 'up', 'if', 'out', 'about', 'into', 'when', 'who', 'what', 'where', 'how', 'why', 'will', 'would', 'should', 'could', 'their', 'my', 'your', 'his', 'her', 'its', 'our', 'have', 'has', 'had', 'do', 'does', 'did', 'than', 'then', 'too', 'more', 'over', 'only', 'just', 'like', 'also'], // Votre liste pour l'anglais
-        'fr' => ['le', 'la', 'les', 'est', 'à', 'de', 'des', 'et', 'un', 'une', 'du', 'en', 'dans', 'que', 'qui', 'où', 'par', 'pour', 'avec', 'sur', 'se', 'ce', 'sa', 'son', 'ses', 'au', 'aux', 'lui', 'elle', 'il', 'ils', 'elles', 'nous', 'vous', 'ne', 'pas', 'ni', 'plus', 'ou', 'mais', 'donc', 'car', 'si', 'tout', 'comme', 'cela', 'ont', 'été', 'était', 'être', 'sont', 'étant', 'ayant', 'avait', 'avaient'
-    ], // Votre liste pour le français
-        // ... autres langues
-    ];
-
-    return $stopWords[$language] ?? [];
-}
-
-private function normalizeText(string $text): string
-{
-    $text = iconv('UTF-8', 'ASCII//TRANSLIT', $text);
-    return preg_replace('/[^a-zA-Z0-9\s]/', '', $text);
-}
-
-
-private function generateNGrams(array $words, int $n = 2): array
-{
-    $ngrams = [];
-    $count = count($words);
-    for ($i = 0; $i < $count - $n + 1; $i++) {
-        $ngrams[] = implode(' ', array_slice($words, $i, $n));
+    private function removeStopWords(array $words, string $language): array
+    {
+        $stopWords = $this->getStopWordsForLanguage($language);
+        return array_diff($words, $stopWords);
     }
-    return $ngrams;
-}
+
+    private function getStopWordsForLanguage(string $language): array
+    {
+        $stopWords = [
+            'en' => ['the', 'is', 'at', 'which', 'on', 'and', 'a', 'an', 'of', 'to', 'in', 'that', 'it', 'with', 'as', 'for', 'was', 'were', 'be', 'by', 'this', 'are', 'from', 'or', 'but', 'not', 'they', 'can', 'we', 'there', 'so', 'no', 'up', 'if', 'out', 'about', 'into', 'when', 'who', 'what', 'where', 'how', 'why', 'will', 'would', 'should', 'could', 'their', 'my', 'your', 'his', 'her', 'its', 'our', 'have', 'has', 'had', 'do', 'does', 'did', 'than', 'then', 'too', 'more', 'over', 'only', 'just', 'like', 'also'], // Votre liste pour l'anglais
+            'fr' => ['le', 'la', 'les', 'est', 'à', 'de', 'des', 'et', 'un', 'une', 'du', 'en', 'dans', 'que', 'qui', 'où', 'par', 'pour', 'avec', 'sur', 'se', 'ce', 'sa', 'son', 'ses', 'au', 'aux', 'lui', 'elle', 'il', 'ils', 'elles', 'nous', 'vous', 'ne', 'pas', 'ni', 'plus', 'ou', 'mais', 'donc', 'car', 'si', 'tout', 'comme', 'cela', 'ont', 'été', 'était', 'être', 'sont', 'étant', 'ayant', 'avait', 'avaient'
+        ], // Votre liste pour le français
+            // ... autres langues
+        ];
+
+        return $stopWords[$language] ?? [];
+    }
+
+    private function normalizeText(string $text): string
+    {
+        $text = iconv('UTF-8', 'ASCII//TRANSLIT', $text);
+        return preg_replace('/[^a-zA-Z0-9\s]/', '', $text);
+    }
 
 
-private function findSimilarWords(string $word, array $wordList, int $maxDistance = 2): array
-{
-    $similar = [];
-    foreach ($wordList as $compareWord) {
-        if (levenshtein($word, $compareWord) <= $maxDistance) {
-            $similar[] = $compareWord;
+    public function generateNGrams(array $words, int $n = 2): array
+    {
+        $ngrams = [];
+        $count = count($words);
+        for ($i = 0; $i < $count - $n + 1; $i++) {
+            $ngrams[] = implode(' ', array_slice($words, $i, $n));
+        }
+        return $ngrams;
+    }
+
+
+    private function findSimilarWords(string $word, array $wordList, int $maxDistance = 2): array
+    {
+        $similar = [];
+        foreach ($wordList as $compareWord) {
+            if (levenshtein($word, $compareWord) <= $maxDistance) {
+                $similar[] = $compareWord;
+            }
+        }
+        return $similar;
+    }
+
+
+    private function calculateTfIdf(array $pageWords, array $allPagesWords): array
+    {
+        $totalDocs = count($allPagesWords);
+        $tfidf = [];
+
+        foreach ($pageWords as $word => $count) {
+            $tf = $count / array_sum($pageWords);
+            $docsWithTerm = count(array_filter($allPagesWords, function($doc) use ($word) {
+                return isset($doc[$word]);
+            }));
+            $idf = log($totalDocs / (1 + $docsWithTerm));
+            $tfidf[$word] = $tf * $idf;
+        }
+
+        arsort($tfidf);
+        return $tfidf;
+    }
+
+
+    private function calculateFieldSimilarity($field1, $field2): float
+    {if (!isset($field1['content']) || !isset($field2['content'])) {
+        return 0.0;
+    }
+
+    $words1 = str_word_count(strtolower($field1['content']), 1);
+    $words2 = str_word_count(strtolower($field2['content']), 1);
+    $intersection = array_intersect($words1, $words2);
+    $union = array_unique(array_merge($words1, $words2));
+
+    return count($union) > 0 ? count($intersection) / count($union) : 0.0;
+    }
+
+    private function findCommonKeywords(array $page1, array $page2): array
+    {
+    $keywords1 = isset($page1['keywords']['content']) ? array_map('trim', explode(',', strtolower($page1['keywords']['content']))) : [];
+    $keywords2 = isset($page2['keywords']['content']) ? array_map('trim', explode(',', strtolower($page2['keywords']['content']))) : [];
+
+    return array_intersect($keywords1, $keywords2);
+    }
+
+    private function determineRelevance($similarity): string
+    {
+        if (is_array($similarity)) {
+            $similarityValue = $similarity['finalSimilarity'] ?? 0;
+        } else {
+            $similarityValue = (float)$similarity;
+        }
+
+        if ($similarityValue > 0.7) {
+            return 'High';
+        } elseif ($similarityValue > 0.4) {
+            return 'Medium';
+        } else {
+            return 'Low';
         }
     }
-    return $similar;
-}
 
-
-private function calculateTfIdf(array $pageWords, array $allPagesWords): array
-{
-    $totalDocs = count($allPagesWords);
-    $tfidf = [];
-
-    foreach ($pageWords as $word => $count) {
-        $tf = $count / array_sum($pageWords);
-        $docsWithTerm = count(array_filter($allPagesWords, function($doc) use ($word) {
-            return isset($doc[$word]);
-        }));
-        $idf = log($totalDocs / (1 + $docsWithTerm));
-        $tfidf[$word] = $tf * $idf;
+    private function getCurrentLanguageUid(): string
+    {
+        try {
+            $languageId = (int)$this->context->getAspect('language')->getId();
+            // Convertir l'ID de langue en code de langue (vous devrez peut-être ajuster cette logique selon votre configuration)
+            $languageCodes = [
+                0 => 'en',  // Par défaut, considérons que 0 est l'anglais
+                1 => 'de',  // Exemple : 1 pourrait être l'allemand
+                2 => 'fr',  // Exemple : 2 pourrait être le français
+                // Ajoutez d'autres mappings selon vos besoins
+            ];
+            return $languageCodes[$languageId] ?? 'en';  // Retourne 'en' si l'ID n'est pas trouvé
+        } catch (\Exception $e) {
+            $this->logger?->warning('Failed to get language from context, defaulting to "en"', ['exception' => $e]);
+            return 'en';
+        }
     }
-
-    arsort($tfidf);
-    return $tfidf;
-}
-
-
-private function calculateFieldSimilarity($field1, $field2): float
-{if (!isset($field1['content']) || !isset($field2['content'])) {
-    return 0.0;
-}
-
-$words1 = str_word_count(strtolower($field1['content']), 1);
-$words2 = str_word_count(strtolower($field2['content']), 1);
-$intersection = array_intersect($words1, $words2);
-$union = array_unique(array_merge($words1, $words2));
-
-return count($union) > 0 ? count($intersection) / count($union) : 0.0;
-}
-
-private function findCommonKeywords(array $page1, array $page2): array
-{
-$keywords1 = isset($page1['keywords']['content']) ? array_map('trim', explode(',', strtolower($page1['keywords']['content']))) : [];
-$keywords2 = isset($page2['keywords']['content']) ? array_map('trim', explode(',', strtolower($page2['keywords']['content']))) : [];
-
-return array_intersect($keywords1, $keywords2);
-}
-
-private function determineRelevance($similarity): string
-{
-    if (is_array($similarity)) {
-        $similarityValue = $similarity['finalSimilarity'] ?? 0;
-    } else {
-        $similarityValue = (float)$similarity;
-    }
-
-    if ($similarityValue > 0.7) {
-        return 'High';
-    } elseif ($similarityValue > 0.4) {
-        return 'Medium';
-    } else {
-        return 'Low';
-    }
-}
-
-private function getCurrentLanguageUid(): int
-{
-try {
-    return (int)$this->context->getAspect('language')->getId();
-} catch (\Exception $e) {
-    $this->logger?->warning('Failed to get language from context, defaulting to 0', ['exception' => $e]);
-    return 0;
-}
-}
 }
