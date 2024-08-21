@@ -1,64 +1,65 @@
+# CUSTOM SUBCATEGORIES
+# customsubcategory=10=Templates
+# customsubcategory=20=General Settings
+# customsubcategory=30=Display Settings
+# customsubcategory=40=Recency Settings
+# customsubcategory=50=Field Weights
+
 plugin.tx_semanticsuggestion_suggestions {
     view {
-        # cat=plugin.tx_semanticsuggestion_suggestions/file; type=string; label=Path to template root (FE)
+        # cat=semantic suggestion: templates/10/10; type=string; label=Path to template root (FE)
         templateRootPath = EXT:semantic_suggestion/Resources/Private/Templates/
-        # cat=plugin.tx_semanticsuggestion_suggestions/file; type=string; label=Path to template partials (FE)
+        # cat=semantic suggestion: templates/10/20; type=string; label=Path to template partials (FE)
         partialRootPath = EXT:semantic_suggestion/Resources/Private/Partials/
-        # cat=plugin.tx_semanticsuggestion_suggestions/file; type=string; label=Path to template layouts (FE)
+        # cat=semantic suggestion: templates/10/30; type=string; label=Path to template layouts (FE)
         layoutRootPath = EXT:semantic_suggestion/Resources/Private/Layouts/
     }
     
     settings {
-        # Page Tree Configuration
-        # cat=plugin.tx_semanticsuggestion_suggestions/pageTree; type=int+; label=Parent Page ID: The ID of the parent page from which to start the analysis
+        # cat=semantic suggestion: general/20/10; type=int+; label=Parent Page ID: The ID of the parent page from which to start the analysis
         parentPageId = 1
-        # cat=plugin.tx_semanticsuggestion_suggestions/pageTree; type=int+; label=Recursive Depth: How deep to search in the page tree (0 = only direct children)
+        # cat=semantic suggestion: general/20/20; type=int+; label=Recursive Depth: How deep to search in the page tree (0 = only direct children)
         recursive = 1
-        # cat=plugin.tx_semanticsuggestion_suggestions/pageTree; type=string; label=Exclude Pages: Comma-separated list of page UIDs to exclude from suggestions
+        # cat=semantic suggestion: general/20/30; type=string; label=Exclude Pages: Comma-separated list of page UIDs to exclude from suggestions
         excludePages = 
 
-        # Suggestion Display Configuration
-        # cat=plugin.tx_semanticsuggestion_suggestions/display; type=float; label=Proximity Threshold: Minimum similarity score to consider pages as related (0.0 to 1.0)
+        # cat=semantic suggestion: display/30/10; type=float; label=Proximity Threshold: Minimum similarity score to consider pages as related (0.0 to 1.0)
         proximityThreshold = 0.5
-        # cat=plugin.tx_semanticsuggestion_suggestions/display; type=int+; label=Maximum Suggestions: Maximum number of similar pages to display
+        # cat=semantic suggestion: display/30/20; type=int+; label=Maximum Suggestions: Maximum number of similar pages to display
         maxSuggestions = 3
-        # cat=plugin.tx_semanticsuggestion_suggestions/display; type=int+; label=Excerpt Length: Number of characters to show in the suggestion's text excerpt
+        # cat=semantic suggestion: display/30/30; type=int+; label=Excerpt Length: Number of characters to show in the suggestion's text excerpt
         excerptLength = 100
 
-        # Recency Configuration
-        # cat=plugin.tx_semanticsuggestion_suggestions/recency; type=float; label=Recency Weight: Importance of the page's recency in similarity calculation (0.0 to 1.0)
+        # cat=semantic suggestion: recency/40/10; type=float; label=Recency Weight: Importance of the page's recency in similarity calculation (0.0 to 1.0)
         recencyWeight = 0.2
-        # cat=plugin.tx_semanticsuggestion_suggestions/recency; type=int+; label=Recency Window: Number of days to consider for recency calculations
+        # cat=semantic suggestion: recency/40/20; type=int+; label=Recency Window: Number of days to consider for recency calculations
         recencyWindow = 30
-        # cat=plugin.tx_semanticsuggestion_suggestions/recency; type=int+; label=Minimum Recency Difference: Minimum difference in days to apply recency boost
+        # cat=semantic suggestion: recency/40/30; type=int+; label=Minimum Recency Difference: Minimum difference in days to apply recency boost
         minRecencyDifference = 1
-        # cat=plugin.tx_semanticsuggestion_suggestions/recency; type=float; label=Recency Decay Factor: Factor for logarithmic decay of recency importance (0.1 to 1.0)
+        # cat=semantic suggestion: recency/40/40; type=float; label=Recency Decay Factor: Factor for logarithmic decay of recency importance (0.1 to 1.0)
         recencyDecayFactor = 0.5
 
-        # Field Weights for Similarity Calculation
-        analyzedFields {
-            # cat=plugin.tx_semanticsuggestion_suggestions/fieldWeights; type=float; label=Title Weight: Importance of the page title in similarity calculation
-            title = 1.5
-            # cat=plugin.tx_semanticsuggestion_suggestions/fieldWeights; type=float; label=Description Weight: Importance of the page description in similarity calculation
-            description = 1.0
-            # cat=plugin.tx_semanticsuggestion_suggestions/fieldWeights; type=float; label=Keywords Weight: Importance of the page keywords in similarity calculation
-            keywords = 2.0
-            # cat=plugin.tx_semanticsuggestion_suggestions/fieldWeights; type=float; label=Abstract Weight: Importance of the page abstract in similarity calculation
-            abstract = 1.2
-            # cat=plugin.tx_semanticsuggestion_suggestions/fieldWeights; type=float; label=Content Weight: Importance of the main page content in similarity calculation
-            content = 1.0
-        }
+        # cat=semantic suggestion: field weights/50/10; type=float; label=Title Weight: Importance of the page title in similarity calculation
+        titleWeight = 1.5
+        # cat=semantic suggestion: field weights/50/20; type=float; label=Description Weight: Importance of the page description in similarity calculation
+        descriptionWeight = 1.0
+        # cat=semantic suggestion: field weights/50/30; type=float; label=Keywords Weight: Importance of the page keywords in similarity calculation
+        keywordsWeight = 2.0
+        # cat=semantic suggestion: field weights/50/40; type=float; label=Abstract Weight: Importance of the page abstract in similarity calculation
+        abstractWeight = 1.2
+        # cat=semantic suggestion: field weights/50/50; type=float; label=Content Weight: Importance of the main page content in similarity calculation
+        contentWeight = 1.0
     }
 }
 
 # Backend module configuration
 module.tx_semanticsuggestion {
     view {
-        # cat=module.tx_semanticsuggestion/file; type=string; label=Path to template root (BE)
+        # cat=semantic suggestion: backend/file/10; type=string; label=Path to template root (BE)
         templateRootPath = EXT:semantic_suggestion/Resources/Private/Backend/Templates/
-        # cat=module.tx_semanticsuggestion/file; type=string; label=Path to template partials (BE)
+        # cat=semantic suggestion: backend/file/20; type=string; label=Path to template partials (BE)
         partialRootPath = EXT:semantic_suggestion/Resources/Private/Backend/Partials/
-        # cat=module.tx_semanticsuggestion/file; type=string; label=Path to template layouts (BE)
+        # cat=semantic suggestion: backend/file/30; type=string; label=Path to template layouts (BE)
         layoutRootPath = EXT:semantic_suggestion/Resources/Private/Backend/Layouts/
     }
 }
