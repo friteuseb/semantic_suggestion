@@ -456,13 +456,6 @@ private function calculateSimilarity(array $page1, array $page2): array
     $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
     $finalSimilarity = ($semanticSimilarity * (1 - $recencyWeight)) + ($recencyBoost * $recencyWeight);
 
-    // Intégration de la similarité NLP si disponible
-    if (isset($page1['nlp']) && isset($page2['nlp'])) {
-        $nlpSimilarity = $this->calculateNlpSimilarity($page1['nlp'], $page2['nlp']);
-        $nlpWeight = $this->settings['nlpWeight'] ?? 0.3;
-        $finalSimilarity = ($finalSimilarity * (1 - $nlpWeight)) + ($nlpSimilarity * $nlpWeight);
-    }
-
     $this->logger?->info('Similarity calculation', [
         'page1' => $page1['uid'] ?? 'unknown',
         'page2' => $page2['uid'] ?? 'unknown',

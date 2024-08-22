@@ -12,6 +12,8 @@ use TYPO3\CMS\Core\Cache\CacheManager;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LoggerInterface;
+use TYPO3\CMS\Core\Context\Context;
+
 
 class SuggestionsController extends ActionController implements LoggerAwareInterface
 {
@@ -54,23 +56,6 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
                 }
             }
     
-            // Vérifier si l'extension NLP est activée et utiliser le template approprié
-            $nlpEnabled = \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion_nlp');
-
-            // Récupérer la configuration de l'extension NLP
-            $nlpConfig = $nlpEnabled 
-                ? GeneralUtility::makeInstance(\TYPO3\CMS\Core\Configuration\ExtensionConfiguration::class)->get('semantic_suggestion_nlp') 
-                : [];
-
-            // Vérifier si l'extension est activée selon sa configuration
-            $nlpEnabled = $nlpEnabled && ($nlpConfig['enableNlpAnalysis'] ?? false);
-
-            if ($nlpEnabled) {
-                $this->view->setTemplatePathAndFilename(
-                    GeneralUtility::getFileAbsFileName('EXT:semantic_suggestion_nlp/Resources/Private/Templates/Suggestions/NlpList.html')
-                );
-            } 
-    
             $this->view->assignMultiple($viewData);
     
         } catch (\Exception $e) {
@@ -104,31 +89,13 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
             'depth' => $depth
         ]);
     
-        $viewData = [
+        return [
             'currentPageTitle' => $analysisResults[$currentPageId]['title']['content'] ?? 'Current Page',
             'suggestions' => $suggestions,
             'analysisResults' => $analysisResults,
             'proximityThreshold' => $proximityThreshold,
             'maxSuggestions' => $maxSuggestions,
         ];
-    
-        // Ajout des données NLP si l'extension est présente
-        if (\TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion_nlp')) {
-            $nlpAnalyzer = GeneralUtility::makeInstance(\TalanHdf\SemanticSuggestionNlp\NLP\Analyzer::class);
-            foreach ($viewData['suggestions'] as &$suggestion) {
-                $pageUid = $suggestion['data']['uid'];
-                $suggestion['nlpData'] = $nlpAnalyzer->getPageNlpData($pageUid);
-                $suggestion['nlpSimilarity'] = $nlpAnalyzer->calculateNlpSimilarity(
-                    $nlpAnalyzer->getPageNlpData($currentPageId),
-                    $suggestion['nlpData']
-                );
-            }
-            $viewData['nlpEnabled'] = true;
-        } else {
-            $viewData['nlpEnabled'] = false;
-        }
-
-        return $viewData;
     }
 
     protected function prepareExcerpt(array $pageData, int $excerptLength): string
@@ -150,12 +117,13 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
         return '';
     }
 
-    protected function findSimilarPages(array $analysisResults, int $currentPageId, float $threshold, int $maxSuggestions, array $excludePages): array
+    protected function findSimilarPages(array $analysisResults, int $currentPageId, float $threshold, int $maxSuggestions, array $excludePages, int $currentLanguageUid): array
     {
         $this->logger->info('Finding similar pages', [
             'currentPageId' => $currentPageId,
             'threshold' => $threshold,
-            'maxSuggestions' => $maxSuggestions
+            'maxSuggestions' => $maxSuggestions,
+            'currentLanguageUid' => $currentLanguageUid
         ]);
     
         $suggestions = [];
@@ -166,7 +134,23 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
             arsort($similarities);
             foreach ($similarities as $pageId => $similarity) {
                 if (count($suggestions) >= $maxSuggestions) break;
-                if ($similarity['score'] < $threshold || in_array($pageId, $excludePages) || $analysisResults[$pageId]['sys_language_uid'] !== $currentLanguageUid) {
+    
+                // Vérifiez si la page existe dans $analysisResults et obtenez sa langue
+                $pageLangUid = $analysisResults[$pageId]['sys_language_uid'] ?? 0;
+                
+                // Vérifiez si la page est dans la même langue que la page courante
+                // 0 ou null sont considérés comme la langue par défaut
+                $sameLanguage = ($pageLangUid == $currentLanguageUid) || 
+                                ($pageLangUid == 0 && $currentLanguageUid == 0);
+    
+                if ($similarity['score'] < $threshold || in_array($pageId, $excludePages) || !$sameLanguage) {
+                    $this->logger->debug('Page excluded', [
+                        'pageId' => $pageId, 
+                        'reason' => $similarity['score'] < $threshold ? 'below threshold' : 
+                            (!$sameLanguage ? 'different language' : 'in exclude list'),
+                        'pageLangUid' => $pageLangUid,
+                        'currentLanguageUid' => $currentLanguageUid
+                    ]);
                     continue;
                 }
                 
@@ -174,7 +158,6 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
                 $pageData['tt_content'] = $this->getPageContents($pageId);
                 $excerpt = $this->prepareExcerpt($pageData, (int)($this->settings['excerptLength'] ?? 150));
     
-                // Calcul du score de récence
                 $recencyScore = $this->calculateRecencyScore($pageData['tstamp']);
                 
                 $suggestions[$pageId] = [
@@ -188,7 +171,11 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
                 ];
                 $suggestions[$pageId]['data']['media'] = $this->getPageMedia($pageId);
                 
-                $this->logger->debug('Added suggestion', ['pageId' => $pageId, 'similarity' => $similarity['score']]);
+                $this->logger->debug('Added suggestion', [
+                    'pageId' => $pageId, 
+                    'similarity' => $similarity['score'],
+                    'pageLangUid' => $pageLangUid
+                ]);
             }
         } else {
             $this->logger->warning('No similarities found for current page', ['currentPageId' => $currentPageId]);
@@ -240,4 +227,10 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
 
         return $content;
     }
+
+    protected function getCurrentLanguageUid(): int
+    {
+        return (int)$GLOBALS['TSFE']->sys_language_uid;
+    }
+
 }
