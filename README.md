@@ -234,7 +234,7 @@ Remember to include your TypoScript template in your site configuration or page 
 
 ## 🎛 Backend Module
 
-![Backend module](Documentation/Medias/backend_module.png)
+![Backend module](Documentation/Medias/backend_module.png) 
 
 The Semantic Suggestion extension includes a powerful backend module providing comprehensive insights into semantic relationships between your pages.
 

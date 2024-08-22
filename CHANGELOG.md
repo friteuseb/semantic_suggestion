@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog for Semantic Suggestion Extension
 
-## [1.1.0]-beta 
+
+
+## [1.2.0]
+
+### Added new styles for the backend module, thanks to Renan Gauthier !
+
+- New styles for the backend module, adopting the official style_guide, all made by Renan Gautier (Gloumi)
+
+## [1.1.0]
 
 ### Added
 
