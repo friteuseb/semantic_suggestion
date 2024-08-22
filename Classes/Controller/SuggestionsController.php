@@ -11,7 +11,7 @@ use TYPO3\CMS\Frontend\ContentObject\ContentObjectRenderer;
 use TYPO3\CMS\Core\Cache\CacheManager;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
-use Psr\Log\LoggerInterface;
+use TYPO3\CMS\Core\Log\LogManager;
 use TYPO3\CMS\Core\Context\Context;
 
 
@@ -21,15 +21,23 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
 
     protected PageAnalysisService $pageAnalysisService;
     protected FileRepository $fileRepository;
+    protected ?PageRepository $pageRepository = null;
 
     public function __construct(
         PageAnalysisService $pageAnalysisService, 
-        FileRepository $fileRepository,
-        LoggerInterface $logger
+        FileRepository $fileRepository
     ) {
         $this->pageAnalysisService = $pageAnalysisService;
         $this->fileRepository = $fileRepository;
-        $this->setLogger($logger);
+        $this->setLogger(GeneralUtility::makeInstance(LogManager::class)->getLogger(__CLASS__));
+    }
+
+    /**
+     * @param PageRepository $pageRepository
+     */
+    public function injectPageRepository(PageRepository $pageRepository)
+    {
+        $this->pageRepository = $pageRepository;
     }
 
     public function listAction(): ResponseInterface
@@ -69,13 +77,15 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
     protected function generateSuggestions(int $currentPageId): array
     {
         $parentPageId = isset($this->settings['parentPageId']) ? (int)$this->settings['parentPageId'] : 0; 
+        $depth = isset($this->settings['recursive']) ? (int)$this->settings['recursive'] : 0; 
         $proximityThreshold = isset($this->settings['proximityThreshold']) ? (float)$this->settings['proximityThreshold'] : 0.3; 
         $maxSuggestions = isset($this->settings['maxSuggestions']) ? (int)$this->settings['maxSuggestions'] : 5; 
-        $depth = isset($this->settings['recursive']) ? (int)$this->settings['recursive'] : 0; 
         $excludePages = GeneralUtility::intExplode(',', $this->settings['excludePages'] ?? '', true);
     
-        $analysisData = $this->pageAnalysisService->analyzePages($parentPageId, $depth);
+        $pages = $this->getPages($parentPageId, $depth);
+        $analysisData = $this->pageAnalysisService->analyzePages($pages);
         $analysisResults = $analysisData['results'] ?? [];
+    
     
         $currentLanguageUid = $this->getCurrentLanguageUid();
         $suggestions = $this->findSimilarPages($analysisResults, $currentPageId, $proximityThreshold, $maxSuggestions, $excludePages, $currentLanguageUid);
@@ -228,9 +238,39 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
         return $content;
     }
 
-    protected function getCurrentLanguageUid(): int
+    protected function getPages(int $parentPageId, int $depth): array
     {
-        return (int)$GLOBALS['TSFE']->sys_language_uid;
+        if ($this->pageRepository === null) {
+            $this->pageRepository = GeneralUtility::makeInstance(PageRepository::class);
+        }
+    
+        $pages = [];
+        $languageAspect = GeneralUtility::makeInstance(Context::class)->getAspect('language');
+        $languageId = $languageAspect->getId();
+    
+        $pageRecords = $this->pageRepository->getMenu(
+            $parentPageId,
+            '*',
+            'sorting',
+            '',
+            false,
+            '',
+            $languageId
+        );
+    
+        foreach ($pageRecords as $pageRecord) {
+            $pages[$pageRecord['uid']] = $pageRecord;
+            if ($depth > 1) {
+                $subpages = $this->getPages($pageRecord['uid'], $depth - 1);
+                $pages = array_merge($pages, $subpages);
+            }
+        }
+    
+        return $pages;
     }
 
+    protected function getCurrentLanguageUid(): int
+    {
+        return GeneralUtility::makeInstance(Context::class)->getAspect('language')->getId();
+    }
 }

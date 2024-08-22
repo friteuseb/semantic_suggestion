@@ -7,21 +7,26 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TalanHdf\SemanticSuggestion\Service\PageAnalysisService;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
+use TYPO3\CMS\Core\Log\LogManager;
+use TYPO3\CMS\Core\Domain\Repository\PageRepository;
+use TYPO3\CMS\Core\Context\Context;
 
-class SemanticBackendController extends ActionController
+class SemanticBackendController extends ActionController implements LoggerAwareInterface
 {
-    protected $moduleTemplateFactory;
-    protected $pageAnalysisService;
-    protected $configurationManager;
+    use LoggerAwareTrait;
+
+    protected ModuleTemplateFactory $moduleTemplateFactory;
+    protected PageAnalysisService $pageAnalysisService;
 
     public function __construct(
-        ModuleTemplateFactory $moduleTemplateFactory, 
-        PageAnalysisService $pageAnalysisService,
-        ConfigurationManagerInterface $configurationManager
+        ModuleTemplateFactory $moduleTemplateFactory,
+        PageAnalysisService $pageAnalysisService
     ) {
         $this->moduleTemplateFactory = $moduleTemplateFactory;
         $this->pageAnalysisService = $pageAnalysisService;
-        $this->configurationManager = $configurationManager;
+        $this->setLogger(GeneralUtility::makeInstance(LogManager::class)->getLogger(__CLASS__));
     }
 
     public function indexAction(): ResponseInterface
@@ -40,7 +45,9 @@ class SemanticBackendController extends ActionController
         $maxSuggestions = (int)($extensionConfig['maxSuggestions'] ?? 5);
         $excludePages = GeneralUtility::intExplode(',', $extensionConfig['excludePages'] ?? '', true);
 
-        $analysisData = $this->pageAnalysisService->analyzePages($parentPageId, $depth);
+        $pages = $this->getPages($parentPageId, $depth);
+        $analysisData = $this->pageAnalysisService->analyzePages($pages);
+        $this->logger->debug('Analysis data', ['data' => $analysisData]);
 
         $analysisResults = [];
         $performanceMetrics = [];
@@ -57,6 +64,8 @@ class SemanticBackendController extends ActionController
 
             $statistics = $this->calculateStatistics($analysisResults, $proximityThreshold);
             $languageStatistics = $this->calculateLanguageStatistics($analysisResults);
+            $this->logger->debug('Language statistics', ['stats' => $languageStatistics]);
+
         } else {
             $this->addFlashMessage(
                 'The analysis did not return valid results. Please check your configuration and try again.',
@@ -92,10 +101,48 @@ class SemanticBackendController extends ActionController
             'languageStatistics' => $languageStatistics,
         ]);
 
+        $this->logger->info('Finishing indexAction', [
+            'languageStatistics' => $languageStatistics,
+            'performanceMetrics' => $performanceMetrics
+        ]);
+    
         $moduleTemplate->setContent($this->view->render());
         return $moduleTemplate->renderResponse();
     }
     
+
+    protected function getPages(int $parentPageId, int $depth): array
+    {
+        $pageRepository = GeneralUtility::makeInstance(PageRepository::class);
+
+        $pages = [];
+        $context = GeneralUtility::makeInstance(Context::class);
+        $languageAspect = $context->getAspect('language');
+        $languageId = $languageAspect->getId();
+
+        $pageRecords = $pageRepository->getMenu(
+            $parentPageId,
+            '*',
+            'sorting',
+            '',
+            false,
+            '',
+            $languageId // Pass the current language ID
+        );
+
+        foreach ($pageRecords as $pageRecord) {
+            $pages[$pageRecord['uid']] = $pageRecord;
+            if ($depth > 1) {
+                $subpages = $this->getPages($pageRecord['uid'], $depth - 1);
+                $pages = array_merge($pages, $subpages);
+            }
+        }
+
+        return $pages;
+    }
+
+
+
         private function calculateStatistics(array $analysisResults, float $proximityThreshold): array
     {
         $totalPages = count($analysisResults);
@@ -152,30 +199,18 @@ class SemanticBackendController extends ActionController
         $languageStats = [];
         foreach ($analysisResults as $pageId => $pageData) {
             $languageUid = $pageData['sys_language_uid'] ?? 0;
+            $this->logger->debug('Page language', [
+                'pageId' => $pageId,
+                'languageUid' => $languageUid,
+                'pageData' => $pageData
+            ]);
             if (!isset($languageStats[$languageUid])) {
                 $languageStats[$languageUid] = 0;
             }
             $languageStats[$languageUid]++;
         }
+        $this->logger->info('Language statistics calculated', ['stats' => $languageStats]);
         return $languageStats;
-    }
-
-    private function getAvailableLanguages(): array
-    {
-        $languages = [];
-        $sites = $this->siteFinder->getAllSites();
-        foreach ($sites as $site) {
-            foreach ($site->getAllLanguages() as $language) {
-                $languageId = $language->getLanguageId();
-                if (!isset($languages[$languageId])) {
-                    $languages[$languageId] = [
-                        'title' => $language->getTitle(),
-                        'twoLetterIsoCode' => $language->getTwoLetterIsoCode(),
-                    ];
-                }
-            }
-        }
-        return $languages;
     }
 
 

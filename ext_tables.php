@@ -8,7 +8,7 @@ defined('TYPO3') or die();
         'semantic_suggestion',
         '',
         [
-            \TalanHdf\SemanticSuggestion\Controller\SemanticBackendController::class => 'index,list',
+            \TalanHdf\SemanticSuggestion\Controller\SemanticBackendController::class => 'index',
         ],
         [
             'access' => 'user,group',

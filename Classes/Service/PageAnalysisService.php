@@ -156,12 +156,12 @@ class PageAnalysisService implements LoggerAwareInterface
         return $this->connectionPool;
     }
 
-    public function analyzePages(int $parentPageId = null, int $depth = null): array
+    public function analyzePages(array $pages): array
     {
         $startTime = microtime(true);
     
-        $parentPageId = $parentPageId ?? (int)$this->settings['parentPageId'];
-        $depth = $depth ?? (int)$this->settings['recursive'];
+        $parentPageId = $pages[0]['pid'] ?? 0; // Prend le parent ID de la première page
+        $depth = $this->calculateDepth($pages);
         $cacheIdentifier = 'semantic_analysis_' . $parentPageId . '_' . $depth;
     
         if ($this->cache->has($cacheIdentifier)) {
@@ -172,7 +172,7 @@ class PageAnalysisService implements LoggerAwareInterface
         }
     
         try {
-            $pages = $this->getAllSubpages($parentPageId, $depth);
+            $this->logger->debug('Analyzing pages', ['pageCount' => count($pages)]);
             $totalPages = count($pages);
             $analysisResults = [];
     
@@ -204,9 +204,6 @@ class PageAnalysisService implements LoggerAwareInterface
             return [];
         }
     
-
-
-
         $endTime = microtime(true);
         $executionTime = $endTime - $startTime;
     
@@ -229,7 +226,23 @@ class PageAnalysisService implements LoggerAwareInterface
     
         return $result;
     }
+    
+    private function calculateDepth(array $pages): int
+    {
+        $maxDepth = 0;
+        foreach ($pages as $page) {
+            $depth = 1;
+            $pid = $page['pid'];
+            while (isset($pages[$pid])) {
+                $depth++;
+                $pid = $pages[$pid]['pid'];
+            }
+            $maxDepth = max($maxDepth, $depth);
+        }
+        return $maxDepth;
+    }
 
+    
     /**
      * @return array Prepared data
      */
@@ -363,6 +376,7 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
                 ->executeQuery()
                 ->fetchAllAssociative();
 
+
             foreach ($result as &$page) {
                 $page['content_modified_at'] = $page['MAX(tstamp)'] ?? $page['crdate'] ?? time();
                 unset($page['MAX(tstamp)']);
@@ -371,6 +385,8 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
             if ($this->logger) {
                 $this->logger->info('Subpages fetched successfully', ['count' => count($result)]);
                 $this->logger->debug('Fetched subpages', ['subpages' => $result]);
+                $this->logger->debug('Subpages query result', ['result' => $result]);
+
             }
 
             return $result;

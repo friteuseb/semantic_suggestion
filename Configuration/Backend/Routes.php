@@ -1,7 +1,10 @@
 <?php
+
+use TalanHdf\SemanticSuggestion\Controller\SemanticBackendController;
+
 return [
     'semantic_suggestion_proximity' => [
         'path' => '/semantic-suggestion/proximity',
-        'target' => \TalanHdf\SemanticSuggestion\Controller\BackendController::class . '::listAction'
+        'target' => SemanticBackendController::class . '::indexAction'
     ],
 ];
