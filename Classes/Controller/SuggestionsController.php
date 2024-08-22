@@ -92,7 +92,8 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
         $analysisData = $this->pageAnalysisService->analyzePages($parentPageId, $depth);
         $analysisResults = $analysisData['results'] ?? [];
     
-        $suggestions = $this->findSimilarPages($analysisResults, $currentPageId, $proximityThreshold, $maxSuggestions, $excludePages);
+        $currentLanguageUid = $this->getCurrentLanguageUid();
+        $suggestions = $this->findSimilarPages($analysisResults, $currentPageId, $proximityThreshold, $maxSuggestions, $excludePages, $currentLanguageUid);
     
         $this->logger->debug('Suggestions generated', [
             'count' => count($suggestions),
@@ -165,8 +166,7 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
             arsort($similarities);
             foreach ($similarities as $pageId => $similarity) {
                 if (count($suggestions) >= $maxSuggestions) break;
-                if ($similarity['score'] < $threshold || in_array($pageId, $excludePages)) {
-                    $this->logger->debug('Page excluded', ['pageId' => $pageId, 'reason' => $similarity['score'] < $threshold ? 'below threshold' : 'in exclude list']);
+                if ($similarity['score'] < $threshold || in_array($pageId, $excludePages) || $analysisResults[$pageId]['sys_language_uid'] !== $currentLanguageUid) {
                     continue;
                 }
                 

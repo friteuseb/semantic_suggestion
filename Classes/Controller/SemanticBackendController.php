@@ -46,6 +46,8 @@ class SemanticBackendController extends ActionController
         $nlpEnabled = $nlpEnabled && ($nlpConfig['enableNlpAnalysis'] ?? false);
     
         $analysisData = $this->pageAnalysisService->analyzePages($parentPageId, $depth);
+        $languageStatistics = $this->calculateLanguageStatistics($analysisResults);
+
     
         $analysisResults = [];
         $performanceMetrics = [];
@@ -96,8 +98,7 @@ class SemanticBackendController extends ActionController
             'statistics' => $statistics,
             'analysisResults' => $analysisResults,
             'performanceMetrics' => $performanceMetrics,
-            'nlpEnabled' => $nlpEnabled,
-            'nlpStatistics' => $nlpStatistics,
+            'languageStatistics' => $languageStatistics,
         ]);
     
         $moduleTemplate->setContent($this->view->render());

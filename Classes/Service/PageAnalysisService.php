@@ -324,61 +324,61 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
     return $allPages;
 }
 
-protected function getSubpages(int $parentId): array
-{
-    if ($this->logger) {
-        $this->logger->info('Fetching subpages', ['parentId' => $parentId]);
+    protected function getSubpages(int $parentId): array
+    {
+        if ($this->logger) {
+            $this->logger->info('Fetching subpages', ['parentId' => $parentId]);
+        }
+
+        try {
+            $queryBuilder = $this->getQueryBuilder();
+            $languageUid = $this->getCurrentLanguageUid();
+
+            if ($this->logger) {
+                $this->logger->info('Current language UID: ' . $languageUid);
+            }
+
+            $fieldsToSelect = ['uid', 'title', 'description', 'keywords', 'abstract', 'crdate', 'sys_language_uid'];
+
+            $tableColumns = $queryBuilder->getConnection()->getSchemaManager()->listTableColumns('pages');
+            $existingColumns = array_keys($tableColumns);
+            $fieldsToSelect = array_intersect($fieldsToSelect, $existingColumns);
+
+            if ($this->logger) {
+                $this->logger->debug('Fields to select', ['fields' => $fieldsToSelect]);
+            }
+
+            $result = $queryBuilder
+                ->select(...$fieldsToSelect)
+                ->addSelectLiteral(
+                    '(SELECT MAX(tstamp) FROM tt_content WHERE tt_content.pid = pages.uid AND tt_content.deleted = 0 AND tt_content.hidden = 0)'
+                )
+                ->from('pages')
+                ->where(
+                    $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($parentId, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->eq('hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter($languageUid, \PDO::PARAM_INT))
+                )
+                ->executeQuery()
+                ->fetchAllAssociative();
+
+            foreach ($result as &$page) {
+                $page['content_modified_at'] = $page['MAX(tstamp)'] ?? $page['crdate'] ?? time();
+                unset($page['MAX(tstamp)']);
+            }
+
+            if ($this->logger) {
+                $this->logger->info('Subpages fetched successfully', ['count' => count($result)]);
+                $this->logger->debug('Fetched subpages', ['subpages' => $result]);
+            }
+
+            return $result;
+        } catch (\Exception $e) {
+            $this->logger?->error('Error fetching subpages', ['exception' => $e->getMessage()]);
+            throw $e;
+        }
     }
-
-    try {
-        $queryBuilder = $this->getQueryBuilder();
-        $languageUid = $this->getCurrentLanguageUid();
-
-        if ($this->logger) {
-            $this->logger->info('Current language UID: ' . $languageUid);
-        }
-
-        $fieldsToSelect = ['uid', 'title', 'description', 'keywords', 'abstract', 'crdate'];
-
-        $tableColumns = $queryBuilder->getConnection()->getSchemaManager()->listTableColumns('pages');
-        $existingColumns = array_keys($tableColumns);
-        $fieldsToSelect = array_intersect($fieldsToSelect, $existingColumns);
-
-        if ($this->logger) {
-            $this->logger->debug('Fields to select', ['fields' => $fieldsToSelect]);
-        }
-
-        $result = $queryBuilder
-            ->select(...$fieldsToSelect)
-            ->addSelectLiteral(
-                '(SELECT MAX(tstamp) FROM tt_content WHERE tt_content.pid = pages.uid AND tt_content.deleted = 0 AND tt_content.hidden = 0)'
-            )
-            ->from('pages')
-            ->where(
-                $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($parentId, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->eq('hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->in('sys_language_uid', $queryBuilder->createNamedParameter([$languageUid, -1], Connection::PARAM_INT_ARRAY))
-            )
-            ->executeQuery()
-            ->fetchAllAssociative();
-
-        foreach ($result as &$page) {
-            $page['content_modified_at'] = $page['MAX(tstamp)'] ?? $page['crdate'] ?? time();
-            unset($page['MAX(tstamp)']);
-        }
-
-        if ($this->logger) {
-            $this->logger->info('Subpages fetched successfully', ['count' => count($result)]);
-            $this->logger->debug('Fetched subpages', ['subpages' => $result]);
-        }
-
-        return $result;
-    } catch (\Exception $e) {
-        $this->logger?->error('Error fetching subpages', ['exception' => $e->getMessage()]);
-        throw $e;
-    }
-}
 
 protected function getPageContent(int $pageId): string
 {
@@ -484,32 +484,6 @@ private function calculateSimilarity(array $page1, array $page2): array
     ];
 }
 
-private function calculateNlpSimilarity(array $nlp1, array $nlp2): float
-{
-    $similarity = 0.0;
-
-    // Comparaison des mots les plus fréquents
-    if (isset($nlp1['topWords']) && isset($nlp2['topWords'])) {
-        $commonTopWords = array_intersect($nlp1['topWords'], $nlp2['topWords']);
-        $similarity += count($commonTopWords) / max(count($nlp1['topWords']), count($nlp2['topWords']));
-    }
-
-    // Comparaison des entités nommées si disponibles
-    if (isset($nlp1['namedEntities']) && isset($nlp2['namedEntities'])) {
-        $commonEntities = array_intersect($nlp1['namedEntities'], $nlp2['namedEntities']);
-        $similarity += count($commonEntities) / max(count($nlp1['namedEntities']), count($nlp2['namedEntities']));
-    }
-
-    // Comparaison des sentiments si disponibles
-    if (isset($nlp1['sentiment']) && isset($nlp2['sentiment'])) {
-        $similarity += 1 - abs($nlp1['sentiment'] - $nlp2['sentiment']);
-    }
-
-    // Normalisez la similarité finale
-    $numFactors = 3; // Nombre de facteurs considérés (topWords, namedEntities, sentiment)
-    return $similarity / $numFactors;
-}
-
 private function calculateRecencyBoost(array $page1, array $page2): float
 {
     $now = time();
@@ -546,30 +520,30 @@ $keywords2 = isset($page2['keywords']['content']) ? array_map('trim', explode(',
 return array_intersect($keywords1, $keywords2);
 }
 
-private function determineRelevance($similarity): string
-{
-    if (is_array($similarity)) {
-        $similarityValue = $similarity['finalSimilarity'] ?? 0;
-    } else {
-        $similarityValue = (float)$similarity;
-    }
+        private function determineRelevance($similarity): string
+        {
+            if (is_array($similarity)) {
+                $similarityValue = $similarity['finalSimilarity'] ?? 0;
+            } else {
+                $similarityValue = (float)$similarity;
+            }
 
-    if ($similarityValue > 0.7) {
-        return 'High';
-    } elseif ($similarityValue > 0.4) {
-        return 'Medium';
-    } else {
-        return 'Low';
-    }
-}
+            if ($similarityValue > 0.7) {
+                return 'High';
+            } elseif ($similarityValue > 0.4) {
+                return 'Medium';
+            } else {
+                return 'Low';
+            }
+        }
 
-private function getCurrentLanguageUid(): int
-{
-try {
-    return (int)$this->context->getAspect('language')->getId();
-} catch (\Exception $e) {
-    $this->logger?->warning('Failed to get language from context, defaulting to 0', ['exception' => $e]);
-    return 0;
-}
-}
+        private function getCurrentLanguageUid(): int
+        {
+        try {
+            return (int)$this->context->getAspect('language')->getId();
+        } catch (\Exception $e) {
+            $this->logger?->warning('Failed to get language from context, defaulting to 0', ['exception' => $e]);
+            return 0;
+        }
+        }
 }
