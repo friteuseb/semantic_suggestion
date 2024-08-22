@@ -24,7 +24,7 @@ class SemanticBackendController extends ActionController
         $this->configurationManager = $configurationManager;
     }
 
-        public function indexAction(): ResponseInterface
+    public function indexAction(): ResponseInterface
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
 
@@ -96,68 +96,88 @@ class SemanticBackendController extends ActionController
         return $moduleTemplate->renderResponse();
     }
     
-    private function calculateStatistics(array $analysisResults, float $proximityThreshold): array
-{
-    $totalPages = count($analysisResults);
-    $totalSimilarityScore = 0;
-    $similarityPairs = [];
-    $distributionScores = [
-        '0.0-0.2' => 0, '0.2-0.4' => 0, '0.4-0.6' => 0, '0.6-0.8' => 0, '0.8-1.0' => 0
-    ];
-    $pagesSimilarityCount = [];
+        private function calculateStatistics(array $analysisResults, float $proximityThreshold): array
+    {
+        $totalPages = count($analysisResults);
+        $totalSimilarityScore = 0;
+        $similarityPairs = [];
+        $distributionScores = [
+            '0.0-0.2' => 0, '0.2-0.4' => 0, '0.4-0.6' => 0, '0.6-0.8' => 0, '0.8-1.0' => 0
+        ];
+        $pagesSimilarityCount = [];
 
-    foreach ($analysisResults as $pageId => $pageData) {
-        $pagesSimilarityCount[$pageId] = 0;
-        foreach ($pageData['similarities'] as $similarPageId => $similarity) {
-            if ($pageId < $similarPageId) { // Évite les doublons
-                $totalSimilarityScore += $similarity['score'];
-                $similarityPairs[] = [
-                    'page1' => $pageId,
-                    'page2' => $similarPageId,
-                    'score' => $similarity['score']
-                ];
-                
-                if ($similarity['score'] >= $proximityThreshold) {
-                    $pagesSimilarityCount[$pageId]++;
-                    $pagesSimilarityCount[$similarPageId] = ($pagesSimilarityCount[$similarPageId] ?? 0) + 1;
+        foreach ($analysisResults as $pageId => $pageData) {
+            $pagesSimilarityCount[$pageId] = 0;
+            foreach ($pageData['similarities'] as $similarPageId => $similarity) {
+                if ($pageId < $similarPageId) { // Évite les doublons
+                    $totalSimilarityScore += $similarity['score'];
+                    $similarityPairs[] = [
+                        'page1' => $pageId,
+                        'page2' => $similarPageId,
+                        'score' => $similarity['score']
+                    ];
+                    
+                    if ($similarity['score'] >= $proximityThreshold) {
+                        $pagesSimilarityCount[$pageId]++;
+                        $pagesSimilarityCount[$similarPageId] = ($pagesSimilarityCount[$similarPageId] ?? 0) + 1;
+                    }
+
+                    // Mettre à jour la distribution des scores
+                    if ($similarity['score'] < 0.2) $distributionScores['0.0-0.2']++;
+                    elseif ($similarity['score'] < 0.4) $distributionScores['0.2-0.4']++;
+                    elseif ($similarity['score'] < 0.6) $distributionScores['0.4-0.6']++;
+                    elseif ($similarity['score'] < 0.8) $distributionScores['0.6-0.8']++;
+                    else $distributionScores['0.8-1.0']++;
                 }
-
-                // Mettre à jour la distribution des scores
-                if ($similarity['score'] < 0.2) $distributionScores['0.0-0.2']++;
-                elseif ($similarity['score'] < 0.4) $distributionScores['0.2-0.4']++;
-                elseif ($similarity['score'] < 0.6) $distributionScores['0.4-0.6']++;
-                elseif ($similarity['score'] < 0.8) $distributionScores['0.6-0.8']++;
-                else $distributionScores['0.8-1.0']++;
             }
         }
+
+        // Trier les paires par score de similarité décroissant
+        usort($similarityPairs, function($a, $b) {
+            return $b['score'] <=> $a['score'];
+        });
+
+        return [
+            'totalPages' => $totalPages,
+            'averageSimilarity' => $totalPages > 1 ? $totalSimilarityScore / (($totalPages * ($totalPages - 1)) / 2) : 0,
+            'topSimilarPairs' => array_slice($similarityPairs, 0, 5),
+            'distributionScores' => $distributionScores,
+            'topSimilarPages' => arsort($pagesSimilarityCount) ? array_slice($pagesSimilarityCount, 0, 5, true) : [],
+        ];
     }
 
-    // Trier les paires par score de similarité décroissant
-    usort($similarityPairs, function($a, $b) {
-        return $b['score'] <=> $a['score'];
-    });
 
-    return [
-        'totalPages' => $totalPages,
-        'averageSimilarity' => $totalPages > 1 ? $totalSimilarityScore / (($totalPages * ($totalPages - 1)) / 2) : 0,
-        'topSimilarPairs' => array_slice($similarityPairs, 0, 5),
-        'distributionScores' => $distributionScores,
-        'topSimilarPages' => arsort($pagesSimilarityCount) ? array_slice($pagesSimilarityCount, 0, 5, true) : [],
-    ];
-}
-
-private function calculateLanguageStatistics(array $analysisResults): array
-{
-    $languageStats = [];
-    foreach ($analysisResults as $pageId => $pageData) {
-        $languageUid = $pageData['sys_language_uid'] ?? 0;
-        if (!isset($languageStats[$languageUid])) {
-            $languageStats[$languageUid] = 0;
+    private function calculateLanguageStatistics(array $analysisResults): array
+    {
+        $languageStats = [];
+        foreach ($analysisResults as $pageId => $pageData) {
+            $languageUid = $pageData['sys_language_uid'] ?? 0;
+            if (!isset($languageStats[$languageUid])) {
+                $languageStats[$languageUid] = 0;
+            }
+            $languageStats[$languageUid]++;
         }
-        $languageStats[$languageUid]++;
+        return $languageStats;
     }
-    return $languageStats;
-}
+
+    private function getAvailableLanguages(): array
+    {
+        $languages = [];
+        $sites = $this->siteFinder->getAllSites();
+        foreach ($sites as $site) {
+            foreach ($site->getAllLanguages() as $language) {
+                $languageId = $language->getLanguageId();
+                if (!isset($languages[$languageId])) {
+                    $languages[$languageId] = [
+                        'title' => $language->getTitle(),
+                        'twoLetterIsoCode' => $language->getTwoLetterIsoCode(),
+                    ];
+                }
+            }
+        }
+        return $languages;
+    }
+
 
 
 }
