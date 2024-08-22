@@ -46,14 +46,14 @@ class SemanticBackendController extends ActionController
         $nlpEnabled = $nlpEnabled && ($nlpConfig['enableNlpAnalysis'] ?? false);
     
         $analysisData = $this->pageAnalysisService->analyzePages($parentPageId, $depth);
-        $languageStatistics = $this->calculateLanguageStatistics($analysisResults);
 
     
         $analysisResults = [];
         $performanceMetrics = [];
         $statistics = [];
         $nlpStatistics = [];
-    
+        $languageStatistics = [];
+
         if (is_array($analysisData) && isset($analysisData['results']) && is_array($analysisData['results'])) {
             $analysisResults = $analysisData['results'];
             
@@ -63,7 +63,8 @@ class SemanticBackendController extends ActionController
             }
     
             $statistics = $this->calculateStatistics($analysisResults, $proximityThreshold);
-            
+            $languageStatistics = $this->calculateLanguageStatistics($analysisResults); 
+
             if ($nlpEnabled) {
                 $nlpStatistics = $this->calculateNlpStatistics($analysisResults);
             }
@@ -199,7 +200,18 @@ private function calculateNlpStatistics(array $analysisResults): array
     ];
 }
 
-
+private function calculateLanguageStatistics(array $analysisResults): array
+{
+    $languageStats = [];
+    foreach ($analysisResults as $pageId => $pageData) {
+        $languageUid = $pageData['sys_language_uid'] ?? 0;
+        if (!isset($languageStats[$languageUid])) {
+            $languageStats[$languageUid] = 0;
+        }
+        $languageStats[$languageUid]++;
+    }
+    return $languageStats;
+}
 
 
 }
