@@ -482,8 +482,7 @@ private function getWeightedWords(array $pageData): array
 }
 
 
-
-private function calculateSimilarity(array $page1, array $page2, array $words1, array $words2): array
+private function calculateSimilarity(array $page1, array $page2): array
 {
     static $similarityCache = [];
     $cacheKey = $page1['uid'] . '_' . $page2['uid'];
@@ -491,6 +490,9 @@ private function calculateSimilarity(array $page1, array $page2, array $words1, 
     if (isset($similarityCache[$cacheKey])) {
         return $similarityCache[$cacheKey];
     }
+
+    $words1 = $this->getWeightedWords($page1);
+    $words2 = $this->getWeightedWords($page2);
 
     $intersection = array_intersect_key($words1, $words2);
     $union = $words1 + $words2;
