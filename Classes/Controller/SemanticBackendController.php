@@ -166,34 +166,36 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
     }
 
 
-    
-    protected function getPages(int $parentPageId, int $depth): array
-    {
-        $pages = [];
-        $defaultLanguagePages = $this->getPageRepository()->getMenu(
-            $parentPageId,
-            '*',
-            'sorting',
-            '',
-            false
-        );
-    
-        foreach ($defaultLanguagePages as $pageUid => $defaultLanguagePage) {
-            $pages[$pageUid] = $defaultLanguagePage;
-            $translations = $this->getPageTranslations($pageUid);
-            foreach ($translations as $languageId => $translation) {
-                $translatedPageUid = $translation['uid'] ?? $pageUid; // Utilisez l'UID de la page par défaut si la traduction n'a pas d'UID
-                $pages[$translatedPageUid] = $translation;
-            }
-    
-            if ($depth > 1) {
-                $subpages = $this->getPages($pageUid, $depth - 1);
-                $pages = array_merge($pages, $subpages);
-            }
+
+protected function getPages(int $parentPageId, int $depth): array
+{
+    $pages = [];
+    $defaultLanguagePages = $this->getPageRepository()->getMenu(
+        $parentPageId,
+        '*',
+        'sorting',
+        '',
+        false
+    );
+
+    foreach ($defaultLanguagePages as $pageUid => $defaultLanguagePage) {
+        $pages[$pageUid] = $defaultLanguagePage;
+
+        $translations = $this->getPageTranslations($pageUid);
+        foreach ($translations as $languageId => $translation) {
+            // Generate a unique UID for the translated page if it doesn't have one
+            $translatedPageUid = $translation['uid'] ??  $pageUid . '_' . $languageId;
+            $pages[$translatedPageUid] = $translation;
         }
-    
-        return $pages;
+
+        if ($depth > 1) {
+            $subpages = $this->getPages($pageUid, $depth - 1);
+            $pages = array_merge($pages, $subpages);
+        }
     }
+
+    return $pages;
+}
 
 
 
@@ -202,21 +204,26 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         $translations = [];
         $siteFinder = GeneralUtility::makeInstance(SiteFinder::class);
         $site = $siteFinder->getSiteByPageId($pageUid);
-        
+
         foreach ($site->getAllLanguages() as $language) {
             $languageId = $language->getLanguageId();
             if ($languageId > 0) {
                 $translatedPage = $this->pageRepository->getPageOverlay($pageUid, $languageId);
                 if ($translatedPage) {
                     $translatedPage['sys_language_uid'] = $languageId;
-                    $translations[$languageId] = $translatedPage;
+                } else {
+                    // If translation doesn't exist, create a placeholder with the default language UID
+                    $translatedPage = [
+                        'uid' => $pageUid, // Use the original page's UID
+                        'sys_language_uid' => 0, // Default language UID
+                    ];
                 }
+                $translations[$languageId] = $translatedPage; 
             }
         }
-    
+
         return $translations;
     }
-
 
 
         private function calculateStatistics(array $analysisResults, float $proximityThreshold): array
@@ -275,10 +282,13 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         $languageStats = [];
     
         foreach ($pages as $pageId => $pageData) {
-            $languageUid = $pageData['sys_language_uid'] ?? 0;
+            $languageUid = $pageData['sys_language_uid'] ?? 0; // Default to 0 if sys_language_uid is not set
+    
+            // Ensure the language UID exists in the stats array
             if (!isset($languageStats[$languageUid])) {
                 $languageStats[$languageUid] = 0;
             }
+    
             $languageStats[$languageUid]++;
         }
     
@@ -287,7 +297,7 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
     
         foreach ($allLanguages as $languageUid => $languageInfo) {
             $result[$languageUid] = [
-                'count' => $languageStats[$languageUid] ?? 0,
+                'count' => $languageStats[$languageUid] ?? 0, // Default to 0 if language count is not found
                 'info' => $languageInfo,
             ];
         }

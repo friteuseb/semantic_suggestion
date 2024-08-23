@@ -159,6 +159,11 @@ class PageAnalysisService implements LoggerAwareInterface
     public function analyzePages(array $pages): array
     {
         $startTime = microtime(true);
+
+            // Filter out pages without UIDs
+        $pages = array_filter($pages, function ($page) {
+            return isset($page['uid']);
+        });
     
         $parentPageId = $pages[0]['pid'] ?? 0; // Prend le parent ID de la première page
         $depth = $this->calculateDepth($pages);
