@@ -21,8 +21,8 @@ services:
       $pageAnalysisService: '@TalanHdf\SemanticSuggestion\Service\PageAnalysisService'
       $fileRepository: '@TYPO3\CMS\Core\Resource\FileRepository'
 
-TalanHdf\SemanticSuggestion\Controller\SemanticBackendController:
-    public: true
-    autowire: true
-    autoconfigure: true
-    tags: ['controller.backend_controller']
+  TalanHdf\SemanticSuggestion\Controller\SemanticBackendController:
+      public: true
+      autowire: true
+      autoconfigure: true
+      tags: ['controller.backend_controller']
