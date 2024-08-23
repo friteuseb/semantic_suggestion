@@ -265,7 +265,9 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
                 $pages = array_merge($pages, $subpages);
             }
         }
-    
+        if ($this->logger instanceof LoggerInterface) {
+            $this->logger->debug('Retrieved pages', ['pages' => $pages]);
+        }
         return $pages;
     }
 

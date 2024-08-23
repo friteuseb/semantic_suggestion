@@ -115,6 +115,9 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
             }
 
             $statistics = $this->calculateStatistics($analysisResults, $proximityThreshold);
+            if ($this->logger instanceof LoggerInterface) {
+                $this->logger->debug('Analysis results before language statistics', ['results' => $analysisResults]);
+            }
             $languageStatistics = $this->calculateLanguageStatistics($analysisResults);
             if ($this->logger instanceof LoggerInterface) {
                 $this->logger->debug('Language statistics', ['stats' => $languageStatistics]);
@@ -205,24 +208,18 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         $translations = [];
         $siteFinder = GeneralUtility::makeInstance(SiteFinder::class);
         $site = $siteFinder->getSiteByPageId($pageUid);
-
+    
         foreach ($site->getAllLanguages() as $language) {
             $languageId = $language->getLanguageId();
-            if ($languageId > 0) {
+            if ($languageId > 0) {  // Seulement pour les langues non-default
                 $translatedPage = $this->pageRepository->getPageOverlay($pageUid, $languageId);
                 if ($translatedPage) {
                     $translatedPage['sys_language_uid'] = $languageId;
-                } else {
-                    // If translation doesn't exist, create a placeholder with the default language UID
-                    $translatedPage = [
-                        'uid' => $pageUid, // Use the original page's UID
-                        'sys_language_uid' => 0, // Default language UID
-                    ];
+                    $translations[$languageId] = $translatedPage;
                 }
-                $translations[$languageId] = $translatedPage; 
             }
         }
-
+    
         return $translations;
     }
 
@@ -276,63 +273,66 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
             'topSimilarPages' => arsort($pagesSimilarityCount) ? array_slice($pagesSimilarityCount, 0, 5, true) : [],
         ];
     }
-
     private function calculateLanguageStatistics(array $pages): array
-{
-    $languageStats = [];
-
-    foreach ($pages as $pageId => $pageData) {
-        $languageUid = $pageData['sys_language_uid'] ?? 0;
-        if (!isset($languageStats[$languageUid])) {
-            $languageStats[$languageUid] = 0;
-        }
-        $languageStats[$languageUid]++;
-    }
-
-
-    $allLanguages = $this->getAllLanguages();
-    $result = [];
-
-    foreach ($allLanguages as $languageUid => $languageInfo) {
-        $result[$languageUid] = [
-            'count' => $languageStats[$languageUid] ?? 0,
-            'info' => $languageInfo,
-        ];
-    }
-
-
-    return $result;
-}
+    {
+        $languageStats = [];
     
-private function getAllLanguages(): array
-{
-    $languages = []; 
-    $siteFinder = GeneralUtility::makeInstance(SiteFinder::class);
-    $sites = $siteFinder->getAllSites();
-
-    foreach ($sites as $site) {
-        foreach ($site->getAllLanguages() as $language) {
-            $languageId = $language->getLanguageId();
-            $languages[$languageId] = [
-                'title' => $language->getTitle(),
-                'twoLetterIsoCode' => $language->getTwoLetterIsoCode(),
-                'flagIdentifier' => $language->getFlagIdentifier(),
+        foreach ($pages as $page) {
+            $languageUid = $page['sys_language_uid'] ?? 0;
+            if (!isset($languageStats[$languageUid])) {
+                $languageStats[$languageUid] = 0;
+            }
+            $languageStats[$languageUid]++;
+        }
+    
+        $allLanguages = $this->getAllLanguages();
+        $result = [];
+    
+        foreach ($allLanguages as $languageUid => $languageInfo) {
+            $result[$languageUid] = [
+                'count' => $languageStats[$languageUid] ?? 0,
+                'info' => $languageInfo,
             ];
         }
+    
+        // Ajoutez ce log de débogage
+        if ($this->logger instanceof LoggerInterface) {
+            $this->logger->debug('Language statistics calculation', [
+                'input_pages' => $pages,
+                'calculated_stats' => $languageStats,
+                'result' => $result
+            ]);
+        }
+    
+        return $result;
     }
-
-    // Ensure default language (0) is included if not already present
-    if (!isset($languages[0])) {
-        $languages[0] = [
-            'title' => 'Default', // Or any appropriate title for your default language
-            'twoLetterIsoCode' => 'en', // Adjust if your default language is not English
-            'flagIdentifier' => 'gb', // Adjust if your default language is not English
+    private function getAllLanguages(): array
+    {
+        $languages = [
+            0 => [
+                'title' => 'Default (English)',
+                'twoLetterIsoCode' => 'en',
+                'flagIdentifier' => 'gb',
+            ]
         ];
+        
+        $siteFinder = GeneralUtility::makeInstance(SiteFinder::class);
+        $sites = $siteFinder->getAllSites();
+    
+        foreach ($sites as $site) {
+            foreach ($site->getAllLanguages() as $language) {
+                $languageId = $language->getLanguageId();
+                $languages[$languageId] = [
+                    'title' => $language->getTitle(),
+                    'twoLetterIsoCode' => $language->getLocale()->getLanguageCode(),
+                    'flagIdentifier' => $language->getFlagIdentifier(),
+                ];
+            }
+        }
+    
+        ksort($languages);
+        return $languages;
     }
-
-    ksort($languages); // Sort by language ID
-    return $languages;
-}
 
 
 }
