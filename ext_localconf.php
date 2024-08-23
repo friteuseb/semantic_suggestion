@@ -16,6 +16,19 @@ defined('TYPO3') or die();
         ]
     );
 
+    \TYPO3\CMS\Extbase\Utility\ExtensionUtility::configurePlugin(
+        'SemanticSuggestion',
+        'SemanticBackend',
+        [
+            \TalanHdf\SemanticSuggestion\Controller\SemanticBackendController::class => 'index'
+        ],
+        // non-cacheable actions
+        [
+            \TalanHdf\SemanticSuggestion\Controller\SemanticBackendController::class => 'index'
+        ]
+    );
+    
+
     // Register your DataHandlerHook to be executed during data processing and saving operations in TYPO3
     // This allows you to intervene in the data flow
     $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass'][] = 
@@ -51,11 +64,5 @@ defined('TYPO3') or die();
         ];
     }
 
-    // If the 'semantic_suggestion_nlp' extension is loaded, register the 'analyze' method of PageAnalysisHook
-    // into the NLP analysis process of your extension
-    if (\TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion_nlp')) {
-        $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['semantic_suggestion']['nlpAnalysis'][] = 
-            \TalanHdf\SemanticSuggestionNlp\Hooks\PageAnalysisHook::class . '->analyze';
-    }
 
 })();

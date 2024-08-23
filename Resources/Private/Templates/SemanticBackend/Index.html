@@ -59,36 +59,38 @@
         </div>
 
 
-        
-        <h3>Pages analysées par langue</h3>
+
+        <h3>Statistiques par langue</h3>
         <div class="panel panel-default">
             <table class="table table-striped table-hover">
                 <thead>
                     <tr>
-                        <th>Langue ID</th>
+                        <th>Langue</th>
                         <th>Nombre de pages</th>
-                        <th>Distribution</th>
+                        <th>Pourcentage</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <f:variable name="totalPages" value="0" />
-                    <f:for each="{languageStatistics}" as="count" key="languageUid">
-                        <f:variable name="totalPages" value="{totalPages + count}" />
-                    </f:for>
-                    
-                    <f:for each="{languageStatistics}" as="count" key="languageUid">
+                    <f:for each="{languageStatistics}" as="langStat" key="languageUid">
                         <tr>
-                            <td>{languageUid}</td>
-                            <td>{count}</td>
                             <td>
-                                <f:variable name="percentage" value="{count / totalPages * 100}" />
-                                <f:variable name="roundedPercentage" value="{percentage -> f:format.number(decimals: 2)}" />
-                                
-                                <f:render section="ProgressBar" arguments="{
-                                    value: roundedPercentage, 
-                                    label: '{roundedPercentage}% ({count} pages)', 
-                                    enableColors: 1
-                                }" />
+                                <f:if condition="{langStat.info.flagIdentifier}">
+                                    <span class="flag-icon flag-icon-{langStat.info.flagIdentifier}"></span>
+                                </f:if>
+                                {langStat.info.title} ({langStat.info.twoLetterIsoCode})
+                            </td>
+                            <td>{langStat.count}</td>
+                            <td>
+                                <f:if condition="{totalPages} > 0">
+                                    <f:then>
+                                        <f:variable name="percentage" value="{langStat.count / totalPages * 100}" />
+                                        <f:variable name="roundedPercentage" value="{percentage -> f:format.number(decimals: 2)}" />
+                                        {roundedPercentage}%
+                                    </f:then>
+                                    <f:else>
+                                        0%
+                                    </f:else>
+                                </f:if>
                             </td>
                         </tr>
                     </f:for>

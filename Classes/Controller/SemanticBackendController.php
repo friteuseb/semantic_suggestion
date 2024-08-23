@@ -7,11 +7,11 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TalanHdf\SemanticSuggestion\Service\PageAnalysisService;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Core\Domain\Repository\PageRepository;
+use TYPO3\CMS\Core\Site\SiteFinder;
+use Psr\Log\LoggerInterface;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
-use TYPO3\CMS\Core\Log\LogManager;
-use TYPO3\CMS\Core\Domain\Repository\PageRepository;
-use TYPO3\CMS\Core\Context\Context;
 
 class SemanticBackendController extends ActionController implements LoggerAwareInterface
 {
@@ -19,6 +19,7 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
 
     protected ModuleTemplateFactory $moduleTemplateFactory;
     protected PageAnalysisService $pageAnalysisService;
+    protected ?PageRepository $pageRepository = null;
 
     public function __construct(
         ModuleTemplateFactory $moduleTemplateFactory,
@@ -26,13 +27,62 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
     ) {
         $this->moduleTemplateFactory = $moduleTemplateFactory;
         $this->pageAnalysisService = $pageAnalysisService;
-        $this->setLogger(GeneralUtility::makeInstance(LogManager::class)->getLogger(__CLASS__));
+    }
+
+    public function injectModuleTemplateFactory(ModuleTemplateFactory $moduleTemplateFactory): void
+    {
+        $this->moduleTemplateFactory = $moduleTemplateFactory;
+        if ($this->logger instanceof LoggerInterface) {
+            $this->logger->debug('ModuleTemplateFactory injected');
+        }
+    }
+
+    public function injectPageAnalysisService(PageAnalysisService $pageAnalysisService): void
+    {
+        $this->pageAnalysisService = $pageAnalysisService;
+    }
+
+    public function injectLogger(LoggerInterface $logger): void
+    {
+        $this->setLogger($logger);
+    }
+
+    public function injectConfigurationManager(ConfigurationManagerInterface $configurationManager): void
+    {
+        $this->configurationManager = $configurationManager;
+    }
+
+    protected function initializeAction()
+    {
+        parent::initializeAction();
+        if ($this->arguments === null) {
+            $this->arguments = new \TYPO3\CMS\Extbase\Mvc\Controller\Arguments();
+        }
+    }
+
+    protected function initializeActionMethodValidators(): void
+    {
+        if ($this->arguments === null) {
+            $this->arguments = new \TYPO3\CMS\Extbase\Mvc\Controller\Arguments();
+        }
+        parent::initializeActionMethodValidators();
+    }
+
+    protected function getPageRepository(): PageRepository
+    {
+        if ($this->pageRepository === null) {
+            $this->pageRepository = GeneralUtility::makeInstance(PageRepository::class);
+        }
+        return $this->pageRepository;
     }
 
     public function indexAction(): ResponseInterface
     {
+        if ($this->moduleTemplateFactory === null) {
+            throw new \RuntimeException('ModuleTemplateFactory is not initialized', 1234567890);
+        }
+    
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-
         $fullTypoScript = $this->configurationManager->getConfiguration(
             ConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
         );
@@ -47,7 +97,9 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
 
         $pages = $this->getPages($parentPageId, $depth);
         $analysisData = $this->pageAnalysisService->analyzePages($pages);
-        $this->logger->debug('Analysis data', ['data' => $analysisData]);
+        if ($this->logger instanceof LoggerInterface) {
+            $this->logger->debug('Analysis data', ['data' => $analysisData]);
+        }
 
         $analysisResults = [];
         $performanceMetrics = [];
@@ -57,15 +109,15 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         if (is_array($analysisData) && isset($analysisData['results']) && is_array($analysisData['results'])) {
             $analysisResults = $analysisData['results'];
             
-            // Filter out excluded pages from analysis results
             if (!empty($excludePages)) {
                 $analysisResults = array_diff_key($analysisResults, array_flip($excludePages));
             }
 
             $statistics = $this->calculateStatistics($analysisResults, $proximityThreshold);
             $languageStatistics = $this->calculateLanguageStatistics($analysisResults);
-            $this->logger->debug('Language statistics', ['stats' => $languageStatistics]);
-
+            if ($this->logger instanceof LoggerInterface) {
+                $this->logger->debug('Language statistics', ['stats' => $languageStatistics]);
+            }
         } else {
             $this->addFlashMessage(
                 'The analysis did not return valid results. Please check your configuration and try again.',
@@ -99,46 +151,70 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
             'analysisResults' => $analysisResults,
             'performanceMetrics' => $performanceMetrics,
             'languageStatistics' => $languageStatistics,
+            'totalPages' => count($pages),
         ]);
 
-        $this->logger->info('Finishing indexAction', [
-            'languageStatistics' => $languageStatistics,
-            'performanceMetrics' => $performanceMetrics
-        ]);
+        if ($this->logger instanceof LoggerInterface) {
+            $this->logger->info('Finishing indexAction', [
+                'languageStatistics' => $languageStatistics,
+                'performanceMetrics' => $performanceMetrics
+            ]);
+        }
     
         $moduleTemplate->setContent($this->view->render());
         return $moduleTemplate->renderResponse();
     }
-    
 
+
+    
     protected function getPages(int $parentPageId, int $depth): array
     {
-        $pageRepository = GeneralUtility::makeInstance(PageRepository::class);
-
         $pages = [];
-        $context = GeneralUtility::makeInstance(Context::class);
-        $languageAspect = $context->getAspect('language');
-        $languageId = $languageAspect->getId();
-
-        $pageRecords = $pageRepository->getMenu(
+        $defaultLanguagePages = $this->getPageRepository()->getMenu(
             $parentPageId,
             '*',
             'sorting',
             '',
-            false,
-            '',
-            $languageId // Pass the current language ID
+            false
         );
-
-        foreach ($pageRecords as $pageRecord) {
-            $pages[$pageRecord['uid']] = $pageRecord;
+    
+        foreach ($defaultLanguagePages as $pageUid => $defaultLanguagePage) {
+            $pages[$pageUid] = $defaultLanguagePage;
+            $translations = $this->getPageTranslations($pageUid);
+            foreach ($translations as $languageId => $translation) {
+                $translatedPageUid = $translation['uid'] ?? $pageUid; // Utilisez l'UID de la page par défaut si la traduction n'a pas d'UID
+                $pages[$translatedPageUid] = $translation;
+            }
+    
             if ($depth > 1) {
-                $subpages = $this->getPages($pageRecord['uid'], $depth - 1);
+                $subpages = $this->getPages($pageUid, $depth - 1);
                 $pages = array_merge($pages, $subpages);
             }
         }
-
+    
         return $pages;
+    }
+
+
+
+    protected function getPageTranslations(int $pageUid): array
+    {
+        $translations = [];
+        $siteFinder = GeneralUtility::makeInstance(SiteFinder::class);
+        $site = $siteFinder->getSiteByPageId($pageUid);
+        
+        foreach ($site->getAllLanguages() as $language) {
+            $languageId = $language->getLanguageId();
+            if ($languageId > 0) {
+                $translatedPage = $this->pageRepository->getPageOverlay($pageUid, $languageId);
+                if ($translatedPage) {
+                    $translatedPage['sys_language_uid'] = $languageId;
+                    $translations[$languageId] = $translatedPage;
+                }
+            }
+        }
+    
+        return $translations;
     }
 
 
@@ -194,25 +270,53 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
     }
 
 
-    private function calculateLanguageStatistics(array $analysisResults): array
+    private function calculateLanguageStatistics(array $pages): array
     {
         $languageStats = [];
-        foreach ($analysisResults as $pageId => $pageData) {
+    
+        foreach ($pages as $pageId => $pageData) {
             $languageUid = $pageData['sys_language_uid'] ?? 0;
-            $this->logger->debug('Page language', [
-                'pageId' => $pageId,
-                'languageUid' => $languageUid,
-                'pageData' => $pageData
-            ]);
             if (!isset($languageStats[$languageUid])) {
                 $languageStats[$languageUid] = 0;
             }
             $languageStats[$languageUid]++;
         }
-        $this->logger->info('Language statistics calculated', ['stats' => $languageStats]);
-        return $languageStats;
+    
+        $allLanguages = $this->getAllLanguages();
+        $result = [];
+    
+        foreach ($allLanguages as $languageUid => $languageInfo) {
+            $result[$languageUid] = [
+                'count' => $languageStats[$languageUid] ?? 0,
+                'info' => $languageInfo,
+            ];
+        }
+    
+        return $result;
     }
-
+    
+    private function getAllLanguages(): array
+    {
+        $languages = [];
+        $siteFinder = GeneralUtility::makeInstance(SiteFinder::class);
+        $sites = $siteFinder->getAllSites();
+    
+        foreach ($sites as $site) {
+            foreach ($site->getAllLanguages() as $language) {
+                $languageId = $language->getLanguageId();
+                if (!isset($languages[$languageId])) {
+                    $languages[$languageId] = [
+                        'title' => $language->getTitle(),
+                        'twoLetterIsoCode' => $language->getTwoLetterIsoCode(),
+                        'flagIdentifier' => $language->getFlagIdentifier(),
+                    ];
+                }
+            }
+        }
+    
+        ksort($languages);
+        return $languages;
+    }
 
 
 }

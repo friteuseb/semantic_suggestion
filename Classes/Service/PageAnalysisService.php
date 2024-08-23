@@ -177,7 +177,11 @@ class PageAnalysisService implements LoggerAwareInterface
             $analysisResults = [];
     
             foreach ($pages as $page) {
-                $analysisResults[$page['uid']] = $this->preparePageData($page);
+                if (isset($page['uid'])) {
+                    $analysisResults[$page['uid']] = $this->preparePageData($page);
+                } else {
+                    $this->logger->warning('Page without UID encountered', ['page' => $page]);
+                }
             }
     
             $similarityCalculations = 0;
@@ -232,7 +236,7 @@ class PageAnalysisService implements LoggerAwareInterface
         $maxDepth = 0;
         foreach ($pages as $page) {
             $depth = 1;
-            $pid = $page['pid'];
+            $pid = $page['pid'] ?? 0;
             while (isset($pages[$pid])) {
                 $depth++;
                 $pid = $pages[$pid]['pid'];
@@ -242,7 +246,7 @@ class PageAnalysisService implements LoggerAwareInterface
         return $maxDepth;
     }
 
-    
+
     /**
      * @return array Prepared data
      */
