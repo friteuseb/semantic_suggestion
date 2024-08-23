@@ -59,9 +59,9 @@
         </div>
 
 
-
         <h3>Statistiques par langue</h3>
         <div class="panel panel-default">
+            <f:debug>{languageStatistics}</f:debug> 
             <table class="table table-striped table-hover">
                 <thead>
                     <tr>
@@ -74,10 +74,18 @@
                     <f:for each="{languageStatistics}" as="langStat" key="languageUid">
                         <tr>
                             <td>
-                                <f:if condition="{langStat.info.flagIdentifier}">
-                                    <span class="flag-icon flag-icon-{langStat.info.flagIdentifier}"></span>
+                                <f:if condition="{languageUid} == 0">
+                                    <f:then>
+                                        <span class="flag-icon flag-icon-{langStat.info.flagIdentifier}"></span>
+                                        Default (English)
+                                    </f:then>
+                                    <f:else>
+                                        <f:if condition="{langStat.info.flagIdentifier}">
+                                            <span class="flag-icon flag-icon-{langStat.info.flagIdentifier}"></span>
+                                        </f:if>
+                                        {langStat.info.title} ({langStat.info.twoLetterIsoCode})
+                                    </f:else>
                                 </f:if>
-                                {langStat.info.title} ({langStat.info.twoLetterIsoCode})
                             </td>
                             <td>{langStat.count}</td>
                             <td>

@@ -160,10 +160,7 @@ class PageAnalysisService implements LoggerAwareInterface
     {
         $startTime = microtime(true);
 
-            // Filter out pages without UIDs
-        $pages = array_filter($pages, function ($page) {
-            return isset($page['uid']);
-        });
+        
     
         $parentPageId = $pages[0]['pid'] ?? 0; // Prend le parent ID de la première page
         $depth = $this->calculateDepth($pages);
@@ -252,12 +249,13 @@ class PageAnalysisService implements LoggerAwareInterface
     }
 
 
-    /**
-     * @return array Prepared data
-     */
     protected function preparePageData(array $page): array
     {
-        $preparedData = [];
+        $preparedData = [
+            'uid' => $page['uid'],
+            'sys_language_uid' => $page['sys_language_uid'] ?? 0,
+            'isTranslation' => isset($page['_PAGES_OVERLAY']),
+        ];
     
         if (!is_array($this->settings['analyzedFields'])) {
             $this->logger?->warning('analyzedFields is not an array', ['settings' => $this->settings]);
@@ -268,11 +266,11 @@ class PageAnalysisService implements LoggerAwareInterface
             if ($field === 'content') {
                 try {
                     $preparedData['content'] = [
-                        'content' => $this->getPageContent($page['uid']),
+                        'content' => $this->getPageContent($page['uid'], $preparedData['sys_language_uid']),
                         'weight' => (float)$weight
                     ];
                 } catch (\Exception $e) {
-                    $this->logger?->error('Error fetching page content', ['pageId' => $page['uid'], 'exception' => $e->getMessage()]);
+                    $this->logger?->error('Error fetching page content', ['pageId' => $page['uid'], 'language' => $preparedData['sys_language_uid'], 'exception' => $e->getMessage()]);
                     $preparedData['content'] = [
                         'content' => '',
                         'weight' => (float)$weight
@@ -305,6 +303,7 @@ class PageAnalysisService implements LoggerAwareInterface
                     if (method_exists($hookInstance, $hookMethod)) {
                         $analyzeParams = [
                             'pageId' => $page['uid'],
+                            'languageUid' => $preparedData['sys_language_uid'],
                             'content' => $preparedData['content']['content'],
                             'analysis' => []
                         ];
@@ -315,12 +314,9 @@ class PageAnalysisService implements LoggerAwareInterface
                     }
                 }
             }
-        
-            return $preparedData;
         }
-         // Retourner $preparedData même si l'extension NLP n'est pas chargée
-        return $preparedData; 
-
+    
+        return $preparedData;
     }
 
 private function getAllSubpages(int $parentId, int $depth = 0): array
@@ -405,30 +401,29 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
         }
     }
 
-protected function getPageContent(int $pageId): string
-{
-    try {
-        $queryBuilder = $this->getQueryBuilder();
-        $languageUid = $this->getCurrentLanguageUid();
-
-        $content = $queryBuilder
-            ->select('bodytext')
-            ->from('tt_content')
-            ->where(
-                $queryBuilder->expr()->eq('tt_content.pid', $queryBuilder->createNamedParameter($pageId, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->eq('tt_content.hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->eq('tt_content.deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->in('tt_content.sys_language_uid', $queryBuilder->createNamedParameter([$languageUid, -1], Connection::PARAM_INT_ARRAY))
-            )
-            ->executeQuery()
-            ->fetchAllAssociative();
-
-        return implode(' ', array_column($content, 'bodytext'));
-    } catch (\Exception $e) {
-        $this->logger?->error('Error fetching page content', ['pageId' => $pageId, 'exception' => $e->getMessage()]);
-        throw $e;
+    protected function getPageContent(int $pageId, int $languageUid = 0): string
+    {
+        try {
+            $queryBuilder = $this->getQueryBuilder();
+    
+            $content = $queryBuilder
+                ->select('bodytext')
+                ->from('tt_content')
+                ->where(
+                    $queryBuilder->expr()->eq('tt_content.pid', $queryBuilder->createNamedParameter($pageId, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->eq('tt_content.hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->eq('tt_content.deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->eq('tt_content.sys_language_uid', $queryBuilder->createNamedParameter($languageUid, \PDO::PARAM_INT))
+                )
+                ->executeQuery()
+                ->fetchAllAssociative();
+    
+            return implode(' ', array_column($content, 'bodytext'));
+        } catch (\Exception $e) {
+            $this->logger?->error('Error fetching page content', ['pageId' => $pageId, 'languageUid' => $languageUid, 'exception' => $e->getMessage()]);
+            throw $e;
+        }
     }
-}
 
 private function getWeightedWords(array $pageData): array
 {

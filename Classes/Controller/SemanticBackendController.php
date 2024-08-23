@@ -23,10 +23,13 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
 
     public function __construct(
         ModuleTemplateFactory $moduleTemplateFactory,
-        PageAnalysisService $pageAnalysisService
+        PageAnalysisService $pageAnalysisService,
+        LoggerInterface $logger
     ) {
         $this->moduleTemplateFactory = $moduleTemplateFactory;
         $this->pageAnalysisService = $pageAnalysisService;
+        $this->setLogger($logger);
+
     }
 
     public function injectModuleTemplateFactory(ModuleTemplateFactory $moduleTemplateFactory): void
@@ -42,10 +45,6 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         $this->pageAnalysisService = $pageAnalysisService;
     }
 
-    public function injectLogger(LoggerInterface $logger): void
-    {
-        $this->setLogger($logger);
-    }
 
     public function injectConfigurationManager(ConfigurationManagerInterface $configurationManager): void
     {
@@ -81,11 +80,13 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         if ($this->moduleTemplateFactory === null) {
             throw new \RuntimeException('ModuleTemplateFactory is not initialized', 1234567890);
         }
-    
+        
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $fullTypoScript = $this->configurationManager->getConfiguration(
             ConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
         );
+        
+
 
         $extensionConfig = $fullTypoScript['plugin.']['tx_semanticsuggestion_suggestions.']['settings.'] ?? [];
 
@@ -141,6 +142,8 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
             );
         }    
 
+
+
         $moduleTemplate->assignMultiple([
             'parentPageId' => $parentPageId,
             'depth' => $depth,
@@ -166,38 +169,36 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
     }
 
 
-
-protected function getPages(int $parentPageId, int $depth): array
-{
-    $pages = [];
-    $defaultLanguagePages = $this->getPageRepository()->getMenu(
-        $parentPageId,
-        '*',
-        'sorting',
-        '',
-        false
-    );
-
-    foreach ($defaultLanguagePages as $pageUid => $defaultLanguagePage) {
-        $pages[$pageUid] = $defaultLanguagePage;
-
-        $translations = $this->getPageTranslations($pageUid);
-        foreach ($translations as $languageId => $translation) {
-            // Generate a unique UID for the translated page if it doesn't have one
-            $translatedPageUid = $translation['uid'] ??  $pageUid . '_' . $languageId;
-            $pages[$translatedPageUid] = $translation;
+    protected function getPages(int $parentPageId, int $depth): array
+    {
+        $pages = [];
+        $defaultLanguagePages = $this->getPageRepository()->getMenu(
+            $parentPageId,
+            '*',
+            'sorting',
+            '',
+            false
+        );
+    
+        foreach ($defaultLanguagePages as $pageUid => $defaultLanguagePage) {
+            $defaultLanguagePage['sys_language_uid'] = 0;  // Assurez-vous que c'est bien défini
+            $pages[$pageUid] = $defaultLanguagePage;
+    
+            $translations = $this->getPageTranslations($pageUid);
+            foreach ($translations as $languageId => $translation) {
+                $translatedPageUid = $translation['_PAGES_OVERLAY_UID'] ?? $pageUid;
+                $translation['uid'] = $translatedPageUid;
+                $translation['sys_language_uid'] = $languageId;
+                $pages[$translatedPageUid] = $translation;
+            }
+    
+            if ($depth > 1) {
+                $subpages = $this->getPages($pageUid, $depth - 1);
+                $pages = array_merge($pages, $subpages);
+            }
         }
-
-        if ($depth > 1) {
-            $subpages = $this->getPages($pageUid, $depth - 1);
-            $pages = array_merge($pages, $subpages);
-        }
+        return $pages;
     }
-
-    return $pages;
-}
-
-
 
     protected function getPageTranslations(int $pageUid): array
     {
@@ -276,57 +277,62 @@ protected function getPages(int $parentPageId, int $depth): array
         ];
     }
 
-
     private function calculateLanguageStatistics(array $pages): array
-    {
-        $languageStats = [];
-    
-        foreach ($pages as $pageId => $pageData) {
-            $languageUid = $pageData['sys_language_uid'] ?? 0; // Default to 0 if sys_language_uid is not set
-    
-            // Ensure the language UID exists in the stats array
-            if (!isset($languageStats[$languageUid])) {
-                $languageStats[$languageUid] = 0;
-            }
-    
-            $languageStats[$languageUid]++;
+{
+    $languageStats = [];
+
+    foreach ($pages as $pageId => $pageData) {
+        $languageUid = $pageData['sys_language_uid'] ?? 0;
+        if (!isset($languageStats[$languageUid])) {
+            $languageStats[$languageUid] = 0;
         }
+        $languageStats[$languageUid]++;
+    }
+
+
+    $allLanguages = $this->getAllLanguages();
+    $result = [];
+
+    foreach ($allLanguages as $languageUid => $languageInfo) {
+        $result[$languageUid] = [
+            'count' => $languageStats[$languageUid] ?? 0,
+            'info' => $languageInfo,
+        ];
+    }
+
+
+    return $result;
+}
     
-        $allLanguages = $this->getAllLanguages();
-        $result = [];
-    
-        foreach ($allLanguages as $languageUid => $languageInfo) {
-            $result[$languageUid] = [
-                'count' => $languageStats[$languageUid] ?? 0, // Default to 0 if language count is not found
-                'info' => $languageInfo,
+private function getAllLanguages(): array
+{
+    $languages = []; 
+    $siteFinder = GeneralUtility::makeInstance(SiteFinder::class);
+    $sites = $siteFinder->getAllSites();
+
+    foreach ($sites as $site) {
+        foreach ($site->getAllLanguages() as $language) {
+            $languageId = $language->getLanguageId();
+            $languages[$languageId] = [
+                'title' => $language->getTitle(),
+                'twoLetterIsoCode' => $language->getTwoLetterIsoCode(),
+                'flagIdentifier' => $language->getFlagIdentifier(),
             ];
         }
-    
-        return $result;
     }
-    
-    private function getAllLanguages(): array
-    {
-        $languages = [];
-        $siteFinder = GeneralUtility::makeInstance(SiteFinder::class);
-        $sites = $siteFinder->getAllSites();
-    
-        foreach ($sites as $site) {
-            foreach ($site->getAllLanguages() as $language) {
-                $languageId = $language->getLanguageId();
-                if (!isset($languages[$languageId])) {
-                    $languages[$languageId] = [
-                        'title' => $language->getTitle(),
-                        'twoLetterIsoCode' => $language->getTwoLetterIsoCode(),
-                        'flagIdentifier' => $language->getFlagIdentifier(),
-                    ];
-                }
-            }
-        }
-    
-        ksort($languages);
-        return $languages;
+
+    // Ensure default language (0) is included if not already present
+    if (!isset($languages[0])) {
+        $languages[0] = [
+            'title' => 'Default', // Or any appropriate title for your default language
+            'twoLetterIsoCode' => 'en', // Adjust if your default language is not English
+            'flagIdentifier' => 'gb', // Adjust if your default language is not English
+        ];
     }
+
+    ksort($languages); // Sort by language ID
+    return $languages;
+}
 
 
 }

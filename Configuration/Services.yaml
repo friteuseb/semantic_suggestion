@@ -26,3 +26,11 @@ services:
       autowire: true
       autoconfigure: true
       tags: ['controller.backend_controller']
+
+  TalanHdf\SemanticSuggestion\Logger:
+    class: TYPO3\CMS\Core\Log\Logger
+    factory: ['@TYPO3\CMS\Core\Log\LogManager', 'getLogger']
+    arguments: ['TalanHdf.SemanticSuggestion']
+
+  Psr\Log\LoggerInterface:
+    alias: TalanHdf\SemanticSuggestion\Logger
