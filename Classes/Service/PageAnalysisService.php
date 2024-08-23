@@ -483,10 +483,14 @@ private function getWeightedWords(array $pageData): array
 
 
 
-private function calculateSimilarity(array $page1, array $page2): array
+private function calculateSimilarity(array $page1, array $page2, array $words1, array $words2): array
 {
-    $words1 = $this->getWeightedWords($page1);
-    $words2 = $this->getWeightedWords($page2);
+    static $similarityCache = [];
+    $cacheKey = $page1['uid'] . '_' . $page2['uid'];
+
+    if (isset($similarityCache[$cacheKey])) {
+        return $similarityCache[$cacheKey];
+    }
 
     $intersection = array_intersect_key($words1, $words2);
     $union = $words1 + $words2;
@@ -495,39 +499,28 @@ private function calculateSimilarity(array $page1, array $page2): array
     $unionSum = array_sum($union);
 
     if ($unionSum === 0) {
-        return [
+        $result = [
             'semanticSimilarity' => 0.0,
             'recencyBoost' => 0.0,
             'finalSimilarity' => 0.0
         ];
+    } else {
+        $semanticSimilarity = min($intersectionSum / $unionSum, 1.0);
+        $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
+        $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
+        $finalSimilarity = ($semanticSimilarity * (1 - $recencyWeight)) + ($recencyBoost * $recencyWeight);
+
+        $result = [
+            'semanticSimilarity' => $semanticSimilarity,
+            'recencyBoost' => $recencyBoost,
+            'finalSimilarity' => min($finalSimilarity, 1.0)
+        ];
     }
 
-    $semanticSimilarity = min($intersectionSum / $unionSum, 1.0);
+    $similarityCache[$cacheKey] = $result;
+    $similarityCache[$page2['uid'] . '_' . $page1['uid']] = $result; // Cache the reverse comparison
 
-    $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
-
-    $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
-    $finalSimilarity = ($semanticSimilarity * (1 - $recencyWeight)) + ($recencyBoost * $recencyWeight);
-
-    $this->logger?->info('Similarity calculation', [
-        'page1' => $page1['uid'] ?? 'unknown',
-        'page2' => $page2['uid'] ?? 'unknown',
-        'semanticSimilarity' => $semanticSimilarity, 
-        'recencyBoost' => $recencyBoost,
-        'finalSimilarity' => $finalSimilarity,
-        'fieldScores' => [
-            'title' => $this->calculateFieldSimilarity($page1['title'] ?? [], $page2['title'] ?? []),
-            'description' => $this->calculateFieldSimilarity($page1['description'] ?? [], $page2['description'] ?? []),
-            'keywords' => $this->calculateFieldSimilarity($page1['keywords'] ?? [], $page2['keywords'] ?? []),
-            'content' => $this->calculateFieldSimilarity($page1['content'] ?? [], $page2['content'] ?? []),
-        ]
-    ]);
-
-    return [
-        'semanticSimilarity' => $semanticSimilarity,
-        'recencyBoost' => $recencyBoost,
-        'finalSimilarity' => min($finalSimilarity, 1.0)
-    ];
+    return $result;
 }
 
 private function calculateRecencyBoost(array $page1, array $page2): float
