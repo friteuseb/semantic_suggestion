@@ -4,16 +4,18 @@ services:
     autoconfigure: true
     public: false
 
-  TalanHdf\SemanticSuggestion\:
+  TalanHdf\SemanticSuggestion\: 
     resource: '../Classes/*'
 
   TalanHdf\SemanticSuggestion\Service\PageAnalysisService:
     arguments:
-      $context: '@TYPO3\CMS\Core\Context\Context'
-      $configurationManager: '@TYPO3\CMS\Extbase\Configuration\ConfigurationManager'
-      $cacheManager: '@TYPO3\CMS\Core\Cache\CacheManager'
-      $dbConnection: '@TYPO3\CMS\Core\Database\ConnectionPool'
+        $context: '@TYPO3\CMS\Core\Context\Context'
+        $configurationManager: '@TYPO3\CMS\Extbase\Configuration\ConfigurationManager'
+        $siteFinder: '@TYPO3\CMS\Core\Site\SiteFinder' 
+        $cacheManager: '@TYPO3\CMS\Core\Cache\CacheManager'
+        $dbConnection: '@TYPO3\CMS\Core\Database\ConnectionPool'
     public: true
+
 
   TalanHdf\SemanticSuggestion\Controller\SuggestionsController:
     public: true
@@ -27,10 +29,5 @@ services:
       autoconfigure: true
       tags: ['controller.backend_controller']
 
-  TalanHdf\SemanticSuggestion\Logger:
-    class: TYPO3\CMS\Core\Log\Logger
-    factory: ['@TYPO3\CMS\Core\Log\LogManager', 'getLogger']
-    arguments: ['TalanHdf.SemanticSuggestion']
-
-  Psr\Log\LoggerInterface:
-    alias: TalanHdf\SemanticSuggestion\Logger
+  Psr\Log\LoggerInterface: 
+      alias: TYPO3\CMS\Core\Log\LogManager

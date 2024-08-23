@@ -27,16 +27,14 @@ class PageAnalysisService implements LoggerAwareInterface
     public function __construct(
         Context $context,
         ConfigurationManagerInterface $configurationManager,
-        ?CacheManager $cacheManager = null,
-        $dbConnection = null,
-        ?LoggerInterface $logger = null
+        ?\TYPO3\CMS\Core\Site\SiteFinder $siteFinder = null, // Update the type hint here
+        ?CacheManager $cacheManager = null, // Optional parameter
+        $dbConnection = null // Optional parameter
     ) {
         $this->context = $context;
         $this->configurationManager = $configurationManager;
 
-        if ($logger) {
-            $this->setLogger($logger);
-        }
+ 
 
         if ($dbConnection instanceof ConnectionPool) {
             $this->connectionPool = $dbConnection;
