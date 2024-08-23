@@ -64,6 +64,7 @@
             <table class="table table-striped table-hover">
                 <thead>
                     <tr>
+                        <th>ID</th>
                         <th>Langue</th>
                         <th>Nombre de pages</th>
                         <th>Pourcentage</th>
@@ -72,6 +73,7 @@
                 <tbody>
                     <f:for each="{languageStatistics}" as="langStat" key="languageUid">
                         <tr>
+                            <td>{languageUid}</td>
                             <td>
                                 <f:if condition="{languageUid} == 0">
                                     <f:then>
@@ -92,10 +94,18 @@
                                     <f:then>
                                         <f:variable name="percentage" value="{langStat.count / totalPages * 100}" />
                                         <f:variable name="roundedPercentage" value="{percentage -> f:format.number(decimals: 2)}" />
-                                        {roundedPercentage}%
+                                        <f:render section="ProgressBar" arguments="{
+                                            value: roundedPercentage,
+                                            label: '{roundedPercentage}%',
+                                            enableColors: 1
+                                        }" />
                                     </f:then>
                                     <f:else>
-                                        0%
+                                        <f:render section="ProgressBar" arguments="{
+                                            value: 0,
+                                            label: '0%',
+                                            enableColors: 1
+                                        }" />
                                     </f:else>
                                 </f:if>
                             </td>
@@ -104,6 +114,7 @@
                 </tbody>
             </table>
         </div>
+
 
 
         <h3>Top 5 Most Similar Page Pairs</h3>
