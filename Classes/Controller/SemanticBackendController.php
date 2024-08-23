@@ -377,5 +377,4 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         return $languages;
     }
 
-
 }
