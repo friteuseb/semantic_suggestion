@@ -279,6 +279,8 @@ class PageAnalysisService implements LoggerAwareInterface
         }
 
 
+        
+
 
     protected function preparePageData(array $page): array
     {
