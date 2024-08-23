@@ -6,6 +6,7 @@ use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TalanHdf\SemanticSuggestion\Service\PageAnalysisService;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
+use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Domain\Repository\PageRepository;
 use TYPO3\CMS\Core\Site\SiteFinder;
@@ -30,6 +31,13 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         $this->moduleTemplateFactory = $moduleTemplateFactory;
         $this->pageAnalysisService = $pageAnalysisService;
         $this->setLogger($logger);
+    }
+
+    protected function isValidLanguage(int $languageUid): bool
+    {
+        // Crée un contexte au moment où tu en as besoin
+        $context = GeneralUtility::makeInstance(Context::class);
+        return $languageUid === $context->getPropertyFromAspect('language', 'id');
     }
 
     private function logPerformance($operation)
@@ -224,24 +232,31 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         );
     
         foreach ($defaultLanguagePages as $pageUid => $defaultLanguagePage) {
-            $defaultLanguagePage['sys_language_uid'] = 0;  // Assurez-vous que c'est bien défini
-            $pages[$pageUid] = $defaultLanguagePage;
+            $defaultLanguagePage['sys_language_uid'] = 0;
+            
+            if ($this->isValidLanguage($defaultLanguagePage['sys_language_uid'])) {
+                $pages[$pageUid] = $defaultLanguagePage;
     
-            $translations = $this->getPageTranslations($pageUid);
-            foreach ($translations as $languageId => $translation) {
-                $translatedPageUid = $translation['_PAGES_OVERLAY_UID'] ?? $pageUid;
-                $translation['uid'] = $translatedPageUid;
-                $translation['sys_language_uid'] = $languageId;
-                $pages[$translatedPageUid] = $translation;
-            }
+                $translations = $this->getPageTranslations($pageUid);
+                foreach ($translations as $languageId => $translation) {
+                    $translatedPageUid = $translation['_PAGES_OVERLAY_UID'] ?? $pageUid;
+                    $translation['uid'] = $translatedPageUid;
+                    $translation['sys_language_uid'] = $languageId;
+                    
+                    if ($this->isValidLanguage($languageId)) {
+                        $pages[$translatedPageUid] = $translation;
+                    }
+                }
     
-            if ($depth > 1) {
-                $subpages = $this->getPages($pageUid, $depth - 1);
-                $pages = array_merge($pages, $subpages);
+                if ($depth > 1) {
+                    $subpages = $this->getPages($pageUid, $depth - 1);
+                    $pages = array_merge($pages, $subpages);
+                }
             }
         }
         return $pages;
     }
+    
 
     protected function getPageTranslations(int $pageUid): array
     {

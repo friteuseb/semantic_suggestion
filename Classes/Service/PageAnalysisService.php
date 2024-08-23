@@ -157,7 +157,21 @@ class PageAnalysisService implements LoggerAwareInterface
     public function analyzePages(array $pages): array
     {
         $startTime = microtime(true);
-
+    
+        // Filter pages by sys_language_uid
+        $filteredPages = array_filter($pages, function($page) {
+            return isset($page['sys_language_uid']) && $page['sys_language_uid'] === $this->context->getPropertyFromAspect('language', 'id');
+        });
+    
+        if (empty($filteredPages)) {
+            return [
+                'metrics' => [
+                    'executionTime' => microtime(true) - $startTime,
+                    'message' => 'No pages to analyze for the given language.',
+                ],
+                'results' => [],
+            ];
+        }
         
     
         $parentPageId = $pages[0]['pid'] ?? 0; // Prend le parent ID de la première page
@@ -231,20 +245,39 @@ class PageAnalysisService implements LoggerAwareInterface
         return $result;
     }
     
-    private function calculateDepth(array $pages): int
-    {
-        $maxDepth = 0;
-        foreach ($pages as $page) {
-            $depth = 1;
-            $pid = $page['pid'] ?? 0;
-            while (isset($pages[$pid])) {
-                $depth++;
-                $pid = $pages[$pid]['pid'];
+        private function calculateDepth(array $pages): int
+        {
+            $maxDepth = 0;
+            $depthCache = [];
+            
+            foreach ($pages as $pageId => $page) {
+                $depth = 1;
+                $pid = $page['pid'] ?? 0;
+                
+                if (isset($depthCache[$pageId])) {
+                    $depth = $depthCache[$pageId];
+                } else {
+                    $stack = [$pid];
+                    while ($pid && isset($pages[$pid])) {
+                        if (isset($depthCache[$pid])) {
+                            $depth += $depthCache[$pid];
+                            break;
+                        }
+                        $depth++;
+                        $pid = $pages[$pid]['pid'];
+                        $stack[] = $pid;
+                    }
+                    foreach ($stack as $stackPid) {
+                        $depthCache[$stackPid] = $depth;
+                        $depth--;
+                    }
+                }
+                $maxDepth = max($maxDepth, $depth);
             }
-            $maxDepth = max($maxDepth, $depth);
+            
+            return $maxDepth;
         }
-        return $maxDepth;
-    }
+
 
 
     protected function preparePageData(array $page): array
