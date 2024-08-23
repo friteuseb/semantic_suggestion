@@ -20,6 +20,7 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
     protected ModuleTemplateFactory $moduleTemplateFactory;
     protected PageAnalysisService $pageAnalysisService;
     protected ?PageRepository $pageRepository = null;
+    private $performanceLog = [];
 
     public function __construct(
         ModuleTemplateFactory $moduleTemplateFactory,
@@ -29,7 +30,15 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         $this->moduleTemplateFactory = $moduleTemplateFactory;
         $this->pageAnalysisService = $pageAnalysisService;
         $this->setLogger($logger);
+    }
 
+    private function logPerformance($operation)
+    {
+        $this->performanceLog[] = [
+            'operation' => $operation,
+            'time' => microtime(true),
+            'memory' => memory_get_usage(true)
+        ];
     }
 
     public function injectModuleTemplateFactory(ModuleTemplateFactory $moduleTemplateFactory): void
@@ -44,7 +53,6 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
     {
         $this->pageAnalysisService = $pageAnalysisService;
     }
-
 
     public function injectConfigurationManager(ConfigurationManagerInterface $configurationManager): void
     {
@@ -77,16 +85,19 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
 
     public function indexAction(): ResponseInterface
     {
+        $this->logPerformance('Start indexAction');
+
         if ($this->moduleTemplateFactory === null) {
             throw new \RuntimeException('ModuleTemplateFactory is not initialized', 1234567890);
         }
         
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
+        $this->logPerformance('After creating moduleTemplate');
+
         $fullTypoScript = $this->configurationManager->getConfiguration(
             ConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
         );
-        
-
+        $this->logPerformance('After getting TypoScript configuration');
 
         $extensionConfig = $fullTypoScript['plugin.']['tx_semanticsuggestion_suggestions.']['settings.'] ?? [];
 
@@ -96,8 +107,14 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         $maxSuggestions = (int)($extensionConfig['maxSuggestions'] ?? 5);
         $excludePages = GeneralUtility::intExplode(',', $extensionConfig['excludePages'] ?? '', true);
 
+        $this->logPerformance('Before getPages');
         $pages = $this->getPages($parentPageId, $depth);
+        $this->logPerformance('After getPages');
+        
+        $this->logPerformance('Before analyzePages');
         $analysisData = $this->pageAnalysisService->analyzePages($pages);
+        $this->logPerformance('After analyzePages');
+        
         if ($this->logger instanceof LoggerInterface) {
             $this->logger->debug('Analysis data', ['data' => $analysisData]);
         }
@@ -114,11 +131,17 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
                 $analysisResults = array_diff_key($analysisResults, array_flip($excludePages));
             }
 
+            $this->logPerformance('Before calculateStatistics');
             $statistics = $this->calculateStatistics($analysisResults, $proximityThreshold);
+            $this->logPerformance('After calculateStatistics');
+            
             if ($this->logger instanceof LoggerInterface) {
                 $this->logger->debug('Analysis results before language statistics', ['results' => $analysisResults]);
             }
+            $this->logPerformance('Before calculateLanguageStatistics');
             $languageStatistics = $this->calculateLanguageStatistics($analysisResults);
+            $this->logPerformance('After calculateLanguageStatistics');
+            
             if ($this->logger instanceof LoggerInterface) {
                 $this->logger->debug('Language statistics', ['stats' => $languageStatistics]);
             }
@@ -145,7 +168,10 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
             );
         }    
 
+        $this->logPerformance('End indexAction');
 
+        // Calculer les logs de performance
+        $performanceLogs = $this->calculatePerformanceDiffs();
 
         $moduleTemplate->assignMultiple([
             'parentPageId' => $parentPageId,
@@ -158,12 +184,14 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
             'performanceMetrics' => $performanceMetrics,
             'languageStatistics' => $languageStatistics,
             'totalPages' => count($pages),
+            'performanceLogs' => $performanceLogs,
         ]);
 
         if ($this->logger instanceof LoggerInterface) {
             $this->logger->info('Finishing indexAction', [
                 'languageStatistics' => $languageStatistics,
-                'performanceMetrics' => $performanceMetrics
+                'performanceMetrics' => $performanceMetrics,
+                'performanceLogs' => $performanceLogs
             ]);
         }
     
@@ -171,6 +199,18 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         return $moduleTemplate->renderResponse();
     }
 
+    private function calculatePerformanceDiffs()
+    {
+        $diffs = [];
+        for ($i = 1; $i < count($this->performanceLog); $i++) {
+            $diffs[] = [
+                'operation' => $this->performanceLog[$i]['operation'],
+                'timeDiff' => $this->performanceLog[$i]['time'] - $this->performanceLog[$i-1]['time'],
+                'memoryDiff' => $this->performanceLog[$i]['memory'] - $this->performanceLog[$i-1]['memory']
+            ];
+        }
+        return $diffs;
+    }
 
     protected function getPages(int $parentPageId, int $depth): array
     {
@@ -223,8 +263,7 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         return $translations;
     }
 
-
-        private function calculateStatistics(array $analysisResults, float $proximityThreshold): array
+    private function calculateStatistics(array $analysisResults, float $proximityThreshold): array
     {
         $totalPages = count($analysisResults);
         $totalSimilarityScore = 0;
@@ -273,6 +312,7 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
             'topSimilarPages' => arsort($pagesSimilarityCount) ? array_slice($pagesSimilarityCount, 0, 5, true) : [],
         ];
     }
+
     private function calculateLanguageStatistics(array $pages): array
     {
         $languageStats = [];
@@ -306,6 +346,9 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
     
         return $result;
     }
+
+
+    
     private function getAllLanguages(): array
     {
         $languages = [

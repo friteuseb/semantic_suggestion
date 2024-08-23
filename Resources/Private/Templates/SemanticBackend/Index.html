@@ -35,7 +35,29 @@
             </div>
         </div>
 
+        <f:if condition="{performanceLogs}">
+            <h3>Performance Logs</h3>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Operation</th>
+                        <th>Time (seconds)</th>
+                        <th>Memory (bytes)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <f:for each="{performanceLogs}" as="log">
+                        <tr>
+                            <td>{log.operation}</td>
+                            <td>{log.timeDiff -> f:format.number(decimals: 4)}</td>
+                            <td>{log.memoryDiff -> f:format.bytes()}</td>
+                        </tr>
+                    </f:for>
+                </tbody>
+            </table>
+        </f:if>
 
+        
 
         <div class="panel panel-default bg-light p-3">
             <h3>Performance Metrics</h3>
