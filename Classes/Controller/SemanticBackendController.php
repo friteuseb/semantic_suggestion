@@ -15,6 +15,7 @@ use Psr\Log\LoggerAwareTrait;
 use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Log\LogManager;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 class SemanticBackendController extends ActionController implements LoggerAwareInterface
 {
     use LoggerAwareTrait;
@@ -23,26 +24,62 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
     protected PageAnalysisService $pageAnalysisService;
     protected ?PageRepository $pageRepository = null;
     protected FrontendInterface $cache;
+    protected ExtensionConfiguration $extensionConfiguration;
 
-    public function __construct(
-        ModuleTemplateFactory $moduleTemplateFactory,
-        PageAnalysisService $pageAnalysisService,
-        ?LoggerInterface $logger = null,
-        ?CacheManager $cacheManager = null
-    ) {
-        $this->moduleTemplateFactory = $moduleTemplateFactory;
-        $this->pageAnalysisService = $pageAnalysisService;
-        
-        if ($logger === null) {
-            $logger = GeneralUtility::makeInstance(LogManager::class)->getLogger(__CLASS__);
-        }
-        $this->setLogger($logger);
+    public function __construct(                                                                                         
+          ModuleTemplateFactory $moduleTemplateFactory,                                                                    
+          PageAnalysisService $pageAnalysisService,                                                                        
+          ?LoggerInterface $logger = null,                                                                                 
+          ?CacheManager $cacheManager = null                                                                               
+      ) {                                                                                                                  
+          $this->moduleTemplateFactory = $moduleTemplateFactory;                                                           
+          $this->pageAnalysisService = $pageAnalysisService;                                                               
+                                                                                                                           
+          if ($logger === null) {                                                                                          
+              $logger = GeneralUtility::makeInstance(LogManager::class)->getLogger(__CLASS__);                             
+          }                                                                                                                
+          $this->setLogger($logger);                                                                                       
+                                                                                                                           
+          if ($cacheManager === null) {                                                                                    
+              $cacheManager = GeneralUtility::makeInstance(CacheManager::class);                                           
+          }                                                                                                                
+          $this->cache = $cacheManager->getCache('semantic_suggestion');                                                   
+      }                  
 
-        if ($cacheManager === null) {
-            $cacheManager = GeneralUtility::makeInstance(CacheManager::class);
-        }
-        $this->cache = $cacheManager->getCache('semantic_suggestion');
-    }
+
+ 
+      public function updateConfigurationAction(array $configuration): ResponseInterface
+      {
+          // Update the extension configuration
+          $this->extensionConfiguration->set('semantic_suggestion', $configuration);
+  
+          // Update TypoScript configuration
+          $fullTypoScript = $this->configurationManager->getConfiguration(
+              ConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
+          );
+          $pluginSettings = &$fullTypoScript['plugin.']['tx_semanticsuggestion_suggestions.']['settings.'];
+          foreach ($configuration as $key => $value) {
+              $pluginSettings[$key] = $value;
+          }
+          $this->configurationManager->setConfiguration($fullTypoScript);
+  
+          // Add a flash message to confirm the update
+          $this->addFlashMessage(
+              'The configuration has been updated successfully.',
+              'Configuration Updated',
+              \TYPO3\CMS\Core\Messaging\AbstractMessage::OK
+          );
+  
+          // Redirect back to the index action
+          return $this->redirect('index');
+      }
+
+
+    public function injectExtensionConfiguration(ExtensionConfiguration $extensionConfiguration): void                   
+    {                                                                                                                    
+        $this->extensionConfiguration = $extensionConfiguration;                                                         
+    }                                                                                                                    
+                  
 
     public function injectModuleTemplateFactory(ModuleTemplateFactory $moduleTemplateFactory): void
     {
@@ -103,6 +140,11 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
             $maxSuggestions = (int)($extensionConfig['maxSuggestions'] ?? 5);
             $excludePages = GeneralUtility::intExplode(',', $extensionConfig['excludePages'] ?? '', true);
             $recencyWeight = (float)($extensionConfig['recencyWeight'] ?? 0.2);
+            $showStatistics = (bool)($extensionConfig['showStatistics'] ?? true);
+            $showPerformanceMetrics = (bool)($extensionConfig['showPerformanceMetrics'] ?? true);
+            $showLanguageStatistics = (bool)($extensionConfig['showLanguageStatistics'] ?? true);
+            $calculateDistribution = (bool)($extensionConfig['calculateDistribution'] ?? true);
+            $calculateTopSimilarPairs = (bool)($extensionConfig['calculateTopSimilarPairs'] ?? true);
 
             $cacheIdentifier = $this->generateValidCacheIdentifier($parentPageId, $depth, $proximityThreshold, $maxSuggestions);
 
@@ -122,11 +164,14 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
                 'maxSuggestions' => $maxSuggestions,
                 'excludePages' => implode(', ', $excludePages),
                 'recencyWeight' => $recencyWeight,
-                'statistics' => $data['statistics'],
+                'statistics' => $showStatistics ? $data['statistics'] : null,
                 'analysisResults' => $data['analysisResults'],
-                'performanceMetrics' => $data['performanceMetrics'],
-                'languageStatistics' => $data['languageStatistics'],
+                'performanceMetrics' => $showPerformanceMetrics ? $data['performanceMetrics'] : null,
+                'languageStatistics' => $showLanguageStatistics ? $data['languageStatistics'] : null,
                 'totalPages' => $data['totalPages'],
+                'showStatistics' => $showStatistics,
+                'showPerformanceMetrics' => $showPerformanceMetrics,
+                'showLanguageStatistics' => $showLanguageStatistics,
             ]);
 
             $moduleTemplate->setContent($this->view->render());
@@ -196,54 +241,67 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
     }
 
 
-        private function calculateStatistics(array $analysisResults, float $proximityThreshold): array
+        private function calculateStatistics(array $analysisResults, float $proximityThreshold, bool $calculateDistribution, bool $calculateTopSimilarPairs): array
     {
         $totalPages = count($analysisResults);
         $totalSimilarityScore = 0;
         $similarityPairs = [];
-        $distributionScores = [
+        $distributionScores = $calculateDistribution ? [
             '0.0-0.2' => 0, '0.2-0.4' => 0, '0.4-0.6' => 0, '0.6-0.8' => 0, '0.8-1.0' => 0
-        ];
+        ] : [];
         $pagesSimilarityCount = [];
 
         foreach ($analysisResults as $pageId => $pageData) {
             $pagesSimilarityCount[$pageId] = 0;
             foreach ($pageData['similarities'] as $similarPageId => $similarity) {
-                if ($pageId < $similarPageId) { // Évite les doublons
+                if ($pageId < $similarPageId) {
                     $totalSimilarityScore += $similarity['score'];
-                    $similarityPairs[] = [
-                        'page1' => $pageId,
-                        'page2' => $similarPageId,
-                        'score' => $similarity['score']
-                    ];
+                    if ($calculateTopSimilarPairs) {
+                        $similarityPairs[] = [
+                            'page1' => $pageId,
+                            'page2' => $similarPageId,
+                            'score' => $similarity['score']
+                        ];
+                    }
                     
                     if ($similarity['score'] >= $proximityThreshold) {
                         $pagesSimilarityCount[$pageId]++;
                         $pagesSimilarityCount[$similarPageId] = ($pagesSimilarityCount[$similarPageId] ?? 0) + 1;
                     }
 
-                    // Mettre à jour la distribution des scores
-                    if ($similarity['score'] < 0.2) $distributionScores['0.0-0.2']++;
-                    elseif ($similarity['score'] < 0.4) $distributionScores['0.2-0.4']++;
-                    elseif ($similarity['score'] < 0.6) $distributionScores['0.4-0.6']++;
-                    elseif ($similarity['score'] < 0.8) $distributionScores['0.6-0.8']++;
-                    else $distributionScores['0.8-1.0']++;
+                    if ($calculateDistribution) {
+                        if ($similarity['score'] < 0.2) $distributionScores['0.0-0.2']++;
+                        elseif ($similarity['score'] < 0.4) $distributionScores['0.2-0.4']++;
+                        elseif ($similarity['score'] < 0.6) $distributionScores['0.4-0.6']++;
+                        elseif ($similarity['score'] < 0.8) $distributionScores['0.6-0.8']++;
+                        else $distributionScores['0.8-1.0']++;
+                    }
                 }
             }
         }
 
-        // Trier les paires par score de similarité décroissant
-        usort($similarityPairs, function($a, $b) {
-            return $b['score'] <=> $a['score'];
-        });
+        if ($calculateTopSimilarPairs) {
+            usort($similarityPairs, function($a, $b) {
+                return $b['score'] <=> $a['score'];
+            });
+        }
 
-        return [
+        $result = [
             'totalPages' => $totalPages,
             'averageSimilarity' => $totalPages > 1 ? $totalSimilarityScore / (($totalPages * ($totalPages - 1)) / 2) : 0,
-            'topSimilarPairs' => array_slice($similarityPairs, 0, 5),
-            'distributionScores' => $distributionScores,
-            'topSimilarPages' => arsort($pagesSimilarityCount) ? array_slice($pagesSimilarityCount, 0, 5, true) : [],
         ];
+
+        if ($calculateTopSimilarPairs) {
+            $result['topSimilarPairs'] = array_slice($similarityPairs, 0, 5);
+        }
+
+        if ($calculateDistribution) {
+            $result['distributionScores'] = $distributionScores;
+        }
+
+        $result['topSimilarPages'] = arsort($pagesSimilarityCount) ? array_slice($pagesSimilarityCount, 0, 5, true) : [];
+
+        return $result;
     }
     private function calculateLanguageStatistics(array $pages): array
     {
@@ -321,7 +379,14 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         $analysisResults = array_diff_key($analysisResults, array_flip($excludePages));
     }
 
-    $statistics = $this->calculateStatistics($analysisResults, $proximityThreshold);
+    $fullTypoScript = $this->configurationManager->getConfiguration(
+        ConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
+    );
+    $extensionConfig = $fullTypoScript['plugin.']['tx_semanticsuggestion_suggestions.']['settings.'] ?? [];
+    $calculateDistribution = (bool)($extensionConfig['calculateDistribution'] ?? true);
+    $calculateTopSimilarPairs = (bool)($extensionConfig['calculateTopSimilarPairs'] ?? true);
+
+    $statistics = $this->calculateStatistics($analysisResults, $proximityThreshold, $calculateDistribution, $calculateTopSimilarPairs);
     $languageStatistics = $this->calculateLanguageStatistics($analysisResults);
 
     return [
