@@ -280,15 +280,26 @@ class PageAnalysisService implements LoggerAwareInterface
     private function calculateDepth(array $pages): int
     {
         $maxDepth = 0;
+        $pagesByUid = [];
+    
+        // Première passe : indexer les pages par leur UID
+        foreach ($pages as $page) {
+            if (isset($page['uid'])) {
+                $pagesByUid[$page['uid']] = $page;
+            }
+        }
+    
+        // Deuxième passe : calculer la profondeur
         foreach ($pages as $page) {
             $depth = 1;
-            $pid = $page['pid'] ?? 0;
-            while (isset($pages[$pid])) {
+            $currentPage = $page;
+            while (isset($currentPage['pid']) && $currentPage['pid'] !== 0 && isset($pagesByUid[$currentPage['pid']])) {
                 $depth++;
-                $pid = $pages[$pid]['pid'];
+                $currentPage = $pagesByUid[$currentPage['pid']];
             }
             $maxDepth = max($maxDepth, $depth);
         }
+    
         return $maxDepth;
     }
 
