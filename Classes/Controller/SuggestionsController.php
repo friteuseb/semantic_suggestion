@@ -13,11 +13,15 @@ use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use TYPO3\CMS\Core\Log\LogManager;
 use TYPO3\CMS\Core\Context\Context;
+use TYPO3\CMS\Core\Pagination\ArrayPaginator;
+use TYPO3\CMS\Core\Pagination\SimplePagination;
 
 
 class SuggestionsController extends ActionController implements LoggerAwareInterface
 {
     use LoggerAwareTrait;
+
+    private const DEFAULT_ITEMS_PER_PAGE = 10;
 
     protected PageAnalysisService $pageAnalysisService;
     protected FileRepository $fileRepository;
@@ -40,71 +44,99 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
         $this->pageRepository = $pageRepository;
     }
 
-    public function listAction(): ResponseInterface
+    public function listAction(int $currentPage = 1, int $itemsPerPage = self::DEFAULT_ITEMS_PER_PAGE): ResponseInterface
     {
-        $this->logger->info('listAction called');
-    
+        $this->logger->info('listAction called', ['currentPage' => $currentPage, 'itemsPerPage' => $itemsPerPage]);
+
         $currentPageId = $GLOBALS['TSFE']->id;
-        $cacheIdentifier = 'suggestions_' . $currentPageId;
+        $cacheIdentifier = 'suggestions_' . $currentPageId . '_' . $currentPage . '_' . $itemsPerPage;
         $cacheManager = GeneralUtility::makeInstance(CacheManager::class);
         $cache = $cacheManager->getCache('semantic_suggestion');
-    
+
         try {
             if ($cache->has($cacheIdentifier)) {
-                $this->logger->debug('Cache hit for suggestions', ['pageId' => $currentPageId]);
+                $this->logger->debug('Cache hit for suggestions', ['pageId' => $currentPageId, 'currentPage' => $currentPage]);
                 $viewData = $cache->get($cacheIdentifier);
             } else {
-                $this->logger->debug('Cache miss for suggestions', ['pageId' => $currentPageId]);
-                $viewData = $this->generateSuggestions($currentPageId);
+                $this->logger->debug('Cache miss for suggestions', ['pageId' => $currentPageId, 'currentPage' => $currentPage]);
+                $viewData = $this->generateSuggestions($currentPageId, $currentPage, $itemsPerPage);
                 
                 if (!empty($viewData['suggestions'])) {
                     $cache->set($cacheIdentifier, $viewData, ['tx_semanticsuggestion'], 3600); // Cache for 1 hour
                 } else {
-                    $this->logger->warning('No suggestions generated', ['pageId' => $currentPageId]);
+                    $this->logger->warning('No suggestions generated', ['pageId' => $currentPageId, 'currentPage' => $currentPage]);
                 }
             }
-    
+
             $this->view->assignMultiple($viewData);
-    
+
         } catch (\Exception $e) {
             $this->logger->error('Error in listAction', ['exception' => $e->getMessage()]);
             $this->view->assign('error', 'An error occurred while generating suggestions.');
         }
-    
+
         return $this->htmlResponse();
     }
     
-    protected function generateSuggestions(int $currentPageId): array
+    protected function generateSuggestions(int $currentPageId, int $currentPage, int $itemsPerPage): array
     {
         $parentPageId = isset($this->settings['parentPageId']) ? (int)$this->settings['parentPageId'] : 0; 
         $depth = isset($this->settings['recursive']) ? (int)$this->settings['recursive'] : 0; 
         $proximityThreshold = isset($this->settings['proximityThreshold']) ? (float)$this->settings['proximityThreshold'] : 0.3; 
-        $maxSuggestions = isset($this->settings['maxSuggestions']) ? (int)$this->settings['maxSuggestions'] : 5; 
         $excludePages = GeneralUtility::intExplode(',', $this->settings['excludePages'] ?? '', true);
     
         $pages = $this->getPages($parentPageId, $depth);
         $analysisData = $this->pageAnalysisService->analyzePages($pages);
         $analysisResults = $analysisData['results'] ?? [];
     
-    
         $currentLanguageUid = $this->getCurrentLanguageUid();
-        $suggestions = $this->findSimilarPages($analysisResults, $currentPageId, $proximityThreshold, $maxSuggestions, $excludePages, $currentLanguageUid);
-    
+        $suggestions = $this->findSimilarPages($analysisResults, $currentPageId, $proximityThreshold, $excludePages, $currentLanguageUid);
+
+        // Pagination des suggestions
+        $paginator = new ArrayPaginator($suggestions, $currentPage, $itemsPerPage);
+
+        $paginatedSuggestions = [];
+        foreach ($paginator->getPaginatedItems() as $pageId => $suggestion) {
+            $paginatedSuggestions[$pageId] = $suggestion;
+        }
+
+        // Calculate pagination information
+        $totalItems = count($suggestions);
+        $numberOfPages = $paginator->getNumberOfPages();
+        $currentPage = $paginator->getCurrentPageNumber();
+        $hasNextPage = $currentPage < $numberOfPages;
+        $hasPreviousPage = $currentPage > 1;
+
         $this->logger->debug('Suggestions generated', [
-            'count' => count($suggestions),
+            'count' => count($paginatedSuggestions),
             'parentPageId' => $parentPageId,
             'currentPageId' => $currentPageId,
             'proximityThreshold' => $proximityThreshold,
-            'maxSuggestions' => $maxSuggestions,
-            'depth' => $depth
+            'currentPage' => $currentPage,
+            'itemsPerPage' => $itemsPerPage,
+            'totalItems' => $totalItems,
+            'numberOfPages' => $numberOfPages
         ]);
-    
+
         return [
             'currentPageTitle' => $analysisResults[$currentPageId]['title']['content'] ?? 'Current Page',
-            'suggestions' => $suggestions,
+            'suggestions' => $paginatedSuggestions,
+            'pagination' => [
+                'currentPage' => $currentPage,
+                'itemsPerPage' => $itemsPerPage,
+                'numberOfPages' => $numberOfPages,
+                'hasNextPage' => $hasNextPage,
+                'hasPreviousPage' => $hasPreviousPage,
+                'nextPage' => $hasNextPage ? $currentPage + 1 : null,
+                'previousPage' => $hasPreviousPage ? $currentPage - 1 : null,
+                'firstPageNumber' => 1,
+                'lastPageNumber' => $numberOfPages,
+                'startRecord' => ($currentPage - 1) * $itemsPerPage + 1,
+                'endRecord' => min($currentPage * $itemsPerPage, $totalItems),
+                'totalItems' => $totalItems,
+            ],
             'analysisResults' => $analysisResults,
             'proximityThreshold' => $proximityThreshold,
-            'maxSuggestions' => $maxSuggestions,
         ];
     }
 
@@ -127,12 +159,11 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
         return '';
     }
 
-    protected function findSimilarPages(array $analysisResults, int $currentPageId, float $threshold, int $maxSuggestions, array $excludePages, int $currentLanguageUid): array
+    protected function findSimilarPages(array $analysisResults, int $currentPageId, float $threshold, array $excludePages, int $currentLanguageUid): array
     {
         $this->logger->info('Finding similar pages', [
             'currentPageId' => $currentPageId,
             'threshold' => $threshold,
-            'maxSuggestions' => $maxSuggestions,
             'currentLanguageUid' => $currentLanguageUid
         ]);
     
@@ -143,8 +174,6 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
             $similarities = $analysisResults[$currentPageId]['similarities'];
             arsort($similarities);
             foreach ($similarities as $pageId => $similarity) {
-                if (count($suggestions) >= $maxSuggestions) break;
-    
                 // Vérifiez si la page existe dans $analysisResults et obtenez sa langue
                 $pageLangUid = $analysisResults[$pageId]['sys_language_uid'] ?? 0;
                 

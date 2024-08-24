@@ -434,14 +434,11 @@ private function getWeightedWords(array $pageData): array
             continue;
         }
 
-        $words = str_word_count(strtolower($data['content']), 1);
+        $words = array_count_values(str_word_count(strtolower($data['content']), 1));
         $weight = $data['weight'] ?? 1.0;
 
-        foreach ($words as $word) {
-            if (!isset($weightedWords[$word])) {
-                $weightedWords[$word] = 0;
-            }
-            $weightedWords[$word] += $weight;
+        foreach ($words as $word => $count) {
+            $weightedWords[$word] = ($weightedWords[$word] ?? 0) + ($count * $weight);
         }
     }
 
@@ -455,13 +452,23 @@ private function calculateSimilarity(array $page1, array $page2): array
     $words1 = $this->getWeightedWords($page1);
     $words2 = $this->getWeightedWords($page2);
 
-    $intersection = array_intersect_key($words1, $words2);
-    $union = $words1 + $words2;
+    $allWords = array_unique(array_merge(array_keys($words1), array_keys($words2)));
+    $dotProduct = 0;
+    $magnitude1 = 0;
+    $magnitude2 = 0;
 
-    $intersectionSum = array_sum($intersection);
-    $unionSum = array_sum($union);
+    foreach ($allWords as $word) {
+        $weight1 = $words1[$word] ?? 0;
+        $weight2 = $words2[$word] ?? 0;
+        $dotProduct += $weight1 * $weight2;
+        $magnitude1 += $weight1 * $weight1;
+        $magnitude2 += $weight2 * $weight2;
+    }
 
-    if ($unionSum === 0) {
+    $magnitude1 = sqrt($magnitude1);
+    $magnitude2 = sqrt($magnitude2);
+
+    if ($magnitude1 === 0 || $magnitude2 === 0) {
         return [
             'semanticSimilarity' => 0.0,
             'recencyBoost' => 0.0,
@@ -469,7 +476,7 @@ private function calculateSimilarity(array $page1, array $page2): array
         ];
     }
 
-    $semanticSimilarity = min($intersectionSum / $unionSum, 1.0);
+    $semanticSimilarity = $dotProduct / ($magnitude1 * $magnitude2);
 
     $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
 
@@ -513,24 +520,39 @@ private function calculateRecencyBoost(array $page1, array $page2): float
 }
 
 private function calculateFieldSimilarity($field1, $field2): float
-{if (!isset($field1['content']) || !isset($field2['content'])) {
-    return 0.0;
-}
+{
+    if (!isset($field1['content']) || !isset($field2['content'])) {
+        return 0.0;
+    }
 
-$words1 = str_word_count(strtolower($field1['content']), 1);
-$words2 = str_word_count(strtolower($field2['content']), 1);
-$intersection = array_intersect($words1, $words2);
-$union = array_unique(array_merge($words1, $words2));
+    $words1 = array_count_values(str_word_count(strtolower($field1['content']), 1));
+    $words2 = array_count_values(str_word_count(strtolower($field2['content']), 1));
 
-return count($union) > 0 ? count($intersection) / count($union) : 0.0;
+    $allWords = array_unique(array_merge(array_keys($words1), array_keys($words2)));
+    $dotProduct = 0;
+    $magnitude1 = 0;
+    $magnitude2 = 0;
+
+    foreach ($allWords as $word) {
+        $count1 = $words1[$word] ?? 0;
+        $count2 = $words2[$word] ?? 0;
+        $dotProduct += $count1 * $count2;
+        $magnitude1 += $count1 * $count1;
+        $magnitude2 += $count2 * $count2;
+    }
+
+    $magnitude1 = sqrt($magnitude1);
+    $magnitude2 = sqrt($magnitude2);
+
+    return ($magnitude1 > 0 && $magnitude2 > 0) ? $dotProduct / ($magnitude1 * $magnitude2) : 0.0;
 }
 
 private function findCommonKeywords(array $page1, array $page2): array
 {
-$keywords1 = isset($page1['keywords']['content']) ? array_map('trim', explode(',', strtolower($page1['keywords']['content']))) : [];
-$keywords2 = isset($page2['keywords']['content']) ? array_map('trim', explode(',', strtolower($page2['keywords']['content']))) : [];
+    $keywords1 = isset($page1['keywords']['content']) ? array_flip(array_map('trim', explode(',', strtolower($page1['keywords']['content'])))) : [];
+    $keywords2 = isset($page2['keywords']['content']) ? array_flip(array_map('trim', explode(',', strtolower($page2['keywords']['content'])))) : [];
 
-return array_intersect($keywords1, $keywords2);
+    return array_keys(array_intersect_key($keywords1, $keywords2));
 }
 
         private function determineRelevance($similarity): string
