@@ -84,13 +84,14 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
         $depth = isset($this->settings['recursive']) ? (int)$this->settings['recursive'] : 0; 
         $proximityThreshold = isset($this->settings['proximityThreshold']) ? (float)$this->settings['proximityThreshold'] : 0.3; 
         $excludePages = GeneralUtility::intExplode(',', $this->settings['excludePages'] ?? '', true);
+        $maxSuggestions = isset($this->settings['maxSuggestions']) ? (int)$this->settings['maxSuggestions'] : 3; // Default to 3 if not set
     
         $pages = $this->getPages($parentPageId, $depth);
         $analysisData = $this->pageAnalysisService->analyzePages($pages);
         $analysisResults = $analysisData['results'] ?? [];
     
         $currentLanguageUid = $this->getCurrentLanguageUid();
-        $suggestions = $this->findSimilarPages($analysisResults, $currentPageId, $proximityThreshold, $excludePages, $currentLanguageUid);
+        $suggestions = $this->findSimilarPages($analysisResults, $currentPageId, $proximityThreshold, $excludePages, $currentLanguageUid, $maxSuggestions);
 
         // Pagination des suggestions
         $paginator = new ArrayPaginator($suggestions, $currentPage, $itemsPerPage);
@@ -115,7 +116,8 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
             'currentPage' => $currentPage,
             'itemsPerPage' => $itemsPerPage,
             'totalItems' => $totalItems,
-            'numberOfPages' => $numberOfPages
+            'numberOfPages' => $numberOfPages,
+            'maxSuggestions' => $maxSuggestions
         ]);
 
         return [
@@ -137,6 +139,7 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
             ],
             'analysisResults' => $analysisResults,
             'proximityThreshold' => $proximityThreshold,
+            'maxSuggestions' => $maxSuggestions,
         ];
     }
 
@@ -159,12 +162,13 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
         return '';
     }
 
-    protected function findSimilarPages(array $analysisResults, int $currentPageId, float $threshold, array $excludePages, int $currentLanguageUid): array
+    protected function findSimilarPages(array $analysisResults, int $currentPageId, float $threshold, array $excludePages, int $currentLanguageUid, int $maxSuggestions): array
     {
         $this->logger->info('Finding similar pages', [
             'currentPageId' => $currentPageId,
             'threshold' => $threshold,
-            'currentLanguageUid' => $currentLanguageUid
+            'currentLanguageUid' => $currentLanguageUid,
+            'maxSuggestions' => $maxSuggestions
         ]);
     
         $suggestions = [];
@@ -174,11 +178,7 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
             $similarities = $analysisResults[$currentPageId]['similarities'];
             arsort($similarities);
             foreach ($similarities as $pageId => $similarity) {
-                // Vérifiez si la page existe dans $analysisResults et obtenez sa langue
                 $pageLangUid = $analysisResults[$pageId]['sys_language_uid'] ?? 0;
-                
-                // Vérifiez si la page est dans la même langue que la page courante
-                // 0 ou null sont considérés comme la langue par défaut
                 $sameLanguage = ($pageLangUid == $currentLanguageUid) || 
                                 ($pageLangUid == 0 && $currentLanguageUid == 0);
     
@@ -215,6 +215,10 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
                     'similarity' => $similarity['score'],
                     'pageLangUid' => $pageLangUid
                 ]);
+
+                if (count($suggestions) >= $maxSuggestions) {
+                    break;
+                }
             }
         } else {
             $this->logger->warning('No similarities found for current page', ['currentPageId' => $currentPageId]);
