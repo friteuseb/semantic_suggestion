@@ -12,7 +12,9 @@ use TYPO3\CMS\Core\Site\SiteFinder;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
-
+use TYPO3\CMS\Core\Cache\CacheManager;
+use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
+use TYPO3\CMS\Core\Log\LogManager;
 class SemanticBackendController extends ActionController implements LoggerAwareInterface
 {
     use LoggerAwareTrait;
@@ -20,16 +22,26 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
     protected ModuleTemplateFactory $moduleTemplateFactory;
     protected PageAnalysisService $pageAnalysisService;
     protected ?PageRepository $pageRepository = null;
+    protected FrontendInterface $cache;
 
     public function __construct(
         ModuleTemplateFactory $moduleTemplateFactory,
         PageAnalysisService $pageAnalysisService,
-        LoggerInterface $logger
+        ?LoggerInterface $logger = null,
+        ?CacheManager $cacheManager = null
     ) {
         $this->moduleTemplateFactory = $moduleTemplateFactory;
         $this->pageAnalysisService = $pageAnalysisService;
+        
+        if ($logger === null) {
+            $logger = GeneralUtility::makeInstance(LogManager::class)->getLogger(__CLASS__);
+        }
         $this->setLogger($logger);
 
+        if ($cacheManager === null) {
+            $cacheManager = GeneralUtility::makeInstance(CacheManager::class);
+        }
+        $this->cache = $cacheManager->getCache('semantic_suggestion');
     }
 
     public function injectModuleTemplateFactory(ModuleTemplateFactory $moduleTemplateFactory): void
@@ -77,98 +89,58 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
 
     public function indexAction(): ResponseInterface
     {
-        if ($this->moduleTemplateFactory === null) {
-            throw new \RuntimeException('ModuleTemplateFactory is not initialized', 1234567890);
-        }
-        
-        $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $fullTypoScript = $this->configurationManager->getConfiguration(
-            ConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
-        );
-        
+        try {
+            $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
+            $fullTypoScript = $this->configurationManager->getConfiguration(
+                ConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
+            );
 
+            $extensionConfig = $fullTypoScript['plugin.']['tx_semanticsuggestion_suggestions.']['settings.'] ?? [];
 
-        $extensionConfig = $fullTypoScript['plugin.']['tx_semanticsuggestion_suggestions.']['settings.'] ?? [];
+            $parentPageId = (int)($extensionConfig['parentPageId'] ?? 0);
+            $depth = (int)($extensionConfig['recursive'] ?? 1);
+            $proximityThreshold = (float)($extensionConfig['proximityThreshold'] ?? 0.5);
+            $maxSuggestions = (int)($extensionConfig['maxSuggestions'] ?? 5);
+            $excludePages = GeneralUtility::intExplode(',', $extensionConfig['excludePages'] ?? '', true);
+            $recencyWeight = (float)($extensionConfig['recencyWeight'] ?? 0.2);
 
-        $parentPageId = (int)($extensionConfig['parentPageId'] ?? 0);
-        $depth = (int)($extensionConfig['recursive'] ?? 1);
-        $proximityThreshold = (float)($extensionConfig['proximityThreshold'] ?? 0.5);
-        $maxSuggestions = (int)($extensionConfig['maxSuggestions'] ?? 5);
-        $excludePages = GeneralUtility::intExplode(',', $extensionConfig['excludePages'] ?? '', true);
+            $cacheIdentifier = $this->generateValidCacheIdentifier($parentPageId, $depth, $proximityThreshold, $maxSuggestions);
 
-        $pages = $this->getPages($parentPageId, $depth);
-        $analysisData = $this->pageAnalysisService->analyzePages($pages);
-        if ($this->logger instanceof LoggerInterface) {
-            $this->logger->debug('Analysis data', ['data' => $analysisData]);
-        }
-
-        $analysisResults = [];
-        $performanceMetrics = [];
-        $statistics = [];
-        $languageStatistics = [];
-
-        if (is_array($analysisData) && isset($analysisData['results']) && is_array($analysisData['results'])) {
-            $analysisResults = $analysisData['results'];
-            
-            if (!empty($excludePages)) {
-                $analysisResults = array_diff_key($analysisResults, array_flip($excludePages));
+            if ($this->cache->has($cacheIdentifier)) {
+                $data = $this->cache->get($cacheIdentifier);
+            } else {
+                $pages = $this->getPages($parentPageId, $depth);
+                $analysisData = $this->pageAnalysisService->analyzePages($pages);
+                $data = $this->processAnalysisData($analysisData, $proximityThreshold, $excludePages, $maxSuggestions);
+                $this->cache->set($cacheIdentifier, $data, ['semantic_suggestion'], 3600);
             }
 
-            $statistics = $this->calculateStatistics($analysisResults, $proximityThreshold);
-            if ($this->logger instanceof LoggerInterface) {
-                $this->logger->debug('Analysis results before language statistics', ['results' => $analysisResults]);
-            }
-            $languageStatistics = $this->calculateLanguageStatistics($analysisResults);
-            if ($this->logger instanceof LoggerInterface) {
-                $this->logger->debug('Language statistics', ['stats' => $languageStatistics]);
-            }
-        } else {
+            $moduleTemplate->assignMultiple([
+                'parentPageId' => $parentPageId,
+                'depth' => $depth,
+                'proximityThreshold' => $proximityThreshold,
+                'maxSuggestions' => $maxSuggestions,
+                'excludePages' => implode(', ', $excludePages),
+                'recencyWeight' => $recencyWeight,
+                'statistics' => $data['statistics'],
+                'analysisResults' => $data['analysisResults'],
+                'performanceMetrics' => $data['performanceMetrics'],
+                'languageStatistics' => $data['languageStatistics'],
+                'totalPages' => $data['totalPages'],
+            ]);
+
+            $moduleTemplate->setContent($this->view->render());
+            return $moduleTemplate->renderResponse();
+
+        } catch (\Exception $e) {
+            $this->logger->error('Error in indexAction', ['exception' => $e->getMessage()]);
             $this->addFlashMessage(
-                'The analysis did not return valid results. Please check your configuration and try again.',
-                'Analysis Error',
+                'An error occurred while processing the data. Please check the logs for more information.',
+                'Error',
                 \TYPO3\CMS\Core\Messaging\AbstractMessage::ERROR
             );
+            return $this->htmlResponse();
         }
-
-        if (isset($analysisData['metrics']) && is_array($analysisData['metrics'])) {
-            $performanceMetrics = [
-                'executionTime' => $analysisData['metrics']['executionTime'] ?? 0,
-                'totalPages' => $analysisData['metrics']['totalPages'] ?? 0,
-                'similarityCalculations' => $analysisData['metrics']['similarityCalculations'] ?? 0,
-                'fromCache' => isset($analysisData['metrics']['fromCache']) ? ($analysisData['metrics']['fromCache'] ? 'Yes' : 'No') : 'Unknown',
-            ];
-        } else {
-            $this->addFlashMessage(
-                'Performance metrics are not available.',
-                'Metrics Unavailable',
-                \TYPO3\CMS\Core\Messaging\AbstractMessage::WARNING
-            );
-        }    
-
-
-
-        $moduleTemplate->assignMultiple([
-            'parentPageId' => $parentPageId,
-            'depth' => $depth,
-            'proximityThreshold' => $proximityThreshold,
-            'maxSuggestions' => $maxSuggestions,
-            'excludePages' => implode(', ', $excludePages),
-            'statistics' => $statistics,
-            'analysisResults' => $analysisResults,
-            'performanceMetrics' => $performanceMetrics,
-            'languageStatistics' => $languageStatistics,
-            'totalPages' => count($pages),
-        ]);
-
-        if ($this->logger instanceof LoggerInterface) {
-            $this->logger->info('Finishing indexAction', [
-                'languageStatistics' => $languageStatistics,
-                'performanceMetrics' => $performanceMetrics
-            ]);
-        }
-    
-        $moduleTemplate->setContent($this->view->render());
-        return $moduleTemplate->renderResponse();
     }
 
 
@@ -334,5 +306,36 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         return $languages;
     }
 
+    protected function generateValidCacheIdentifier(int $parentPageId, int $depth, float $proximityThreshold, int $maxSuggestions): string
+    {
+        $identifier = 'semantic_analysis_' . $parentPageId . '_' . $depth . '_' . $proximityThreshold . '_' . $maxSuggestions;
+        return md5($identifier);
+    }
+
+
+    protected function processAnalysisData(array $analysisData, float $proximityThreshold, array $excludePages, int $maxSuggestions): array
+{
+    $analysisResults = $analysisData['results'] ?? [];
+
+    if (!empty($excludePages)) {
+        $analysisResults = array_diff_key($analysisResults, array_flip($excludePages));
+    }
+
+    $statistics = $this->calculateStatistics($analysisResults, $proximityThreshold);
+    $languageStatistics = $this->calculateLanguageStatistics($analysisResults);
+
+    return [
+        'statistics' => $statistics,
+        'analysisResults' => $analysisResults,
+        'performanceMetrics' => [
+            'executionTime' => $analysisData['metrics']['executionTime'] ?? 0,
+            'totalPages' => $analysisData['metrics']['totalPages'] ?? 0,
+            'similarityCalculations' => $analysisData['metrics']['similarityCalculations'] ?? 0,
+            'fromCache' => isset($analysisData['metrics']['fromCache']) ? ($analysisData['metrics']['fromCache'] ? 'Yes' : 'No') : 'Unknown',
+        ],
+        'languageStatistics' => $languageStatistics,
+        'totalPages' => count($analysisResults),
+    ];
+}
 
 }
