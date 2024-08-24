@@ -159,10 +159,45 @@ class PageAnalysisService implements LoggerAwareInterface
     public function analyzePages(array $pages): array
     {
         $startTime = microtime(true);
-
-        
     
-        $parentPageId = $pages[0]['pid'] ?? 0; // Prend le parent ID de la première page
+        // Vérifier si $pages est vide
+        if (empty($pages)) {
+            $this->logger->warning('No pages provided for analysis');
+            return [
+                'results' => [],
+                'metrics' => [
+                    'executionTime' => 0,
+                    'totalPages' => 0,
+                    'similarityCalculations' => 0,
+                    'fromCache' => false,
+                ],
+            ];
+        }
+    
+        // Trouver le premier élément non null dans $pages
+        $firstPage = null;
+        foreach ($pages as $page) {
+            if ($page !== null) {
+                $firstPage = $page;
+                break;
+            }
+        }
+    
+        // Si aucun élément valide n'est trouvé, retourner un résultat vide
+        if ($firstPage === null) {
+            $this->logger->warning('No valid pages found in the provided array');
+            return [
+                'results' => [],
+                'metrics' => [
+                    'executionTime' => 0,
+                    'totalPages' => 0,
+                    'similarityCalculations' => 0,
+                    'fromCache' => false,
+                ],
+            ];
+        }
+    
+        $parentPageId = $firstPage['pid'] ?? 0; // Utilise 0 si 'pid' n'est pas défini
         $depth = $this->calculateDepth($pages);
         $cacheIdentifier = 'semantic_analysis_' . $parentPageId . '_' . $depth;
     
@@ -206,8 +241,17 @@ class PageAnalysisService implements LoggerAwareInterface
             }
     
         } catch (\Exception $e) {
-            $this->logger?->error('Error during page analysis', ['exception' => $e->getMessage()]);
-            return [];
+            $this->logger->error('Error during page analysis', ['exception' => $e->getMessage()]);
+            return [
+                'results' => [],
+                'metrics' => [
+                    'executionTime' => microtime(true) - $startTime,
+                    'totalPages' => 0,
+                    'similarityCalculations' => 0,
+                    'fromCache' => false,
+                    'error' => $e->getMessage(),
+                ],
+            ];
         }
     
         $endTime = microtime(true);
