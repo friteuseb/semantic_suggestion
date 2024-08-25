@@ -41,6 +41,7 @@ plugin.tx_semanticsuggestion_suggestions {
         excerptLength = {$plugin.tx_semanticsuggestion_suggestions.settings.excerptLength}
         # Weight for recency in similarity calculation
         recencyWeight = {$plugin.tx_semanticsuggestion_suggestions.settings.recencyWeight}
+        
         # Enable or disable the display of general statistics
         showStatistics = {$plugin.tx_semanticsuggestion_suggestions.showStatistics}
         # Enable or disable the display of performance metrics
