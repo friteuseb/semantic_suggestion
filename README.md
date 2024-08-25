@@ -140,19 +140,6 @@ plugin.tx_semanticsuggestion {
     }
 }
 ```
-These configuration parameters control various aspects of the Semantic Suggestion bacend module functionality:
-
-- `showStatistics`: Enables or disables the display of general statistics about the analyzed pages.
-- `showPerformanceMetrics`: Toggles the display of performance metrics, such as processing time and memory usage.
-- `showLanguageStatistics`: Controls whether language-specific statistics are shown.
-- `calculateDistribution`: Determines if content distribution calculations are performed.
-- `calculateTopSimilarPairs`: Enables or disables the calculation of the most similar page pairs.
-- `showTopSimilarPairs`: Controls the display of the most similar page pairs in the output.
-- `showDistributionScores`: Toggles the visibility of content distribution scores.
-- `showTopSimilarPages`: Determines if the list of top similar pages is displayed.
-
-These settings allow for fine-tuning of the extension's output and performance, enabling administrators to customize the behavior according to their specific needs and server capabilities.
-
 
 
 ### Weight System for Analyzed Fields
@@ -208,6 +195,22 @@ Consider your specific use case:
 - Educational resource: Lower recency weight
 - General blog: Medium recency weight
 </details>
+
+
+### Backend Module Configuration Parameters
+
+These configuration parameters control various aspects of the Semantic Suggestion bacend module functionality:
+
+- `showStatistics`: Enables or disables the display of general statistics about the analyzed pages.
+- `showPerformanceMetrics`: Toggles the display of performance metrics, such as processing time and memory usage.
+- `showLanguageStatistics`: Controls whether language-specific statistics are shown.
+- `calculateDistribution`: Determines if content distribution calculations are performed.
+- `calculateTopSimilarPairs`: Enables or disables the calculation of the most similar page pairs.
+- `showTopSimilarPairs`: Controls the display of the most similar page pairs in the output.
+- `showDistributionScores`: Toggles the visibility of content distribution scores.
+- `showTopSimilarPages`: Determines if the list of top similar pages is displayed.
+
+These settings allow for fine-tuning of the extension's output and performance, enabling administrators to customize the behavior according to their specific needs and server capabilities.
 
 
 ## 🖥 Usage
