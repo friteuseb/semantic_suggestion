@@ -168,6 +168,9 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
                 'showStatistics' => $showStatistics,
                 'showPerformanceMetrics' => $showPerformanceMetrics,
                 'showLanguageStatistics' => $showLanguageStatistics,
+                'showTopSimilarPairs' => (bool)($extensionConfig['showTopSimilarPairs'] ?? true),
+                'showDistributionScores' => (bool)($extensionConfig['showDistributionScores'] ?? true),
+                'showTopSimilarPages' => (bool)($extensionConfig['showTopSimilarPages'] ?? true),
             ]);
 
             $moduleTemplate->setContent($this->view->render());

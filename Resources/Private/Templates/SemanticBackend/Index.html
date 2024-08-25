@@ -21,10 +21,11 @@
             </div>
         </f:if>
 
-        <div class="panel panel-default bg-light p-3">
-            <h3>Configuration &amp; General Statistics</h3>
+        <f:if condition="{showStatistics}">
+            <div class="panel panel-default bg-light p-3">
+                <h3>Configuration &amp; General Statistics</h3>
 
-            <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 g-3">
+                <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 g-3">
                 <f:render section="Card" arguments="{icon: 'apps-pagetree-drag-move-into', header: parentPageId, content: 'Parent Page ID'}" />
                 <f:render section="Card" arguments="{icon: 'apps-pagetree-category-expand-all', header: depth, content: 'Depth'}" />
                 <f:render section="Card" arguments="{icon: 'actions-insert', header: '{proximityThreshold -> f:format.number(decimals: 2)}', content: 'Proximity Threshold'}" />
@@ -34,13 +35,14 @@
                 <f:render section="Card" arguments="{icon: 'status-status-permission-denied', header: 'Exclusions', content: '<strong>Pages :</strong> {excludePages}', colClass: 'col-sm-12 col-md-6'}" />
             </div>
         </div>
+            </div>
+        </f:if>
 
+        <f:if condition="{showPerformanceMetrics}">
+            <div class="panel panel-default bg-light p-3">
+                <h3>Performance Metrics</h3>
 
-
-        <div class="panel panel-default bg-light p-3">
-            <h3>Performance Metrics</h3>
-
-            <div class="row row-cols-xs-2 row-cols-lg-4 g-3">
+                <div class="row row-cols-xs-2 row-cols-lg-4 g-3">
                 <f:if condition="{performanceMetrics.executionTime} > 3">
                     <f:then>{f:variable(name: 'execTimeCardClass', value: 'bg-danger text-white')}</f:then>
                     <f:else if="{performanceMetrics.executionTime} > 1">{f:variable(name: 'execTimeCardClass', value: 'bg-warning text-white')}</f:else>
@@ -56,12 +58,13 @@
                 </f:if>
                 <f:render section="Card" arguments="{icon: 'apps-toolbar-menu-cache', header: performanceMetrics.fromCache, content: 'Results from Cache', cardClass: cachedCardClass}" />
             </div>
-        </div>
+            </div>
+        </f:if>
 
-
-        <h3>Statistiques par langue</h3>
-        <div class="panel panel-default">
-            <table class="table table-striped table-hover">
+        <f:if condition="{showLanguageStatistics}">
+            <h3>Statistiques par langue</h3>
+            <div class="panel panel-default">
+                <table class="table table-striped table-hover">
                 <thead>
                     <tr>
                         <th>Langue</th>
@@ -103,12 +106,13 @@
                     </f:for>
                 </tbody>
             </table>
-        </div>
+            </div>
+        </f:if>
 
-
-        <h3>Top 5 Most Similar Page Pairs</h3>
-        <div class="panel panel-default">
-            <table class="table table-striped table-hover">
+        <f:if condition="{showTopSimilarPairs}">
+            <h3>Top 5 Most Similar Page Pairs</h3>
+            <div class="panel panel-default">
+                <table class="table table-striped table-hover">
                 <thead>
                 <tr>
                     <th>Page 1</th>
@@ -131,11 +135,13 @@
                 </f:for>
                 </tbody>
             </table>
-        </div>
+            </div>
+        </f:if>
 
-        <h3>Distribution of Similarity Scores</h3>
-        <div class="panel panel-default">
-            <table class="table table-striped table-hover">
+        <f:if condition="{showDistributionScores}">
+            <h3>Distribution of Similarity Scores</h3>
+            <div class="panel panel-default">
+                <table class="table table-striped table-hover">
                 <thead>
                 <tr>
                     <th>Score Range</th>
@@ -168,11 +174,13 @@
                 </f:for>
                 </tbody>
             </table>
-        </div>
+            </div>
+        </f:if>
 
-        <h3>Top 5 Pages with Most Similarities</h3>
-        <div class="panel panel-default">
-            <table class="table table-striped table-hover">
+        <f:if condition="{showTopSimilarPages}">
+            <h3>Top 5 Pages with Most Similarities</h3>
+            <div class="panel panel-default">
+                <table class="table table-striped table-hover">
                 <thead>
                 <tr>
                     <th>Page</th>
@@ -188,7 +196,8 @@
                 </f:for>
                 </tbody>
             </table>
-        </div>
+            </div>
+        </f:if>
 
         <!-- Point d'extension pour le contenu NLP -->
         <f:if condition="{nlpEnabled}">
