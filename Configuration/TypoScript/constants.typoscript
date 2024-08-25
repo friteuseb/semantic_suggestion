@@ -40,35 +40,35 @@ plugin.tx_semanticsuggestion_suggestions {
                                                       
      # Module Activation Settings                                                                            
      settings {                                                                                      
-         # cat=semantic_suggestion:analysis/110/001; type=boolean; label=Enable NLP Analysis         
+         # cat=semantic_suggestion:Module Activation/110/001; type=boolean; label=Enable NLP Analysis         
          enableNlpAnalysis = 0                                                                       
                                                                                                      
-         # cat=semantic_suggestion:analysis/110/002; type=boolean; label=Show Statistics             
+         # cat=semantic_suggestion:Module Activation/110/002; type=boolean; label=Show Statistics             
          showStatistics = 1                                                                          
                                                                                                      
-         # cat=semantic_suggestion:analysis/110/003; type=boolean; label=Show Performance Metrics    
+         # cat=semantic_suggestion:Module Activation/110/003; type=boolean; label=Show Performance Metrics    
          showPerformanceMetrics = 1                                                                  
                                                                                                      
-         # cat=semantic_suggestion:analysis/110/004; type=boolean; label=Show Language Statistics    
+         # cat=semantic_suggestion:Module Activation/110/004; type=boolean; label=Show Language Statistics    
          showLanguageStatistics = 1                                                                  
                                                                                                      
-         # cat=semantic_suggestion:analysis/110/005; type=boolean; label=Calculate Distribution      
+         # cat=semantic_suggestion:Module Activation/110/005; type=boolean; label=Calculate Distribution      
          calculateDistribution = 1                                                                   
                                                                                                      
-         # cat=semantic_suggestion:analysis/110/006; type=boolean; label=Calculate Top Similar Pairs 
+         # cat=semantic_suggestion:Module Activation/110/006; type=boolean; label=Calculate Top Similar Pairs 
          calculateTopSimilarPairs = 1                                                                
                                                                                                      
-         # cat=semantic_suggestion:analysis/110/007; type=boolean; label=Show Top Similar Pairs      
+         # cat=semantic_suggestion:Module Activation/110/007; type=boolean; label=Show Top Similar Pairs      
          showTopSimilarPairs = 1                                                                     
                                                                                                      
-         # cat=semantic_suggestion:analysis/110/008; type=boolean; label=Show Distribution Scores    
+         # cat=semantic_suggestion:Module Activation/110/008; type=boolean; label=Show Distribution Scores    
          showDistributionScores = 1                                                                  
                                                                                                      
-         # cat=semantic_suggestion:analysis/110/009; type=boolean; label=Show Top Similar Pages      
+         # cat=semantic_suggestion:Module Activation/110/009; type=boolean; label=Show Top Similar Pages      
          showTopSimilarPages = 1                                                                     
      }  
 
-     
+
     # Weights for Similarity Calculation
     settings.analyzedFields {
         # cat=semantic_suggestion:weights/120/001; type=float; label=Title Weight
