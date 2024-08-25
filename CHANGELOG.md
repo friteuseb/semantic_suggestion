@@ -8,6 +8,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 # Changelog for Semantic Suggestion Extension
 
 
+## Changelog 1.3.0
+
+## New Features
+
+### Server-Side Pagination
+
+- Implemented server-side pagination for suggestions in `SuggestionsController.php`.
+- Added pagination parameters (`$currentPage` and `$itemsPerPage`) to the `listAction()` method.
+- Adapted `generateSuggestions()` and `findSimilarPages()` methods to support pagination.
+- Added pagination information to the view for frontend rendering.
+
+## Performance Improvements
+
+### Optimization of Similarity Calculation
+
+- Enhanced `calculateSimilarity()` method in `PageAnalysisService.php` for improved performance.
+- Separated `calculateRecencyBoost()` method for better code readability and maintainability.
+
+## Backend Enhancements
+
+### Caching Implementation
+
+- Introduced a caching system for analysis results in `SemanticBackendController.php`.
+
+### Refactoring of `indexAction()`
+
+- Restructured the method to utilize caching and improve overall readability.
+- Extracted data processing logic into a new `processAnalysisData()` method.
+
+### Error Handling Improvements
+
+- Added try-catch blocks for enhanced error management and logging.
+
+### TypoScript Integration
+
+- Improved usage of TypoScript parameters such as `parentPageId`, `depth`, and `proximityThreshold`.
+
+## Configuration and Flexibility
+
+### New Configuration Parameters
+
+- Added new TypoScript parameters to control statistics generation and other features:
+  - `showStatistics`
+  - `showPerformanceMetrics`
+  - `showLanguageStatistics`
+  - `calculateDistribution`
+  - `calculateTopSimilarPairs`
+- Updated `processAnalysisData()` method to handle these new configurations.
+
+### Language-Specific Functionality
+
+- Implemented support for language-specific features, including handling of translated pages.
+
+## Code Quality and Maintenance
+
+### Refactoring
+
+- Improved code structure in `SuggestionsController.php` and `SemanticBackendController.php` for better maintainability.
+- Enhanced method organization in `PageAnalysisService.php`.
+
+## Known Issues and Future Improvements
+
+- Further optimization of `getPages()` and `getPageTranslations()` methods may be needed for better performance.
+- Some performance enhancements mentioned in the previous changelog, such as efficient data structures and set operations, may require additional implementation or verification.
+
+---
+
+This update significantly improves the extension's performance, flexibility, and robustness while ensuring more efficient handling of configurations and analyses.
+
+
+
 
 ## [1.2.0]
 
