@@ -37,10 +37,11 @@ plugin.tx_semanticsuggestion_suggestions {
         recencyWeight = 0.2
     }
 
+
                                                       
      # Module Activation Settings                                                                            
      settings {                                                                                      
-         # cat=semantic_suggestion:Module Activation/110/001; type=boolean; label=Enable NLP Analysis         
+         # cat=semantic_suggestion:Module Activation/110/001; type=boolean; label=Enable NLP Analysis - NOT implemented at the moment -
          enableNlpAnalysis = 0                                                                       
                                                                                                      
          # cat=semantic_suggestion:Module Activation/110/002; type=boolean; label=Show Statistics             

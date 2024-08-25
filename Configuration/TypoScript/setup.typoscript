@@ -41,15 +41,21 @@ plugin.tx_semanticsuggestion_suggestions {
         excerptLength = {$plugin.tx_semanticsuggestion_suggestions.settings.excerptLength}
         # Weight for recency in similarity calculation
         recencyWeight = {$plugin.tx_semanticsuggestion_suggestions.settings.recencyWeight}
-
-
+        # Enable or disable the display of general statistics
         showStatistics = {$plugin.tx_semanticsuggestion_suggestions.showStatistics}
+        # Enable or disable the display of performance metrics
         showPerformanceMetrics = {$plugin.tx_semanticsuggestion_suggestions.settings.showPerformanceMetrics}
+        # Enable or disable the display of language statistics
         showLanguageStatistics = {$plugin.tx_semanticsuggestion_suggestions.settings.showLanguageStatistics}
+        # Enable or disable the calculation of content distribution
         calculateDistribution = {$plugin.tx_semanticsuggestion_suggestions.settings.calculateDistribution}
+        # Enable or disable the calculation of top similar page pairs
         calculateTopSimilarPairs = {$plugin.tx_semanticsuggestion_suggestions.settings.calculateTopSimilarPairs}
+        # Enable or disable the display of top similar page pairs
         showTopSimilarPairs = {$plugin.tx_semanticsuggestion_suggestions.settings.showTopSimilarPairs}
+        # Enable or disable the display of distribution scores
         showDistributionScores = {$plugin.tx_semanticsuggestion_suggestions.settings.showDistributionScores}
+        # Enable or disable the display of top similar pages
         showTopSimilarPages = {$plugin.tx_semanticsuggestion_suggestions.settings.showTopSimilarPages}
 
         # Weights for different page fields in similarity calculation
