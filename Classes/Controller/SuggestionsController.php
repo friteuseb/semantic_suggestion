@@ -4,7 +4,7 @@ namespace TalanHdf\SemanticSuggestion\Controller;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
-use TalanHdf\SemanticSuggestion\Service\PageAnalysisService;
+use TalanHdf\SemanticSuggestion\Service\ItemAnalysisService;
 use TYPO3\CMS\Core\Resource\FileRepository;
 use TYPO3\CMS\Core\Domain\Repository\PageRepository;
 use TYPO3\CMS\Frontend\ContentObject\ContentObjectRenderer;
@@ -15,6 +15,8 @@ use TYPO3\CMS\Core\Log\LogManager;
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Pagination\ArrayPaginator;
 use TYPO3\CMS\Core\Pagination\SimplePagination;
+use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
+use GeorgRinger\News\Domain\Repository\NewsRepository;
 
 
 class SuggestionsController extends ActionController implements LoggerAwareInterface
@@ -23,19 +25,43 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
 
     private const DEFAULT_ITEMS_PER_PAGE = 10;
 
-    protected PageAnalysisService $pageAnalysisService;
+    protected ItemAnalysisService $itemAnalysisService;
     protected FileRepository $fileRepository;
     protected ?PageRepository $pageRepository = null;
+    protected ?NewsRepository $newsRepository = null;
 
     public function __construct(
-        PageAnalysisService $pageAnalysisService, 
-        FileRepository $fileRepository
+        ItemAnalysisService $itemAnalysisService, 
+        FileRepository $fileRepository,
+        NewsRepository $newsRepository
     ) {
-        $this->pageAnalysisService = $pageAnalysisService;
+        $this->itemAnalysisService = $itemAnalysisService;
         $this->fileRepository = $fileRepository;
+        $this->newsRepository = $newsRepository;
         $this->setLogger(GeneralUtility::makeInstance(LogManager::class)->getLogger(__CLASS__));
-    }
 
+}
+
+
+    protected function getNewsRecords(int $parentPageId, int $depth): array
+    {
+        $newsRecords = [];
+        $newsItems = $this->newsRepository->findByPid($parentPageId, $depth);
+        
+        foreach ($newsItems as $newsItem) {
+            $newsRecords[$newsItem->getUid()] = [
+                'uid' => $newsItem->getUid(),
+                'pid' => $newsItem->getPid(),
+                'title' => $newsItem->getTitle(),
+                'abstract' => $newsItem->getTeaser(),
+                'bodytext' => $newsItem->getBodytext(),
+                'datetime' => $newsItem->getDatetime()->getTimestamp(),
+                'type' => 'news'
+            ];
+        }
+        
+        return $newsRecords;
+    }
     /**
      * @param PageRepository $pageRepository
      */
@@ -84,10 +110,17 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
         $depth = isset($this->settings['recursive']) ? (int)$this->settings['recursive'] : 0; 
         $proximityThreshold = isset($this->settings['proximityThreshold']) ? (float)$this->settings['proximityThreshold'] : 0.3; 
         $excludePages = GeneralUtility::intExplode(',', $this->settings['excludePages'] ?? '', true);
-        $maxSuggestions = isset($this->settings['maxSuggestions']) ? (int)$this->settings['maxSuggestions'] : 3; // Default to 3 if not set
+        $maxSuggestions = isset($this->settings['maxSuggestions']) ? (int)$this->settings['maxSuggestions'] : 3;
+        $enableNewsAnalysis = isset($this->settings['enableNewsAnalysis']) ? (bool)$this->settings['enableNewsAnalysis'] : false;
     
         $pages = $this->getPages($parentPageId, $depth);
-        $analysisData = $this->pageAnalysisService->analyzePages($pages);
+        
+        if ($enableNewsAnalysis && ExtensionManagementUtility::isLoaded('news')) {
+            $newsRecords = $this->getNewsRecords($parentPageId, $depth);
+            $pages = array_merge($pages, $newsRecords);
+        }
+        
+        $analysisData = $this->itemAnalysisService->analyzeItems($pages);
         $analysisResults = $analysisData['results'] ?? [];
     
         $currentLanguageUid = $this->getCurrentLanguageUid();
@@ -143,12 +176,16 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
         ];
     }
 
-    protected function prepareExcerpt(array $pageData, int $excerptLength): string
+    protected function prepareExcerpt($itemData, int $excerptLength, string $type = 'page'): string
     {
-        $sources = GeneralUtility::trimExplode(',', $this->settings['excerptSources'] ?? 'bodytext,description,abstract', true);
+        if ($type === 'news') {
+            $sources = ['bodytext', 'abstract'];
+        } else {
+            $sources = GeneralUtility::trimExplode(',', $this->settings['excerptSources'] ?? 'bodytext,description,abstract', true);
+        }
         
         foreach ($sources as $source) {
-            $content = $source === 'bodytext' ? ($pageData['tt_content'] ?? '') : ($pageData[$source] ?? '');
+            $content = $type === 'news' ? $itemData->{'get' . ucfirst($source)}() : ($itemData[$source] ?? '');
             
             if (!empty($content)) {
                 $content = strip_tags($content);
@@ -164,7 +201,7 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
 
     protected function findSimilarPages(array $analysisResults, int $currentPageId, float $threshold, array $excludePages, int $currentLanguageUid, int $maxSuggestions): array
     {
-        $this->logger->info('Finding similar pages', [
+        $this->logger->info('Finding similar pages and news items', [
             'currentPageId' => $currentPageId,
             'threshold' => $threshold,
             'currentLanguageUid' => $currentLanguageUid,
@@ -177,43 +214,54 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
         if (isset($analysisResults[$currentPageId]['similarities'])) {
             $similarities = $analysisResults[$currentPageId]['similarities'];
             arsort($similarities);
-            foreach ($similarities as $pageId => $similarity) {
-                $pageLangUid = $analysisResults[$pageId]['sys_language_uid'] ?? 0;
-                $sameLanguage = ($pageLangUid == $currentLanguageUid) || 
-                                ($pageLangUid == 0 && $currentLanguageUid == 0);
+            foreach ($similarities as $itemId => $similarity) {
+                $itemLangUid = $analysisResults[$itemId]['sys_language_uid'] ?? 0;
+                $sameLanguage = ($itemLangUid == $currentLanguageUid) || 
+                                ($itemLangUid == 0 && $currentLanguageUid == 0);
     
-                if ($similarity['score'] < $threshold || in_array($pageId, $excludePages) || !$sameLanguage) {
-                    $this->logger->debug('Page excluded', [
-                        'pageId' => $pageId, 
+                if ($similarity['score'] < $threshold || in_array($itemId, $excludePages) || !$sameLanguage) {
+                    $this->logger->debug('Item excluded', [
+                        'itemId' => $itemId, 
                         'reason' => $similarity['score'] < $threshold ? 'below threshold' : 
                             (!$sameLanguage ? 'different language' : 'in exclude list'),
-                        'pageLangUid' => $pageLangUid,
+                        'itemLangUid' => $itemLangUid,
                         'currentLanguageUid' => $currentLanguageUid
                     ]);
                     continue;
                 }
                 
-                $pageData = $pageRepository->getPage($pageId);
-                $pageData['tt_content'] = $this->getPageContents($pageId);
-                $excerpt = $this->prepareExcerpt($pageData, (int)($this->settings['excerptLength'] ?? 150));
-    
-                $recencyScore = $this->calculateRecencyScore($pageData['tstamp']);
+                $itemData = $analysisResults[$itemId]['type'] === 'news' 
+                    ? $this->newsRepository->findByUid($itemId) 
+                    : $pageRepository->getPage($itemId);
                 
-                $suggestions[$pageId] = [
+                if ($analysisResults[$itemId]['type'] !== 'news') {
+                    $itemData['tt_content'] = $this->getPageContents($itemId);
+                }
+                
+                $excerpt = $this->prepareExcerpt($itemData, (int)($this->settings['excerptLength'] ?? 150), $analysisResults[$itemId]['type']);
+    
+                $recencyScore = $this->calculateRecencyScore($itemData['tstamp'] ?? $itemData['datetime']);
+                
+                $suggestions[$itemId] = [
                     'similarity' => $similarity['score'],
                     'commonKeywords' => implode(', ', $similarity['commonKeywords']),
                     'relevance' => $similarity['relevance'],
                     'aboveThreshold' => true,
-                    'data' => $pageData,
+                    'data' => $itemData,
                     'excerpt' => $excerpt,
-                    'recency' => $recencyScore
+                    'recency' => $recencyScore,
+                    'type' => $analysisResults[$itemId]['type']
                 ];
-                $suggestions[$pageId]['data']['media'] = $this->getPageMedia($pageId);
+                
+                if ($analysisResults[$itemId]['type'] !== 'news') {
+                    $suggestions[$itemId]['data']['media'] = $this->getPageMedia($itemId);
+                }
                 
                 $this->logger->debug('Added suggestion', [
-                    'pageId' => $pageId, 
+                    'itemId' => $itemId, 
                     'similarity' => $similarity['score'],
-                    'pageLangUid' => $pageLangUid
+                    'itemLangUid' => $itemLangUid,
+                    'type' => $analysisResults[$itemId]['type']
                 ]);
 
                 if (count($suggestions) >= $maxSuggestions) {
@@ -221,10 +269,10 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
                 }
             }
         } else {
-            $this->logger->warning('No similarities found for current page', ['currentPageId' => $currentPageId]);
+            $this->logger->warning('No similarities found for current item', ['currentPageId' => $currentPageId]);
         }
     
-        $this->logger->info('Found similar pages', ['count' => count($suggestions)]);
+        $this->logger->info('Found similar pages and news items', ['count' => count($suggestions)]);
         return $suggestions;
     }
 

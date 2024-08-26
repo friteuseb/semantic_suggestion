@@ -7,7 +7,7 @@ services:
   TalanHdf\SemanticSuggestion\:
     resource: '../Classes/*'
 
-  TalanHdf\SemanticSuggestion\Service\PageAnalysisService:
+  TalanHdf\SemanticSuggestion\Service\ItemAnalysisService:
     arguments:
       $context: '@TYPO3\CMS\Core\Context\Context'
       $configurationManager: '@TYPO3\CMS\Extbase\Configuration\ConfigurationManager'
@@ -18,7 +18,7 @@ services:
   TalanHdf\SemanticSuggestion\Controller\SuggestionsController:
     public: true
     arguments:
-      $pageAnalysisService: '@TalanHdf\SemanticSuggestion\Service\PageAnalysisService'
+      $ItemAnalysisService: '@TalanHdf\SemanticSuggestion\Service\ItemAnalysisService'
       $fileRepository: '@TYPO3\CMS\Core\Resource\FileRepository'
 
   TalanHdf\SemanticSuggestion\Controller\SemanticBackendController:

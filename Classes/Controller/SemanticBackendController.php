@@ -4,7 +4,7 @@ namespace TalanHdf\SemanticSuggestion\Controller;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
-use TalanHdf\SemanticSuggestion\Service\PageAnalysisService;
+use TalanHdf\SemanticSuggestion\Service\ItemAnalysisService;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Domain\Repository\PageRepository;
@@ -22,19 +22,19 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
     use LoggerAwareTrait;
 
     protected ModuleTemplateFactory $moduleTemplateFactory;
-    protected PageAnalysisService $pageAnalysisService;
+    protected ItemAnalysisService $itemAnalysisService;
     protected ?PageRepository $pageRepository = null;
     protected FrontendInterface $cache;
     protected ExtensionConfiguration $extensionConfiguration;
 
     public function __construct(
         ModuleTemplateFactory $moduleTemplateFactory,
-        PageAnalysisService $pageAnalysisService,
+        ItemAnalysisService $itemAnalysisService,
         ?LoggerInterface $logger = null,
         ?CacheManager $cacheManager = null
     ) {
         $this->moduleTemplateFactory = $moduleTemplateFactory;
-        $this->pageAnalysisService = $pageAnalysisService;
+        $this->itemAnalysisService = $itemAnalysisService;
 
         if ($logger === null) {
             $logger = GeneralUtility::makeInstance(LogManager::class)->getLogger(__CLASS__);
@@ -86,14 +86,10 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         }
     }
 
-    public function injectPageAnalysisService(PageAnalysisService $pageAnalysisService): void
-    {
-        $this->pageAnalysisService = $pageAnalysisService;
-    }
 
-    public function injectConfigurationManager(ConfigurationManagerInterface $configurationManager): void
+    public function injectItemAnalysisService(ItemAnalysisService $itemAnalysisService): void
     {
-        $this->configurationManager = $configurationManager;
+        $this->itemAnalysisService = $itemAnalysisService;
     }
 
     protected function initializeAction()
@@ -148,7 +144,7 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
                 $data = $this->cache->get($cacheIdentifier);
             } else {
                 $pages = $this->getPages($parentPageId, $depth);
-                $analysisData = $this->pageAnalysisService->analyzePages($pages);
+                $analysisData = $this->itemAnalysisService->analyzeItems($pages);
                 $data = $this->processAnalysisData($analysisData, $proximityThreshold, $excludePages, $maxSuggestions);
                 $this->cache->set($cacheIdentifier, $data, ['semantic_suggestion'], 3600);
             }

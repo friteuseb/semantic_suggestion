@@ -15,7 +15,12 @@ defined('TYPO3') or die();
             \TalanHdf\SemanticSuggestion\Controller\SuggestionsController::class => 'list' 
         ]
     );
+    // Après la configuration du plugin 'Suggestions'
+    if (\TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('news')) {
+        $GLOBALS['TYPO3_CONF_VARS']['EXT']['semantic_suggestion']['enableNewsAnalysis'] = true;
+    }
 
+    
     \TYPO3\CMS\Extbase\Utility\ExtensionUtility::configurePlugin(
         'SemanticSuggestion',
         'SemanticBackend',
