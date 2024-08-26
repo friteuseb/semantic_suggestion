@@ -47,34 +47,36 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
     public function listAction(int $currentPage = 1, int $itemsPerPage = self::DEFAULT_ITEMS_PER_PAGE): ResponseInterface
     {
         $this->logger->info('listAction called', ['currentPage' => $currentPage, 'itemsPerPage' => $itemsPerPage]);
-
+    
         $currentPageId = $GLOBALS['TSFE']->id;
-        $cacheIdentifier = 'suggestions_' . $currentPageId . '_' . $currentPage . '_' . $itemsPerPage;
+        $currentLanguageUid = $this->getCurrentLanguageUid();
+    
+        $cacheIdentifier = 'suggestions_' . $currentPageId . '_' . $currentLanguageUid . '_' . $currentPage . '_' . $itemsPerPage;
         $cacheManager = GeneralUtility::makeInstance(CacheManager::class);
         $cache = $cacheManager->getCache('semantic_suggestion');
-
+    
         try {
             if ($cache->has($cacheIdentifier)) {
-                $this->logger->debug('Cache hit for suggestions', ['pageId' => $currentPageId, 'currentPage' => $currentPage]);
+                $this->logger->debug('Cache hit for suggestions', ['pageId' => $currentPageId, 'currentPage' => $currentPage, 'languageUid' => $currentLanguageUid]);
                 $viewData = $cache->get($cacheIdentifier);
             } else {
-                $this->logger->debug('Cache miss for suggestions', ['pageId' => $currentPageId, 'currentPage' => $currentPage]);
-                $viewData = $this->generateSuggestions($currentPageId, $currentPage, $itemsPerPage);
+                $this->logger->debug('Cache miss for suggestions', ['pageId' => $currentPageId, 'currentPage' => $currentPage, 'languageUid' => $currentLanguageUid]);
+                $viewData = $this->generateSuggestions($currentPageId, $currentPage, $itemsPerPage, $currentLanguageUid);
                 
                 if (!empty($viewData['suggestions'])) {
-                    $cache->set($cacheIdentifier, $viewData, ['tx_semanticsuggestion'], 3600); // Cache for 1 hour
+                    $cache->set($cacheIdentifier, $viewData, ['tx_semanticsuggestion'], 3600);
                 } else {
-                    $this->logger->warning('No suggestions generated', ['pageId' => $currentPageId, 'currentPage' => $currentPage]);
+                    $this->logger->warning('No suggestions generated', ['pageId' => $currentPageId, 'currentPage' => $currentPage, 'languageUid' => $currentLanguageUid]);
                 }
             }
-
+    
             $this->view->assignMultiple($viewData);
-
+    
         } catch (\Exception $e) {
             $this->logger->error('Error in listAction', ['exception' => $e->getMessage()]);
             $this->view->assign('error', 'An error occurred while generating suggestions.');
         }
-
+    
         return $this->htmlResponse();
     }
     
@@ -85,9 +87,10 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
         $proximityThreshold = isset($this->settings['proximityThreshold']) ? (float)$this->settings['proximityThreshold'] : 0.3; 
         $excludePages = GeneralUtility::intExplode(',', $this->settings['excludePages'] ?? '', true);
         $maxSuggestions = isset($this->settings['maxSuggestions']) ? (int)$this->settings['maxSuggestions'] : 3; // Default to 3 if not set
-    
+        $currentLanguageUid = $this->getCurrentLanguageUid();
+
         $pages = $this->getPages($parentPageId, $depth);
-        $analysisData = $this->pageAnalysisService->analyzePages($pages);
+        $analysisData = $this->pageAnalysisService->analyzePages($pages, $currentLanguageUid);
         $analysisResults = $analysisData['results'] ?? [];
     
         $currentLanguageUid = $this->getCurrentLanguageUid();
@@ -308,4 +311,5 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
     {
         return GeneralUtility::makeInstance(Context::class)->getAspect('language')->getId();
     }
+
 }

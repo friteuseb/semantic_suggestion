@@ -156,11 +156,10 @@ class PageAnalysisService implements LoggerAwareInterface
         return $this->connectionPool;
     }
 
-    public function analyzePages(array $pages): array
+    public function analyzePages(array $pages, int $currentLanguageUid): array
     {
         $startTime = microtime(true);
-    
-        // Vérifier si $pages est vide
+
         if (empty($pages)) {
             $this->logger->warning('No pages provided for analysis');
             return [
@@ -173,8 +172,7 @@ class PageAnalysisService implements LoggerAwareInterface
                 ],
             ];
         }
-    
-        // Trouver le premier élément non null dans $pages
+
         $firstPage = null;
         foreach ($pages as $page) {
             if ($page !== null) {
@@ -182,8 +180,7 @@ class PageAnalysisService implements LoggerAwareInterface
                 break;
             }
         }
-    
-        // Si aucun élément valide n'est trouvé, retourner un résultat vide
+
         if ($firstPage === null) {
             $this->logger->warning('No valid pages found in the provided array');
             return [
@@ -196,31 +193,31 @@ class PageAnalysisService implements LoggerAwareInterface
                 ],
             ];
         }
-    
-        $parentPageId = $firstPage['pid'] ?? 0; // Utilise 0 si 'pid' n'est pas défini
+
+        $parentPageId = $firstPage['pid'] ?? 0;
         $depth = $this->calculateDepth($pages);
-        $cacheIdentifier = 'semantic_analysis_' . $parentPageId . '_' . $depth;
-    
+        $cacheIdentifier = 'semantic_analysis_' . $parentPageId . '_' . $depth . '_' . $currentLanguageUid;
+
         if ($this->cache->has($cacheIdentifier)) {
             $cachedResult = $this->cache->get($cacheIdentifier);
             $cachedResult['metrics']['fromCache'] = true;
             $cachedResult['metrics']['executionTime'] = microtime(true) - $startTime;
             return $cachedResult;
         }
-    
+
         try {
-            $this->logger->debug('Analyzing pages', ['pageCount' => count($pages)]);
+            $this->logger->debug('Analyzing pages', ['pageCount' => count($pages), 'languageUid' => $currentLanguageUid]);
             $totalPages = count($pages);
             $analysisResults = [];
-    
+
             foreach ($pages as $page) {
                 if (isset($page['uid'])) {
-                    $analysisResults[$page['uid']] = $this->preparePageData($page);
+                    $analysisResults[$page['uid']] = $this->preparePageData($page, $currentLanguageUid);
                 } else {
                     $this->logger->warning('Page without UID encountered', ['page' => $page]);
                 }
             }
-    
+
             $similarityCalculations = 0;
             foreach ($analysisResults as $pageId => &$pageData) {
                 foreach ($analysisResults as $comparisonPageId => $comparisonPageData) {
@@ -239,7 +236,7 @@ class PageAnalysisService implements LoggerAwareInterface
                     }
                 }
             }
-    
+
         } catch (\Exception $e) {
             $this->logger->error('Error during page analysis', ['exception' => $e->getMessage()]);
             return [
@@ -253,10 +250,10 @@ class PageAnalysisService implements LoggerAwareInterface
                 ],
             ];
         }
-    
+
         $endTime = microtime(true);
         $executionTime = $endTime - $startTime;
-    
+
         $result = [
             'results' => $analysisResults,
             'metrics' => [
@@ -266,17 +263,19 @@ class PageAnalysisService implements LoggerAwareInterface
                 'fromCache' => false,
             ],
         ];
-    
+
         $this->cache->set(
             $cacheIdentifier,
             $result,
             ['tx_semanticsuggestion', 'pages_' . $parentPageId],
             86400
         );
-    
+
         return $result;
     }
-    
+
+
+
     private function calculateDepth(array $pages): int
     {
         $maxDepth = 0;
@@ -304,28 +303,28 @@ class PageAnalysisService implements LoggerAwareInterface
     }
 
 
-    protected function preparePageData(array $page): array
+    protected function preparePageData(array $page, int $currentLanguageUid): array
     {
         $preparedData = [
             'uid' => $page['uid'],
             'sys_language_uid' => $page['sys_language_uid'] ?? 0,
             'isTranslation' => isset($page['_PAGES_OVERLAY']),
         ];
-    
+
         if (!is_array($this->settings['analyzedFields'])) {
             $this->logger?->warning('analyzedFields is not an array', ['settings' => $this->settings]);
             return $preparedData;
         }
-    
+
         foreach ($this->settings['analyzedFields'] as $field => $weight) {
             if ($field === 'content') {
                 try {
                     $preparedData['content'] = [
-                        'content' => $this->getPageContent($page['uid'], $preparedData['sys_language_uid']),
+                        'content' => $this->getPageContent($page['uid'], $currentLanguageUid),
                         'weight' => (float)$weight
                     ];
                 } catch (\Exception $e) {
-                    $this->logger?->error('Error fetching page content', ['pageId' => $page['uid'], 'language' => $preparedData['sys_language_uid'], 'exception' => $e->getMessage()]);
+                    $this->logger?->error('Error fetching page content', ['pageId' => $page['uid'], 'language' => $currentLanguageUid, 'exception' => $e->getMessage()]);
                     $preparedData['content'] = [
                         'content' => '',
                         'weight' => (float)$weight
@@ -343,36 +342,18 @@ class PageAnalysisService implements LoggerAwareInterface
                 ];
             }
         }
-    
+
         $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
-    
-        $this->logger?->info('Checking NLP integration');
-        if (\TYPO3\CMS\Core\Utility\ExtensionManagementUtility::isLoaded('semantic_suggestion_nlp')) {
-            $this->logger?->info('semantic_suggestion_nlp is loaded');
-    
-            // Appel du hook NLP 
-            if (isset($GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['semantic_suggestion']['nlpAnalysis'])) {
-                foreach ($GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['semantic_suggestion']['nlpAnalysis'] as $hookClassAndMethod) {
-                    [$hookClass, $hookMethod] = explode('->', $hookClassAndMethod);
-                    $hookInstance = GeneralUtility::makeInstance($hookClass);
-                    if (method_exists($hookInstance, $hookMethod)) {
-                        $analyzeParams = [
-                            'pageId' => $page['uid'],
-                            'languageUid' => $preparedData['sys_language_uid'],
-                            'content' => $preparedData['content']['content'],
-                            'analysis' => []
-                        ];
-                        $hookInstance->$hookMethod($analyzeParams);
-                        
-                        // Récupérer les résultats NLP
-                        $preparedData['nlp'] = $analyzeParams['analysis']['nlp'] ?? [];
-                    }
-                }
-            }
-        }
-    
+
         return $preparedData;
     }
+
+    protected function getCurrentLanguageUid(): int
+    {
+        return GeneralUtility::makeInstance(Context::class)->getAspect('language')->getId();
+    }
+
+
 
 private function getAllSubpages(int $parentId, int $depth = 0): array
 {
@@ -397,64 +378,50 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
     return $allPages;
 }
 
-    protected function getSubpages(int $parentId): array
-    {
-        if ($this->logger) {
-            $this->logger->info('Fetching subpages', ['parentId' => $parentId]);
+protected function getSubpages(int $parentId, int $languageUid): array
+{
+    $this->logger?->info('Fetching subpages', ['parentId' => $parentId, 'languageUid' => $languageUid]);
+
+    try {
+        $queryBuilder = $this->getQueryBuilder();
+
+        $fieldsToSelect = ['uid', 'title', 'description', 'keywords', 'abstract', 'crdate', 'sys_language_uid'];
+        $tableColumns = $queryBuilder->getConnection()->getSchemaManager()->listTableColumns('pages');
+        $existingColumns = array_keys($tableColumns);
+        $fieldsToSelect = array_intersect($fieldsToSelect, $existingColumns);
+
+        $this->logger?->debug('Fields to select', ['fields' => $fieldsToSelect]);
+
+        $result = $queryBuilder
+            ->select(...$fieldsToSelect)
+            ->addSelectLiteral(
+                '(SELECT MAX(tstamp) FROM tt_content WHERE tt_content.pid = pages.uid AND tt_content.deleted = 0 AND tt_content.hidden = 0)'
+            )
+            ->from('pages')
+            ->where(
+                $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($parentId, \PDO::PARAM_INT)),
+                $queryBuilder->expr()->eq('hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
+                $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)), 
+
+                $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter($languageUid,\PDO::PARAM_INT)) 
+            )
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        foreach ($result as &$page) {
+            $page['content_modified_at'] = $page['MAX(tstamp)'] ?? $page['crdate'] ?? time();
+            unset($page['MAX(tstamp)']);
         }
 
-        try {
-            $queryBuilder = $this->getQueryBuilder();
-            $languageUid = $this->getCurrentLanguageUid();
+        $this->logger?->info('Subpages fetched successfully', ['count' => count($result), 'languageUid' => $languageUid]);
+        $this->logger?->debug('Fetched subpages', ['subpages' => $result]);
 
-            if ($this->logger) {
-                $this->logger->info('Current language UID: ' . $languageUid);
-            }
-
-            $fieldsToSelect = ['uid', 'title', 'description', 'keywords', 'abstract', 'crdate', 'sys_language_uid'];
-
-            $tableColumns = $queryBuilder->getConnection()->getSchemaManager()->listTableColumns('pages');
-            $existingColumns = array_keys($tableColumns);
-            $fieldsToSelect = array_intersect($fieldsToSelect, $existingColumns);
-
-            if ($this->logger) {
-                $this->logger->debug('Fields to select', ['fields' => $fieldsToSelect]);
-            }
-
-            $result = $queryBuilder
-                ->select(...$fieldsToSelect)
-                ->addSelectLiteral(
-                    '(SELECT MAX(tstamp) FROM tt_content WHERE tt_content.pid = pages.uid AND tt_content.deleted = 0 AND tt_content.hidden = 0)'
-                )
-                ->from('pages')
-                ->where(
-                    $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($parentId, \PDO::PARAM_INT)),
-                    $queryBuilder->expr()->eq('hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
-                    $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
-                    $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter($languageUid, \PDO::PARAM_INT))
-                )
-                ->executeQuery()
-                ->fetchAllAssociative();
-
-
-            foreach ($result as &$page) {
-                $page['content_modified_at'] = $page['MAX(tstamp)'] ?? $page['crdate'] ?? time();
-                unset($page['MAX(tstamp)']);
-            }
-
-            if ($this->logger) {
-                $this->logger->info('Subpages fetched successfully', ['count' => count($result)]);
-                $this->logger->debug('Fetched subpages', ['subpages' => $result]);
-                $this->logger->debug('Subpages query result', ['result' => $result]);
-
-            }
-
-            return $result;
-        } catch (\Exception $e) {
-            $this->logger?->error('Error fetching subpages', ['exception' => $e->getMessage()]);
-            throw $e;
-        }
+        return $result;
+    } catch (\Exception $e) {
+        $this->logger?->error('Error fetching subpages', ['exception' => $e->getMessage(), 'parentId' => $parentId, 'languageUid' => $languageUid]);
+        throw $e; 
     }
+}
 
     protected function getPageContent(int $pageId, int $languageUid = 0): string
     {
@@ -627,13 +594,5 @@ private function findCommonKeywords(array $page1, array $page2): array
             }
         }
 
-        private function getCurrentLanguageUid(): int
-        {
-        try {
-            return (int)$this->context->getAspect('language')->getId();
-        } catch (\Exception $e) {
-            $this->logger?->warning('Failed to get language from context, defaulting to 0', ['exception' => $e]);
-            return 0;
-        }
-        }
+
 }
