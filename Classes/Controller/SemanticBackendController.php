@@ -16,6 +16,7 @@ use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Log\LogManager;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
+use TYPO3\CMS\Core\Context\Context;
 
 class SemanticBackendController extends ActionController implements LoggerAwareInterface
 {
@@ -142,13 +143,15 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
             $calculateDistribution = (bool)($extensionConfig['calculateDistribution'] ?? true);
             $calculateTopSimilarPairs = (bool)($extensionConfig['calculateTopSimilarPairs'] ?? true);
 
-            $cacheIdentifier = $this->generateValidCacheIdentifier($parentPageId, $depth, $proximityThreshold, $maxSuggestions);
+            $currentLanguageUid = $this->getCurrentLanguageUid(); // Ajoutez cette ligne ici
+
+            $cacheIdentifier = $this->generateValidCacheIdentifier($parentPageId, $depth, $proximityThreshold, $maxSuggestions, $currentLanguageUid);
 
             if ($this->cache->has($cacheIdentifier)) {
                 $data = $this->cache->get($cacheIdentifier);
             } else {
                 $pages = $this->getPages($parentPageId, $depth);
-                $analysisData = $this->pageAnalysisService->analyzePages($pages);
+                $analysisData = $this->pageAnalysisService->analyzePages($pages, $currentLanguageUid);
                 $data = $this->processAnalysisData($analysisData, $proximityThreshold, $excludePages, $maxSuggestions);
                 $this->cache->set($cacheIdentifier, $data, ['semantic_suggestion'], 3600);
             }
@@ -360,9 +363,9 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         return $languages;
     }
 
-    protected function generateValidCacheIdentifier(int $parentPageId, int $depth, float $proximityThreshold, int $maxSuggestions): string
+    protected function generateValidCacheIdentifier(int $parentPageId, int $depth, float $proximityThreshold, int $maxSuggestions, int $currentLanguageUid): string
     {
-        $identifier = 'semantic_analysis_' . $parentPageId . '_' . $depth . '_' . $proximityThreshold . '_' . $maxSuggestions;
+        $identifier = 'semantic_analysis_' . $parentPageId . '_' . $depth . '_' . $proximityThreshold . '_' . $maxSuggestions . '_' . $currentLanguageUid;
         return md5($identifier);
     }
 
@@ -397,4 +400,10 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
             'totalPages' => count($analysisResults),
         ];
     }
+
+
+    protected function getCurrentLanguageUid(): int
+{
+    return GeneralUtility::makeInstance(Context::class)->getAspect('language')->getId();
+}
 }
