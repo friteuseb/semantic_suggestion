@@ -33,18 +33,23 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
     public function __construct(
         ItemAnalysisService $itemAnalysisService, 
         FileRepository $fileRepository,
-        NewsRepository $newsRepository
+        ?NewsRepository $newsRepository = null
     ) {
         $this->itemAnalysisService = $itemAnalysisService;
         $this->fileRepository = $fileRepository;
         $this->newsRepository = $newsRepository;
         $this->setLogger(GeneralUtility::makeInstance(LogManager::class)->getLogger(__CLASS__));
-
-}
+    }
 
 
     protected function getNewsRecords(int $parentPageId, int $depth): array
     {
+        if ($this->newsRepository === null) {
+            return [];
+        }
+        
+        $newsRecords = [];
+        $newsItems = $this->newsRepository->findByPid($parentPageId, $depth);
         $newsRecords = [];
         $newsItems = $this->newsRepository->findByPid($parentPageId, $depth);
         

@@ -18,8 +18,9 @@ services:
   TalanHdf\SemanticSuggestion\Controller\SuggestionsController:
     public: true
     arguments:
-      $ItemAnalysisService: '@TalanHdf\SemanticSuggestion\Service\ItemAnalysisService'
+      $itemAnalysisService: '@TalanHdf\SemanticSuggestion\Service\ItemAnalysisService'
       $fileRepository: '@TYPO3\CMS\Core\Resource\FileRepository'
+      $newsRepository: '@?GeorgRinger\News\Domain\Repository\NewsRepository'
 
   TalanHdf\SemanticSuggestion\Controller\SemanticBackendController:
       public: true
