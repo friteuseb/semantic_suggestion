@@ -25,29 +25,48 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
     protected ModuleTemplateFactory $moduleTemplateFactory;
     protected PageAnalysisService $pageAnalysisService;
     protected ?PageRepository $pageRepository = null;
-    protected FrontendInterface $cache;
+    protected ?FrontendInterface $cache = null;
     protected ExtensionConfiguration $extensionConfiguration;
+    protected ?CacheManager $cacheManager = null;
 
     public function __construct(
         ModuleTemplateFactory $moduleTemplateFactory,
-        PageAnalysisService $pageAnalysisService,
-        ?LoggerInterface $logger = null,
-        ?CacheManager $cacheManager = null
+        PageAnalysisService $pageAnalysisService
     ) {
         $this->moduleTemplateFactory = $moduleTemplateFactory;
         $this->pageAnalysisService = $pageAnalysisService;
-
-        if ($logger === null) {
-            $logger = GeneralUtility::makeInstance(LogManager::class)->getLogger(__CLASS__);
-        }
-        $this->setLogger($logger);
-
-        if ($cacheManager === null) {
-            $cacheManager = GeneralUtility::makeInstance(CacheManager::class);
-        }
-        $this->cache = $cacheManager->getCache('semantic_suggestion');
     }
 
+        public function initializeObject()
+    {
+        if ($this->cacheManager === null) {
+            $this->cacheManager = GeneralUtility::makeInstance(CacheManager::class);
+        }
+    }
+
+    public function injectLogger(LoggerInterface $logger): void
+    {
+        $this->setLogger($logger);
+    }
+
+    public function injectCacheManager(CacheManager $cacheManager): void
+    {
+        $this->cacheManager = $cacheManager;
+    }
+
+    protected function getCache(): FrontendInterface
+    {
+        if ($this->cache === null) {
+            if ($this->cacheManager === null) {
+                $this->cacheManager = GeneralUtility::makeInstance(CacheManager::class);
+            }
+            $this->cache = $this->cacheManager->getCache('semantic_suggestion');
+        }
+        return $this->cache;
+    }
+    
+
+    
     public function updateConfigurationAction(array $configuration): ResponseInterface
     {
         // Update the extension configuration
@@ -121,74 +140,87 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         return $this->pageRepository;
     }
 
-    public function indexAction(): ResponseInterface
-    {
-        try {
-            $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-            $fullTypoScript = $this->configurationManager->getConfiguration(
-                ConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
-            );
+   public function indexAction(): ResponseInterface
+{
+    try {
+        $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
+        $fullTypoScript = $this->configurationManager->getConfiguration(
+            ConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
+        );
 
-            $extensionConfig = $fullTypoScript['plugin.']['tx_semanticsuggestion_suggestions.']['settings.'] ?? [];
+        $extensionConfig = $fullTypoScript['plugin.']['tx_semanticsuggestion_suggestions.']['settings.'] ?? [];
 
-            $parentPageId = (int)($extensionConfig['parentPageId'] ?? 0);
-            $depth = (int)($extensionConfig['recursive'] ?? 1);
-            $proximityThreshold = (float)($extensionConfig['proximityThreshold'] ?? 0.5);
-            $maxSuggestions = (int)($extensionConfig['maxSuggestions'] ?? 5);
-            $excludePages = GeneralUtility::intExplode(',', $extensionConfig['excludePages'] ?? '', true);
-            $recencyWeight = (float)($extensionConfig['recencyWeight'] ?? 0.2);
-            $showStatistics = (bool)($extensionConfig['showStatistics'] ?? true);
-            $showPerformanceMetrics = (bool)($extensionConfig['showPerformanceMetrics'] ?? true);
-            $showLanguageStatistics = (bool)($extensionConfig['showLanguageStatistics'] ?? true);
-            $calculateDistribution = (bool)($extensionConfig['calculateDistribution'] ?? true);
-            $calculateTopSimilarPairs = (bool)($extensionConfig['calculateTopSimilarPairs'] ?? true);
+        $parentPageId = (int)($extensionConfig['parentPageId'] ?? 0);
+        $depth = (int)($extensionConfig['recursive'] ?? 1);
+        $proximityThreshold = (float)($extensionConfig['proximityThreshold'] ?? 0.5);
+        $maxSuggestions = (int)($extensionConfig['maxSuggestions'] ?? 5);
+        $excludePages = GeneralUtility::intExplode(',', $extensionConfig['excludePages'] ?? '', true);
+        $recencyWeight = (float)($extensionConfig['recencyWeight'] ?? 0.2);
+        $showStatistics = (bool)($extensionConfig['showStatistics'] ?? true);
+        $showPerformanceMetrics = (bool)($extensionConfig['showPerformanceMetrics'] ?? true);
+        $showLanguageStatistics = (bool)($extensionConfig['showLanguageStatistics'] ?? true);
+        $calculateDistribution = (bool)($extensionConfig['calculateDistribution'] ?? true);
+        $calculateTopSimilarPairs = (bool)($extensionConfig['calculateTopSimilarPairs'] ?? true);
 
-            $currentLanguageUid = $this->getCurrentLanguageUid(); // Ajoutez cette ligne ici
+        $currentLanguageUid = $this->getCurrentLanguageUid();
 
-            $cacheIdentifier = $this->generateValidCacheIdentifier($parentPageId, $depth, $proximityThreshold, $maxSuggestions, $currentLanguageUid);
+        $startTime = microtime(true);
+        $cacheIdentifier = $this->generateValidCacheIdentifier($parentPageId, $depth, $proximityThreshold, $maxSuggestions, $currentLanguageUid);
 
-            if ($this->cache->has($cacheIdentifier)) {
-                $data = $this->cache->get($cacheIdentifier);
-            } else {
-                $pages = $this->getPages($parentPageId, $depth);
-                $analysisData = $this->pageAnalysisService->analyzePages($pages, $currentLanguageUid);
-                $data = $this->processAnalysisData($analysisData, $proximityThreshold, $excludePages, $maxSuggestions);
-                $this->cache->set($cacheIdentifier, $data, ['semantic_suggestion'], 3600);
-            }
-
-            $moduleTemplate->assignMultiple([
-                'parentPageId' => $parentPageId,
-                'depth' => $depth,
-                'proximityThreshold' => $proximityThreshold,
-                'maxSuggestions' => $maxSuggestions,
-                'excludePages' => implode(', ', $excludePages),
-                'recencyWeight' => $recencyWeight,
-                'statistics' => $showStatistics ? $data['statistics'] : null,
-                'analysisResults' => $data['analysisResults'],
-                'performanceMetrics' => $showPerformanceMetrics ? $data['performanceMetrics'] : null,
-                'languageStatistics' => $showLanguageStatistics ? $data['languageStatistics'] : null,
-                'totalPages' => $data['totalPages'],
-                'showStatistics' => $showStatistics,
-                'showPerformanceMetrics' => $showPerformanceMetrics,
-                'showLanguageStatistics' => $showLanguageStatistics,
-                'showTopSimilarPairs' => (bool)($extensionConfig['showTopSimilarPairs'] ?? true),
-                'showDistributionScores' => (bool)($extensionConfig['showDistributionScores'] ?? true),
-                'showTopSimilarPages' => (bool)($extensionConfig['showTopSimilarPages'] ?? true),
-            ]);
-
-            $moduleTemplate->setContent($this->view->render());
-            return $moduleTemplate->renderResponse();
-
-        } catch (\Exception $e) {
-            $this->logger->error('Error in indexAction', ['exception' => $e->getMessage()]);
-            $this->addFlashMessage(
-                'An error occurred while processing the data. Please check the logs for more information.',
-                'Error',
-                \TYPO3\CMS\Core\Messaging\AbstractMessage::ERROR
-            );
-            return $this->htmlResponse();
+        if ($this->getCache()->has($cacheIdentifier)) {
+            $data = $this->getCache()->get($cacheIdentifier);
+            $fromCache = true;
+            $executionTime = 0;
+        } else {
+            $pages = $this->getPages($parentPageId, $depth);
+            $analysisData = $this->pageAnalysisService->analyzePages($pages, $currentLanguageUid);
+            $data = $this->processAnalysisData($analysisData, $proximityThreshold, $excludePages, $maxSuggestions);
+            $this->getCache()->set($cacheIdentifier, $data, ['semantic_suggestion'], 3600);
+            $fromCache = false;
+            $executionTime = microtime(true) - $startTime;
         }
+
+        // Ajouter les métriques de performance actuelles
+        $performanceMetrics = [
+            'executionTime' => $executionTime,
+            'totalPages' => $data['totalPages'],
+            'similarityCalculations' => $data['statistics']['totalPages'] * ($data['statistics']['totalPages'] - 1) / 2,
+            'fromCache' => $fromCache ? 'Yes' : 'No',
+        ];
+
+        $moduleTemplate->assignMultiple([
+            'parentPageId' => $parentPageId,
+            'depth' => $depth,
+            'proximityThreshold' => $proximityThreshold,
+            'maxSuggestions' => $maxSuggestions,
+            'excludePages' => implode(', ', $excludePages),
+            'recencyWeight' => $recencyWeight,
+            'statistics' => $showStatistics ? $data['statistics'] : null,
+            'analysisResults' => $data['analysisResults'],
+            'performanceMetrics' => $showPerformanceMetrics ? $performanceMetrics : null,
+            'languageStatistics' => $showLanguageStatistics ? $data['languageStatistics'] : null,
+            'totalPages' => $data['totalPages'],
+            'showStatistics' => $showStatistics,
+            'showPerformanceMetrics' => $showPerformanceMetrics,
+            'showLanguageStatistics' => $showLanguageStatistics,
+            'showTopSimilarPairs' => (bool)($extensionConfig['showTopSimilarPairs'] ?? true),
+            'showDistributionScores' => (bool)($extensionConfig['showDistributionScores'] ?? true),
+            'showTopSimilarPages' => (bool)($extensionConfig['showTopSimilarPages'] ?? true),
+        ]);
+
+        $moduleTemplate->setContent($this->view->render());
+        return $moduleTemplate->renderResponse();
+
+    } catch (\Exception $e) {
+        $this->logger->error('Error in indexAction', ['exception' => $e->getMessage()]);
+        $this->addFlashMessage(
+            'An error occurred while processing the data. Please check the logs for more information.',
+            'Error',
+            \TYPO3\CMS\Core\Messaging\AbstractMessage::ERROR
+        );
+        return $this->htmlResponse();
     }
+}
 
     protected function getPages(int $parentPageId, int $depth): array
     {
@@ -369,33 +401,27 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         return md5($identifier);
     }
 
-    protected function processAnalysisData(array $analysisData, float $proximityThreshold, array $excludePages, int $maxSuggestions): array
+       protected function processAnalysisData(array $analysisData, float $proximityThreshold, array $excludePages, int $maxSuggestions): array
     {
         $analysisResults = $analysisData['results'] ?? [];
-
+    
         if (!empty($excludePages)) {
             $analysisResults = array_diff_key($analysisResults, array_flip($excludePages));
         }
-
+    
         $fullTypoScript = $this->configurationManager->getConfiguration(
             ConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
         );
         $extensionConfig = $fullTypoScript['plugin.']['tx_semanticsuggestion_suggestions.']['settings.'] ?? [];
         $calculateDistribution = (bool)($extensionConfig['calculateDistribution'] ?? true);
         $calculateTopSimilarPairs = (bool)($extensionConfig['calculateTopSimilarPairs'] ?? true);
-
+    
         $statistics = $this->calculateStatistics($analysisResults, $proximityThreshold, $calculateDistribution, $calculateTopSimilarPairs);
         $languageStatistics = $this->calculateLanguageStatistics($analysisResults);
-
+    
         return [
             'statistics' => $statistics,
             'analysisResults' => $analysisResults,
-            'performanceMetrics' => [
-                'executionTime' => $analysisData['metrics']['executionTime'] ?? 0,
-                'totalPages' => $analysisData['metrics']['totalPages'] ?? 0,
-                'similarityCalculations' => $analysisData['metrics']['similarityCalculations'] ?? 0,
-                'fromCache' => isset($analysisData['metrics']['fromCache']) ? ($analysisData['metrics']['fromCache'] ? 'Yes' : 'No') : 'Unknown',
-            ],
             'languageStatistics' => $languageStatistics,
             'totalPages' => count($analysisResults),
         ];
