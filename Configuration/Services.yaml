@@ -27,7 +27,7 @@ services:
     autoconfigure: true
     tags: ['controller.backend_controller']
     arguments:
-      $logger: '@TYPO3\CMS\Core\Log\LogManager'
+      $logManager: '@TYPO3\CMS\Core\Log\LogManager' 
 
   TYPO3\CMS\Core\Log\LogManager:
     public: true
