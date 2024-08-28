@@ -22,15 +22,12 @@ services:
       $fileRepository: '@TYPO3\CMS\Core\Resource\FileRepository'
 
   TalanHdf\SemanticSuggestion\Controller\SemanticBackendController:
-      public: true
-      autowire: true
-      autoconfigure: true
-      tags: ['controller.backend_controller']
+    public: true
+    autowire: true
+    autoconfigure: true
+    tags: ['controller.backend_controller']
+    arguments:
+      $logger: '@TYPO3\CMS\Core\Log\LogManager'
 
-  TalanHdf\SemanticSuggestion\Logger:
-    class: TYPO3\CMS\Core\Log\Logger
-    factory: ['@TYPO3\CMS\Core\Log\LogManager', 'getLogger']
-    arguments: ['TalanHdf.SemanticSuggestion']
-
-  Psr\Log\LoggerInterface:
-    alias: TalanHdf\SemanticSuggestion\Logger
+  TYPO3\CMS\Core\Log\LogManager:
+    public: true

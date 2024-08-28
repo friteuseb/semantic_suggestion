@@ -10,43 +10,38 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Domain\Repository\PageRepository;
 use TYPO3\CMS\Core\Site\SiteFinder;
 use Psr\Log\LoggerInterface;
-use Psr\Log\LoggerAwareInterface;
-use Psr\Log\LoggerAwareTrait;
 use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Log\LogManager;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Context\Context;
 
-class SemanticBackendController extends ActionController implements LoggerAwareInterface
+class SemanticBackendController extends ActionController
 {
-    use LoggerAwareTrait;
-
     protected ModuleTemplateFactory $moduleTemplateFactory;
     protected PageAnalysisService $pageAnalysisService;
     protected ?PageRepository $pageRepository = null;
     protected ?FrontendInterface $cache = null;
     protected ExtensionConfiguration $extensionConfiguration;
     protected ?CacheManager $cacheManager = null;
+    protected LoggerInterface $logger;
 
     public function __construct(
         ModuleTemplateFactory $moduleTemplateFactory,
-        PageAnalysisService $pageAnalysisService
+        PageAnalysisService $pageAnalysisService,
+        LogManager $logManager
     ) {
         $this->moduleTemplateFactory = $moduleTemplateFactory;
         $this->pageAnalysisService = $pageAnalysisService;
+        $this->logger = $logManager->getLogger(__CLASS__);
     }
 
-        public function initializeObject()
+
+    public function initializeObject()
     {
         if ($this->cacheManager === null) {
             $this->cacheManager = GeneralUtility::makeInstance(CacheManager::class);
         }
-    }
-
-    public function injectLogger(LoggerInterface $logger): void
-    {
-        $this->setLogger($logger);
     }
 
     public function injectCacheManager(CacheManager $cacheManager): void
@@ -64,6 +59,7 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
         }
         return $this->cache;
     }
+
     
 
     
@@ -282,27 +278,30 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
             '0.0-0.2' => 0, '0.2-0.4' => 0, '0.4-0.6' => 0, '0.6-0.8' => 0, '0.8-1.0' => 0
         ] : [];
         $pagesSimilarityCount = [];
-
+    
         foreach ($analysisResults as $pageId => $pageData) {
             if ($calculateTopSimilarPairs) {
                 $pagesSimilarityCount[$pageId] = 0;
             }
+            $pageLanguage = $pageData['sys_language_uid'] ?? 0;
             foreach ($pageData['similarities'] as $similarPageId => $similarity) {
-                if ($pageId < $similarPageId) {
+                $similarPageLanguage = $analysisResults[$similarPageId]['sys_language_uid'] ?? 0;
+                if ($pageId < $similarPageId && $pageLanguage === $similarPageLanguage) {
                     $totalSimilarityScore += $similarity['score'];
                     if ($calculateTopSimilarPairs) {
                         $similarityPairs[] = [
                             'page1' => $pageId,
                             'page2' => $similarPageId,
-                            'score' => $similarity['score']
+                            'score' => $similarity['score'],
+                            'language' => $pageLanguage
                         ];
-                        
+    
                         if ($similarity['score'] >= $proximityThreshold) {
                             $pagesSimilarityCount[$pageId]++;
                             $pagesSimilarityCount[$similarPageId] = ($pagesSimilarityCount[$similarPageId] ?? 0) + 1;
                         }
                     }
-
+    
                     if ($calculateDistribution) {
                         if ($similarity['score'] < 0.2) $distributionScores['0.0-0.2']++;
                         elseif ($similarity['score'] < 0.4) $distributionScores['0.2-0.4']++;
@@ -333,6 +332,9 @@ class SemanticBackendController extends ActionController implements LoggerAwareI
 
         return $result;
     }
+
+
+
 
     private function calculateLanguageStatistics(array $pages): array
     {
