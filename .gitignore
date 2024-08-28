@@ -33,9 +33,11 @@ extension_report.json
 *.sql
 *.sqlite
 
+
 # Backup files
 *~
 *.bak
+*.zip
 
 # Configuration files that may contain sensitive information
 #/Configuration/

@@ -8,6 +8,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 # Changelog for Semantic Suggestion Extension
 
 
+# Changelog Version 1.3.2
+
+## Bug Fixes
+- Fixed dependency injection issue for logger in SemanticBackendController.
+- Fixed "Invalid service: the class is not set" error related to logger configuration.
+- Updated SemanticBackendController constructor signature to use LogManager instead of LoggerInterface.
+- Refactored services configuration in Services.yaml for better dependency management.
+- Removed use of LoggerAwareInterface and LoggerAwareTrait in SemanticBackendController.
+
+## Improvements
+- Optimized cache management for performance metrics.
+- Improved accuracy of performance metrics displayed in backend module.
+
+
+## Configuration changes
+- Updated logger service configuration in Services.yaml.
+- Added explicit configuration for TYPO3\CMS\Core\Log\LogManager in Services.yaml.
+
+## Performance
+- Improved cache management for scan results and performance metrics.
+- Separated scan results and performance metrics cache for better accuracy of displayed data.
+
+## Maintenance
+- Cleaned up code and removed unused imports in SemanticBackendController.
+- Updated internal code documentation to reflect changes.
+
+## Release notes
+- After updating, it is recommended to clear all TYPO3 caches to ensure the changes work properly.
+- Users using custom logger injection in SemanticBackendController will need to update their code to use LogManager.
+
+
+
 ## Changelog 1.3.0
 
 ## New Features
