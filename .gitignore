@@ -43,7 +43,6 @@ extension_report.json
 #/Configuration/
 
 # Test and documentation
-/Tests/
 /Documentation-GENERATED-temp/
 
 # Specific files to ignore
