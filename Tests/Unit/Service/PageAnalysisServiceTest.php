@@ -380,4 +380,484 @@ class PageAnalysisServiceTest extends UnitTestCase
     }
 
 
+    /**
+     * @test
+     */
+    public function identicalContentShouldHaveMaximumSimilarity(): void
+    {
+        $page1 = $page2 = [
+            'title' => ['content' => 'TYPO3 Development', 'weight' => 1.5],
+            'content' => ['content' => 'This is a test page about TYPO3 development', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+        $this->assertEquals(1.0, $result['semanticSimilarity'], 'Des pages identiques devraient avoir une similarité sémantique de 1.0');
+        $this->assertEquals(1.0, $result['finalSimilarity'], 'Des pages identiques devraient avoir une similarité finale de 1.0');
+    }
+
+    /**
+     * @test
+     */
+    public function completelyDifferentContentShouldHaveMinimumSimilarity(): void
+    {
+        $page1 = [
+            'title' => ['content' => 'TYPO3 Development', 'weight' => 1.5],
+            'content' => ['content' => 'This is about web development with TYPO3', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'title' => ['content' => 'Cooking Recipes', 'weight' => 1.5],
+            'content' => ['content' => 'How to make a delicious chocolate cake', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+        $this->assertLessThan(0.1, $result['semanticSimilarity'], 'Des pages complètement différentes devraient avoir une similarité sémantique proche de 0');
+        $this->assertLessThan(0.1, $result['finalSimilarity'], 'Des pages complètement différentes devraient avoir une similarité finale proche de 0');
+    }
+
+    /**
+     * @test
+     */
+    public function partiallyRelatedContentShouldHaveModerateSimilarity(): void
+    {
+        $page1 = [
+            'title' => ['content' => 'TYPO3 Development', 'weight' => 1.5],
+            'content' => ['content' => 'This is about web development with TYPO3', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'title' => ['content' => 'Web Development Tools', 'weight' => 1.5],
+            'content' => ['content' => 'Various tools used in modern web development', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+        $this->assertGreaterThan(0.3, $result['semanticSimilarity'], 'Des pages partiellement liées devraient avoir une similarité sémantique modérée');
+        $this->assertLessThan(0.7, $result['semanticSimilarity'], 'Des pages partiellement liées ne devraient pas avoir une similarité sémantique trop élevée');
+    }
+
+    /**
+     * @test
+     */
+    public function keywordsShouldHaveSignificantImpactOnSimilarity(): void
+    {
+        $page1 = [
+            'title' => ['content' => 'TYPO3 Guide', 'weight' => 1.5],
+            'keywords' => ['content' => 'TYPO3, CMS, web development', 'weight' => 2.0],
+            'content' => ['content' => 'A brief guide about TYPO3', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'title' => ['content' => 'Web Development with TYPO3', 'weight' => 1.5],
+            'keywords' => ['content' => 'TYPO3, web development, CMS', 'weight' => 2.0],
+            'content' => ['content' => 'Learn web development using TYPO3 CMS', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+        $this->assertGreaterThan(0.7, $result['semanticSimilarity'], 'Des pages avec des mots-clés très similaires devraient avoir une forte similarité sémantique');
+    }
+
+      /**
+     * @test
+     */
+    public function recencyWeightShouldAffectFinalSimilarity(): void
+    {
+        $recentPage = [
+            'title' => ['content' => 'TYPO3 News', 'weight' => 1.5],
+            'content' => ['content' => 'Recent updates in TYPO3', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $oldPage = [
+            'title' => ['content' => 'TYPO3 History', 'weight' => 1.5],
+            'content' => ['content' => 'The history of TYPO3 CMS', 'weight' => 1.0],
+            'content_modified_at' => time() - (365 * 24 * 60 * 60) // 1 year old
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$recentPage, $oldPage]);
+
+        $this->assertGreaterThan($result['semanticSimilarity'], $result['finalSimilarity'], 
+            'La similarité finale devrait être influencée par la récence');
+        $this->assertLessThan(1, $result['finalSimilarity'], 
+            'La similarité finale ne devrait pas atteindre 1 pour des pages avec des dates très différentes');
+    }
+
+    /**
+     * @test
+     */
+    public function shortContentShouldNotSkewSimilarityCalculation(): void
+    {
+        $shortPage = [
+            'title' => ['content' => 'TYPO3', 'weight' => 1.5],
+            'content' => ['content' => 'CMS', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $normalPage = [
+            'title' => ['content' => 'TYPO3 Content Management', 'weight' => 1.5],
+            'content' => ['content' => 'TYPO3 is a powerful and flexible content management system', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$shortPage, $normalPage]);
+
+        $this->assertGreaterThan(0, $result['semanticSimilarity'], 
+            'Même avec un contenu court, la similarité ne devrait pas être nulle');
+        $this->assertLessThan(0.8, $result['semanticSimilarity'], 
+            'La similarité ne devrait pas être trop élevée juste parce qu\'un contenu est court');
+    }
+
+    /**
+     * @test
+     */
+    public function fieldWeightsShouldInfluenceSimilarityCalculation(): void
+    {
+        $page1 = [
+            'title' => ['content' => 'TYPO3 Development', 'weight' => 1.5],
+            'keywords' => ['content' => 'CMS, web', 'weight' => 2.0],
+            'content' => ['content' => 'General content about TYPO3', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'title' => ['content' => 'Web Development', 'weight' => 1.5],
+            'keywords' => ['content' => 'CMS, web', 'weight' => 2.0],
+            'content' => ['content' => 'Content about web development', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+        $this->assertGreaterThan(0.5, $result['semanticSimilarity'], 
+            'Les mots-clés identiques avec un poids élevé devraient augmenter significativement la similarité');
+    }
+
+    /**
+     * @test
+     */
+    public function similarityCalculationShouldHandleMissingFields(): void
+    {
+        $page1 = [
+            'title' => ['content' => 'TYPO3 Guide', 'weight' => 1.5],
+            'content' => ['content' => 'A comprehensive guide to TYPO3', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'title' => ['content' => 'TYPO3 Tutorial', 'weight' => 1.5],
+            'keywords' => ['content' => 'TYPO3, CMS, tutorial', 'weight' => 2.0],
+            'content_modified_at' => time()
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+        $this->assertGreaterThan(0, $result['semanticSimilarity'], 
+            'La similarité devrait être calculée même avec des champs manquants');
+        $this->assertLessThan(0.8, $result['semanticSimilarity'], 
+            'La similarité ne devrait pas être trop élevée avec des champs manquants');
+    }
+
+    /**
+     * @test
+     */
+    public function extremelyLongContentShouldNotOverwhelmOtherFactors(): void
+    {
+        $normalPage = [
+            'title' => ['content' => 'TYPO3 Introduction', 'weight' => 1.5],
+            'content' => ['content' => 'A brief introduction to TYPO3 CMS', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $longPage = [
+            'title' => ['content' => 'TYPO3 Detailed Guide', 'weight' => 1.5],
+            'content' => ['content' => str_repeat('Detailed information about TYPO3 and its features. ', 1000), 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$normalPage, $longPage]);
+
+        $this->assertGreaterThan(0.2, $result['semanticSimilarity'], 
+            'Un contenu extrêmement long ne devrait pas réduire drastiquement la similarité');
+        $this->assertLessThan(0.9, $result['semanticSimilarity'], 
+            'Un contenu extrêmement long ne devrait pas dominer complètement le calcul de similarité');
+    }
+
+
+      /**
+     * @test
+     */
+    public function stopWordsShouldNotSignificantlyInfluenceSimilarity(): void
+    {
+        $page1 = [
+            'title' => ['content' => 'TYPO3 Development', 'weight' => 1.5],
+            'content' => ['content' => 'This is a page about TYPO3 development', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'title' => ['content' => 'TYPO3 Development Guide', 'weight' => 1.5],
+            'content' => ['content' => 'Here we have information on TYPO3 development', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+        $this->assertGreaterThan(0.7, $result['semanticSimilarity'], 
+            'Les mots vides ne devraient pas réduire significativement la similarité entre des pages au contenu similaire');
+    }
+
+    /**
+     * @test
+     */
+    public function similarityCalculationShouldBeCaseInsensitive(): void
+    {
+        $page1 = [
+            'title' => ['content' => 'TYPO3 Development', 'weight' => 1.5],
+            'content' => ['content' => 'Information about TYPO3 development', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'title' => ['content' => 'Typo3 development', 'weight' => 1.5],
+            'content' => ['content' => 'Information about Typo3 Development', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+        $this->assertGreaterThan(0.9, $result['semanticSimilarity'], 
+            'La similarité devrait être élevée indépendamment de la casse des mots');
+    }
+
+    /**
+     * @test
+     */
+    public function similarityCalculationShouldHandleMultilingualContent(): void
+    {
+        $page1 = [
+            'title' => ['content' => 'TYPO3 Development', 'weight' => 1.5],
+            'content' => ['content' => 'Information about TYPO3 development', 'weight' => 1.0],
+            'sys_language_uid' => 0,
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'title' => ['content' => 'Développement TYPO3', 'weight' => 1.5],
+            'content' => ['content' => 'Informations sur le développement TYPO3', 'weight' => 1.0],
+            'sys_language_uid' => 1,
+            'content_modified_at' => time()
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+        $this->assertGreaterThan(0.3, $result['semanticSimilarity'], 
+            'La similarité devrait être détectée même pour du contenu dans différentes langues');
+        $this->assertLessThan(0.7, $result['semanticSimilarity'], 
+            'La similarité ne devrait pas être trop élevée pour du contenu dans différentes langues');
+    }
+
+    /**
+     * @test
+     */
+    public function similarityCalculationShouldHandleSpecialCharacters(): void
+    {
+        $page1 = [
+            'title' => ['content' => 'TYPO3 & Web Development', 'weight' => 1.5],
+            'content' => ['content' => 'TYPO3 is great for web-development!', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'title' => ['content' => 'TYPO3 and Web Development', 'weight' => 1.5],
+            'content' => ['content' => 'TYPO3 is excellent for web development.', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+        $this->assertGreaterThan(0.8, $result['semanticSimilarity'], 
+            'Les caractères spéciaux ne devraient pas affecter significativement le calcul de similarité');
+    }
+
+    /**
+     * @test
+     */
+    public function similarityCalculationShouldHandleNumericalContent(): void
+    {
+        $page1 = [
+            'title' => ['content' => 'TYPO3 version 10', 'weight' => 1.5],
+            'content' => ['content' => 'TYPO3 v10 was released in 2020', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'title' => ['content' => 'TYPO3 10.4 LTS', 'weight' => 1.5],
+            'content' => ['content' => 'TYPO3 version 10.4 LTS was released in 2020', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+        $this->assertGreaterThan(0.7, $result['semanticSimilarity'], 
+            'Le contenu numérique devrait être pris en compte dans le calcul de similarité');
+    }
+
+
+      /**
+     * @test
+     */
+    public function similarityCalculationShouldHandleEmptyContent(): void
+    {
+        $page1 = [
+            'title' => ['content' => 'TYPO3', 'weight' => 1.5],
+            'content' => ['content' => '', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'title' => ['content' => 'TYPO3 CMS', 'weight' => 1.5],
+            'content' => ['content' => 'Content Management System', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+        $this->assertGreaterThan(0, $result['semanticSimilarity'], 
+            'La similarité ne devrait pas être nulle même avec un contenu vide');
+        $this->assertLessThan(0.5, $result['semanticSimilarity'], 
+            'La similarité ne devrait pas être trop élevée avec un contenu vide');
+    }
+
+    /**
+     * @test
+     */
+    public function similarityCalculationShouldHandleDuplicateWords(): void
+    {
+        $page1 = [
+            'title' => ['content' => 'TYPO3 TYPO3 TYPO3', 'weight' => 1.5],
+            'content' => ['content' => 'TYPO3 is a CMS', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'title' => ['content' => 'TYPO3 Content Management', 'weight' => 1.5],
+            'content' => ['content' => 'TYPO3 is a content management system', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+        $this->assertGreaterThan(0.5, $result['semanticSimilarity'], 
+            'La répétition de mots ne devrait pas augmenter excessivement la similarité');
+        $this->assertLessThan(0.9, $result['semanticSimilarity'], 
+            'La similarité ne devrait pas être trop élevée malgré la répétition de mots');
+    }
+
+    /**
+     * @test
+     */
+    public function similarityCalculationShouldConsiderWordOrder(): void
+    {
+        $page1 = [
+            'title' => ['content' => 'TYPO3 Development Guide', 'weight' => 1.5],
+            'content' => ['content' => 'A guide for TYPO3 development', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'title' => ['content' => 'Development Guide for TYPO3', 'weight' => 1.5],
+            'content' => ['content' => 'TYPO3 development: a comprehensive guide', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+        $this->assertGreaterThan(0.7, $result['semanticSimilarity'], 
+            'L\'ordre des mots ne devrait pas trop affecter la similarité pour un contenu similaire');
+    }
+
+    /**
+     * @test
+     */
+    public function similarityCalculationShouldHandleLongPhrases(): void
+    {
+        $page1 = [
+            'title' => ['content' => 'TYPO3 Content Management System', 'weight' => 1.5],
+            'content' => ['content' => 'TYPO3 is an enterprise-class open source content management system', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'title' => ['content' => 'Enterprise CMS TYPO3', 'weight' => 1.5],
+            'content' => ['content' => 'An open source system for managing enterprise-level content', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+        $this->assertGreaterThan(0.5, $result['semanticSimilarity'], 
+            'Les phrases longues avec un sens similaire devraient avoir une similarité significative');
+    }
+
+    /**
+     * @test
+     */
+    public function recencyBoostShouldNotOverrideSemanticallyDissimilarContent(): void
+    {
+        $recentPage = [
+            'title' => ['content' => 'Latest TYPO3 News', 'weight' => 1.5],
+            'content' => ['content' => 'Recent updates in TYPO3 community', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $oldButRelevantPage = [
+            'title' => ['content' => 'TYPO3 Core Features', 'weight' => 1.5],
+            'content' => ['content' => 'Fundamental features of TYPO3 CMS', 'weight' => 1.0],
+            'content_modified_at' => time() - (365 * 24 * 60 * 60) // 1 year old
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$recentPage, $oldButRelevantPage]);
+
+        $this->assertGreaterThan($result['recencyBoost'], $result['semanticSimilarity'], 
+            'La similarité sémantique devrait avoir plus de poids que le boost de récence pour du contenu pertinent');
+    }
+
+    /**
+     * @test
+     */
+    public function similarityCalculationShouldHandleExtremeCases(): void
+    {
+        $emptyPage = [
+            'title' => ['content' => '', 'weight' => 1.5],
+            'content' => ['content' => '', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $veryLongPage = [
+            'title' => ['content' => 'TYPO3', 'weight' => 1.5],
+            'content' => ['content' => str_repeat('TYPO3 is a content management system. ', 1000), 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$emptyPage, $veryLongPage]);
+
+        $this->assertEquals(0, $result['semanticSimilarity'], 
+            'La similarité sémantique devrait être nulle entre une page vide et une page très longue');
+        $this->assertGreaterThan(0, $result['finalSimilarity'], 
+            'La similarité finale ne devrait pas être nulle à cause du facteur de récence');
+    }
+
+    /**
+     * @test
+     */
+    public function similarityCalculationShouldBeConsistentRegardlessOfPageOrder(): void
+    {
+        $page1 = [
+            'title' => ['content' => 'TYPO3 Development', 'weight' => 1.5],
+            'content' => ['content' => 'Guide to TYPO3 development', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'title' => ['content' => 'TYPO3 Administration', 'weight' => 1.5],
+            'content' => ['content' => 'Guide to TYPO3 administration', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+
+        $result1 = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+        $result2 = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page2, $page1]);
+
+        $this->assertEquals($result1['semanticSimilarity'], $result2['semanticSimilarity'], 
+            'Le calcul de similarité devrait être symétrique');
+    }
 }

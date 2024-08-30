@@ -161,7 +161,9 @@ class PageAnalysisService implements LoggerAwareInterface
         $startTime = microtime(true);
 
         if (empty($pages)) {
-            $this->logger->warning('No pages provided for analysis');
+            if ($this->logger) {
+                $this->logger->warning('No pages provided for analysis');
+            }
             return [
                 'results' => [],
                 'metrics' => [

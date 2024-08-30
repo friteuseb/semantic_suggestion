@@ -32,4 +32,9 @@
         <ini name="display_errors" value="1"/>
         <env name="TYPO3_CONTEXT" value="Testing"/>
     </php>
+
+    <extensions>
+        <extension class="TalanHdf\SemanticSuggestion\Tests\Extension\FrenchTestReportExtension"/>
+    </extensions>
+
 </phpunit>
