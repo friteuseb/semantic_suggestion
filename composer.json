@@ -15,9 +15,11 @@
     },
     "autoload": {
         "psr-4": {
-            "TalanHdf\\SemanticSuggestion\\": "Classes/"
+            "TalanHdf\\SemanticSuggestion\\": "Classes/",
+            "TalanHdf\\SemanticSuggestion\\Tests\\": "Tests/"
         }
     },
+
     "extra": {
         "typo3/cms": {
             "extension-key": "semantic_suggestion"

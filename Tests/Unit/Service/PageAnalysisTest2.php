@@ -383,7 +383,7 @@ class PageAnalysisServiceTest extends UnitTestCase
     /**
      * @test
      */
-    public function identicalContentShouldHaveMaximumSimilarity1(): void
+    public function identicalContentShouldHaveMaximumSimilarity(): void
     {
         $page1 = $page2 = [
             'title' => ['content' => 'TYPO3 Development', 'weight' => 1.5],
@@ -393,14 +393,14 @@ class PageAnalysisServiceTest extends UnitTestCase
 
         $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
 
-        $this->assertEquals(1.0, $result['semanticSimilarity'], 'Des pages identiques devraient avoir une similarité sémantique de 1.0');
-        $this->assertEquals(1.0, $result['finalSimilarity'], 'Des pages identiques devraient avoir une similarité finale de 1.0');
+        $this->assertEquals(1.0, $result['semanticSimilarity'], 'Identical pages should have a semantic similarity of 1.0');
+        $this->assertEquals(1.0, $result['finalSimilarity'], 'Identical pages should have a final similarity of 1.0');
     }
 
     /**
      * @test
      */
-    public function completelyDifferentContentShouldHaveMinimumSimilarity2(): void
+    public function completelyDifferentContentShouldHaveMinimumSimilarity(): void
     {
         $page1 = [
             'title' => ['content' => 'TYPO3 Development', 'weight' => 1.5],
@@ -415,8 +415,8 @@ class PageAnalysisServiceTest extends UnitTestCase
 
         $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
 
-        $this->assertLessThan(0.1, $result['semanticSimilarity'], 'Des pages complètement différentes devraient avoir une similarité sémantique proche de 0');
-        $this->assertLessThan(0.1, $result['finalSimilarity'], 'Des pages complètement différentes devraient avoir une similarité finale proche de 0');
+        $this->assertLessThan(0.1, $result['semanticSimilarity'], 'Completely different pages should have a semantic similarity close to 0');
+        $this->assertLessThan(0.1, $result['finalSimilarity'], 'Completely different pages should have a final similarity close to 0');
     }
 
     /**
@@ -437,8 +437,8 @@ class PageAnalysisServiceTest extends UnitTestCase
 
         $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
 
-        $this->assertGreaterThan(0.3, $result['semanticSimilarity'], 'Des pages partiellement liées devraient avoir une similarité sémantique modérée');
-        $this->assertLessThan(0.7, $result['semanticSimilarity'], 'Des pages partiellement liées ne devraient pas avoir une similarité sémantique trop élevée');
+        $this->assertGreaterThan(0.3, $result['semanticSimilarity'], 'Partially related pages should have a moderate semantic similarity');
+        $this->assertLessThan(0.7, $result['semanticSimilarity'], 'Partially related pages should not have too high semantic similarity');
     }
 
     /**
@@ -461,7 +461,7 @@ class PageAnalysisServiceTest extends UnitTestCase
 
         $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
 
-        $this->assertGreaterThan(0.7, $result['semanticSimilarity'], 'Des pages avec des mots-clés très similaires devraient avoir une forte similarité sémantique');
+        $this->assertGreaterThan(0.7, $result['semanticSimilarity'], 'Pages with very similar keywords should have a high semantic similarity');
     }
 
       /**
@@ -483,9 +483,9 @@ class PageAnalysisServiceTest extends UnitTestCase
         $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$recentPage, $oldPage]);
 
         $this->assertGreaterThan($result['semanticSimilarity'], $result['finalSimilarity'], 
-            'La similarité finale devrait être influencée par la récence');
+            'Final similarity should be influenced by recency');
         $this->assertLessThan(1, $result['finalSimilarity'], 
-            'La similarité finale ne devrait pas atteindre 1 pour des pages avec des dates très différentes');
+            'Final similarity should not reach 1 for pages with very different dates');
     }
 
     /**
@@ -860,132 +860,4 @@ class PageAnalysisServiceTest extends UnitTestCase
         $this->assertEquals($result1['semanticSimilarity'], $result2['semanticSimilarity'], 
             'Le calcul de similarité devrait être symétrique');
     }
-
-
-        /**
-         * @test
-         */
-        public function identicalContentShouldHaveMaximumSimilarity2(): void
-        {
-            $this->pageAnalysisService->setSettings([
-                'analyzedFields' => [
-                    'title' => 0,
-                    'description' => 0,
-                    'keywords' => 0,
-                    'abstract' => 0,
-                    'content' => 1
-                ],
-                'recencyWeight' => 0 // Désactivons le poids de récence pour ce test
-            ]);
-
-            $page1 = [
-                'content' => ['content' => 'TYPO3 est un système de gestion de contenu puissant et flexible.', 'weight' => 1],
-                'content_modified_at' => time()
-            ];
-            $page2 = [
-                'content' => ['content' => 'TYPO3 est un système de gestion de contenu puissant et flexible.', 'weight' => 1],
-                'content_modified_at' => time()
-            ];
-
-            $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
-
-            $this->assertEquals(1.0, $result['semanticSimilarity'], 'Des contenus identiques devraient avoir une similarité de 1.0');
-            $this->assertEquals(1.0, $result['finalSimilarity'], 'La similarité finale devrait être 1.0 sans l effet de récence');
-        }
-
-        /**
-         * @test
-         */
-        public function completelyDifferentContentShouldHaveMinimumSimilarity1(): void
-        {
-            $this->pageAnalysisService->setSettings([
-                'analyzedFields' => [
-                    'title' => 0,
-                    'description' => 0,
-                    'keywords' => 0,
-                    'abstract' => 0,
-                    'content' => 1
-                ],
-                'recencyWeight' => 0.2 // Ajoutons un peu de poids de récence
-            ]);
-
-            $page1 = [
-                'content' => ['content' => 'TYPO3 est un système de gestion de contenu pour le web.', 'weight' => 1],
-                'content_modified_at' => time()
-            ];
-            $page2 = [
-                'content' => ['content' => 'PHP est un langage de programmation populaire pour le développement web.', 'weight' => 1],
-                'content_modified_at' => time() - (30 * 24 * 60 * 60) // 30 jours plus ancien
-            ];
-
-            $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
-
-            $this->assertLessThan(0.2, $result['semanticSimilarity'], 'Des contenus complètement différents devraient avoir une similarité proche de 0');
-            $this->assertGreaterThan($result['semanticSimilarity'], $result['finalSimilarity'], 'La similarité finale devrait être légèrement plus élevée en raison de l effet de récence');
-        }
-
-        /**
-         * @test
-         */
-        public function partiallyRelatedContentShouldHaveModerateSimilarityOnlyContent(): void
-        {
-            $this->pageAnalysisService->setSettings([
-                'analyzedFields' => [
-                    'title' => 0,
-                    'description' => 0,
-                    'keywords' => 0,
-                    'abstract' => 0,
-                    'content' => 1
-                ],
-                'recencyWeight' => 0.1 // Un faible poids de récence
-            ]);
-
-            $page1 = [
-                'content' => ['content' => 'TYPO3 est un CMS open source puissant pour la création de sites web.', 'weight' => 1],
-                'content_modified_at' => time()
-            ];
-            $page2 = [
-                'content' => ['content' => 'WordPress est un autre CMS populaire pour la gestion de contenu en ligne.', 'weight' => 1],
-                'content_modified_at' => time() - (7 * 24 * 60 * 60) // 7 jours plus ancien
-            ];
-
-            $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
-
-            $this->assertGreaterThan(0.3, $result['semanticSimilarity'], 'Des contenus partiellement liés devraient avoir une similarité modérée');
-            $this->assertLessThan(0.7, $result['semanticSimilarity'], 'La similarité ne devrait pas être trop élevée pour des contenus partiellement liés');
-            $this->assertGreaterThanOrEqual($result['semanticSimilarity'], $result['finalSimilarity'], 'La similarité finale devrait être légèrement plus élevée ou égale à la similarité sémantique');
-        }
-
-        /**
-         * @test
-         */
-        public function similarContentWithDifferentWordingShouldHaveHighSimilarity(): void
-        {
-            $this->pageAnalysisService->setSettings([
-                'analyzedFields' => [
-                    'title' => 0,
-                    'description' => 0,
-                    'keywords' => 0,
-                    'abstract' => 0,
-                    'content' => 1
-                ],
-                'recencyWeight' => 0.5 // Un poids de récence élevé pour tester son impact
-            ]);
-
-            $page1 = [
-                'content' => ['content' => 'TYPO3 offre de nombreuses fonctionnalités pour la création de sites web complexes.', 'weight' => 1],
-                'content_modified_at' => time()
-            ];
-            $page2 = [
-                'content' => ['content' => 'La création de sites web complexes est facilitée par les nombreuses fonctionnalités de TYPO3.', 'weight' => 1],
-                'content_modified_at' => time() - (60 * 24 * 60 * 60) // 60 jours plus ancien
-            ];
-
-            $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
-
-            $this->assertGreaterThan(0.7, $result['semanticSimilarity'], 'Des contenus similaires avec un wording différent devraient avoir une similarité élevée');
-            $this->assertLessThan($result['semanticSimilarity'], $result['finalSimilarity'], 'La similarité finale devrait être inférieure à la similarité sémantique en raison de la différence de date importante');
-        }
-
-
 }

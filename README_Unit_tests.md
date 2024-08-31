@@ -1,69 +1,127 @@
-# Explications détaillées des tests de PageAnalysisService
+## Tests Unitaires pour PageAnalysisService
 
-1. **Get weighted words returns correct weights**
-   - Objectif : Vérifier que la méthode `getWeightedWords` attribue correctement les poids aux mots en fonction de leur emplacement et du poids du champ.
-   - Problème actuel : Le mot "test" a un poids de 2.5 au lieu de 1.5 attendu.
-   - Analyse : Il semble que le poids soit cumulatif si un mot apparaît dans plusieurs champs. Vérifiez si c'est le comportement souhaité ou s'il faut ajuster la logique.
+Ce document détaille les tests unitaires implémentés pour la classe `PageAnalysisService`, en expliquant leur objectif et leur fonctionnement.
 
-2. **Calculate similarity returns expected values for similar pages**
-   - Objectif : S'assurer que deux pages avec un contenu similaire obtiennent un score de similarité élevé (>0.7).
-   - Problème actuel : La similarité calculée (0.6018) est inférieure au seuil attendu (0.7).
-   - Analyse : Soit le calcul de similarité est trop strict, soit les attentes du test sont trop élevées. Réviser la méthode de calcul ou ajuster les seuils du test.
+**Tests de Base**
 
-3. **Calculate similarity returns low values for dissimilar pages**
-   - Objectif : Vérifier que des pages avec un contenu différent obtiennent un faible score de similarité.
-   - Statut : Test réussi.
+* **getWeightedWordsReturnsCorrectWeights**
+   * Vérifie que la méthode `getWeightedWords` calcule correctement les poids des mots en fonction des champs analysés et de leurs poids respectifs.
 
-4. **Calculate similarity handles empty fields**
-   - Objectif : S'assurer que le calcul de similarité fonctionne correctement même lorsque certains champs sont vides.
-   - Statut : Test réussi.
+* **calculateSimilarityReturnsExpectedValuesForSimilarPages**
+   * S'assure que la méthode `calculateSimilarity` renvoie des valeurs de similarité élevées pour des pages ayant un contenu similaire.
+   * Vérifie également que le "boost de récence" est faible pour des pages modifiées à des dates proches.
 
-5. **Recency weight affects final similarity**
-   - Objectif : Vérifier que le poids de récence influence correctement le score de similarité final.
-   - Problème actuel : La similarité avec un poids de récence faible est inférieure à celle avec un poids élevé, ce qui est contre-intuitif.
-   - Analyse : Revoir la logique d'application du poids de récence dans le calcul de similarité finale.
+* **calculateSimilarityReturnsLowValuesForDissimilarPages**
+   * Confirme que la similarité est faible pour des pages au contenu très différent.
+   * Le "boost de récence" devrait être élevé pour des pages modifiées à des dates éloignées.
 
-6. **Similarity calculation with missing fields**
-   - Objectif : Tester le comportement du calcul de similarité lorsque certains champs sont manquants.
-   - Statut : Test réussi.
+* **calculateSimilarityHandlesEmptyFields**
+   * Gère le cas où certains champs analysés sont vides. La similarité devrait toujours être calculable, mais inférieure à 1.
 
-7. **Similarity calculation with different field weights**
-   - Objectif : Vérifier que les poids différents attribués aux champs influencent correctement le calcul de similarité.
-   - Statut : Test réussi.
+* **recencyWeightAffectsFinalSimilarity**
+   * Vérifie que le paramètre `recencyWeight` influence correctement la similarité finale, en favorisant les pages récentes lorsque le poids est élevé.
 
-8. **Similarity calculation with keywords**
-   - Objectif : Tester l'impact des mots-clés sur le calcul de similarité.
-   - Statut : Test réussi.
+* **similarityCalculationWithMissingFields**
+   * Teste le calcul de similarité lorsque des champs sont complètement absents dans une des pages.
 
-9. **Find common keywords returns correct results**
-   - Objectif : S'assurer que la méthode identifie correctement les mots-clés communs entre deux pages.
-   - Statut : Test réussi.
+* **similarityCalculationWithDifferentFieldWeights**
+   * S'assure que les différents poids attribués aux champs sont pris en compte dans le calcul de similarité.
 
-10. **Determine relevance returns correct category**
-    - Objectif : Vérifier que la catégorisation de la pertinence (High, Medium, Low) est correcte en fonction du score de similarité.
-    - Statut : Test réussi.
+* **similarityCalculationWithKeywords**
+   * Vérifie que les mots-clés, avec leur poids potentiellement élevé, influencent significativement la similarité.
 
-11. **Calculate recency boost returns expected values**
-    - Objectif : Tester que le boost de récence est calculé correctement en fonction des dates de modification des pages.
-    - Statut : Test réussi.
+* **findCommonKeywordsReturnsCorrectResults**
+   * Teste la méthode `findCommonKeywords`, qui identifie les mots-clés communs entre deux pages.
 
-12. **Calculate field similarity handles empty fields**
-    - Objectif : S'assurer que le calcul de similarité pour des champs individuels gère correctement les champs vides.
-    - Statut : Test réussi.
+* **determineRelevanceReturnsCorrectCategory**
+   * S'assure que la méthode `determineRelevance` catégorise correctement la pertinence en fonction de la similarité calculée (Haute, Moyenne, Basse).
 
-13. **Analyze pages should handle empty input**
-    - Objectif : Vérifier que la méthode `analyzePages` gère correctement un input vide sans erreur.
-    - Statut : Test réussi après correction.
+* **calculateRecencyBoostReturnsExpectedValues**
+   * Vérifie que le "boost de récence" est calculé correctement, en favorisant les pages les plus récentes.
 
-14. **Prepare page data handles all configured fields**
-    - Objectif : S'assurer que tous les champs configurés, y compris 'abstract', sont correctement préparés.
-    - Problème actuel : Le champ 'abstract' est manquant dans les données préparées.
-    - Analyse : Vérifier que tous les champs configurés sont bien pris en compte dans la méthode `preparePageData`.
+* **calculateFieldSimilarityHandlesEmptyFields**
+   * Gère le cas où le contenu d'un champ est vide ou absent lors du calcul de similarité pour ce champ spécifique.
 
-15. **Similarity calculation with large content difference**
-    - Objectif : Tester le calcul de similarité avec des pages ayant un contenu très différent.
-    - Statut : Test réussi.
+* **analyzePagesShouldHandleEmptyInput**
+   * Teste le comportement de la méthode principale `analyzePages` lorsqu'on lui fournit une liste de pages vide.
 
-16. **Similarity calculation with identical content**
-    - Objectif : Vérifier que des pages avec un contenu identique obtiennent un score de similarité maximal.
-    - Statut : Test réussi.
+* **preparePageDataHandlesAllConfiguredFields**
+   * Vérifie que la méthode `preparePageData` prépare correctement les données de chaque page, en incluant tous les champs configurés pour l'analyse.
+
+**Tests de Robustesse et Cas Limites**
+
+* **similarityCalculationWithLargeContentDifference**
+   * S'assure que la similarité reste faible même si une page a un contenu beaucoup plus long que l'autre.
+
+* **similarityCalculationWithIdenticalContent**
+   * Vérifie que la similarité est maximale (1.0) pour des pages identiques.
+
+* **identicalContentShouldHaveMaximumSimilarity**
+   * Idem que le précédent, mais formulé différemment pour plus de clarté.
+
+* **completelyDifferentContentShouldHaveMinimumSimilarity**
+   * Confirme que la similarité est minimale (proche de 0) pour des pages complètement différentes.
+
+* **partiallyRelatedContentShouldHaveModerateSimilarity**
+   * Vérifie que la similarité est modérée pour des pages partiellement liées.
+
+* **keywordsShouldHaveSignificantImpactOnSimilarity**
+   * Réaffirme l'importance des mots-clés dans le calcul de similarité.
+
+* **recencyWeightShouldAffectFinalSimilarity**
+   * Illustre à nouveau l'influence du poids de récence sur la similarité finale.
+
+* **shortContentShouldNotSkewSimilarityCalculation**
+   * S'assure qu'un contenu très court dans une page ne fausse pas le calcul de similarité.
+
+* **fieldWeightsShouldInfluenceSimilarityCalculation**
+   * Démontre que les poids attribués aux différents champs sont bien pris en compte.
+
+* **similarityCalculationShouldHandleMissingFields**
+   * Même test que `similarityCalculationWithMissingFields`, mais avec une formulation légèrement différente.
+
+* **extremelyLongContentShouldNotOverwhelmOtherFactors**
+   * Vérifie qu'un contenu extrêmement long ne domine pas complètement le calcul de similarité, laissant de la place aux autres facteurs.
+
+* **stopWordsShouldNotSignificantlyInfluenceSimilarity**
+   * Confirme que les "stop words" (mots courants peu significatifs) n'ont pas un impact majeur sur la similarité.
+
+* **similarityCalculationShouldBeCaseInsensitive**
+   * S'assure que la casse (majuscules/minuscules) n'influence pas le calcul de similarité.
+
+* **similarityCalculationShouldHandleMultilingualContent**
+   * Vérifie que la similarité peut être détectée même entre des contenus dans différentes langues.
+
+* **similarityCalculationShouldHandleSpecialCharacters**
+   * Les caractères spéciaux ne devraient pas poser de problème pour le calcul de similarité
+
+* **similarityCalculationShouldHandleNumericalContent**
+   * Le contenu numérique (chiffres, dates, etc.) est pris en compte dans la similarité
+
+* **similarityCalculationShouldHandleEmptyContent**
+   * Gère le cas où le contenu d'une page est vide
+
+* **similarityCalculationShouldHandleDuplicateWords**
+   * La répétition excessive de mots ne devrait pas augmenter artificiellement la similarité
+
+* **similarityCalculationShouldConsiderWordOrder**
+   * L'ordre des mots est pris en compte, mais ne devrait pas être le facteur dominant
+
+* **similarityCalculationShouldHandleLongPhrases**
+   * Les phrases longues et complexes sont gérées correctement
+
+* **recencyBoostShouldNotOverrideSemanticallyDissimilarContent**
+   * Même si une page est récente, elle ne devrait pas être considérée similaire à une page ancienne si leur contenu est très différent
+
+* **similarityCalculationShouldHandleExtremeCases**
+   * Teste des cas limites comme une page vide ou une page extrêmement longue
+
+* **similarityCalculationShouldBeConsistentRegardlessOfPageOrder**
+   * Le calcul de similarité doit être le même quel que soit l'ordre dans lequel les pages sont comparées
+
+**Conclusion**
+
+Ces tests unitaires couvrent un large éventail de scénarios pour garantir que la classe `PageAnalysisService` fonctionne correctement et de manière robuste dans diverses situations. Ils valident la logique de calcul de similarité, la prise en compte des différents facteurs (poids des champs, récence, etc.), et la gestion des cas particuliers ou limites.
+
+**Note:** Certains tests peuvent sembler redondants, mais ils sont formulés différemment pour souligner des aspects spécifiques du comportement attendu de la classe.
+
