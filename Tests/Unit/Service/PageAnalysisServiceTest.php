@@ -2,35 +2,215 @@
 namespace TalanHdf\SemanticSuggestion\Tests\Unit\Service;
 
 use TalanHdf\SemanticSuggestion\Service\PageAnalysisService;
+use TalanHdf\SemanticSuggestion\Service\StopWordsService;
 use TYPO3\TestingFramework\Core\Unit\UnitTestCase;
 use TYPO3\CMS\Core\Context\Context;
+use TYPO3\CMS\Core\Context\LanguageAspect;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 
 class PageAnalysisServiceTest extends UnitTestCase
 {
     protected $pageAnalysisService;
+    protected $stopWordsServiceMock;
+    protected $contextMock;
+    protected $languageAspectMock;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->resetSingletonInstances = true;
-
-        $contextMock = $this->createMock(Context::class);
-        $configManagerMock = $this->createMock(ConfigurationManagerInterface::class);
-
-        $this->pageAnalysisService = new PageAnalysisService($contextMock, $configManagerMock);
         
-        // Définir les paramètres de base pour les tests
-        $this->pageAnalysisService->setSettings([
-            'analyzedFields' => [
-                'title' => 1.5,
-                'description' => 1.0,
-                'keywords' => 2.0,
-                'content' => 1.0
-            ],
-            'recencyWeight' => 0.2
-        ]);
+        $this->languageAspectMock = $this->createMock(LanguageAspect::class);
+        $this->languageAspectMock->method('getId')->willReturn(0); // Default to language ID 0
+
+        $this->contextMock = $this->createMock(Context::class);
+        $this->contextMock->method('getAspect')->with('language')->willReturn($this->languageAspectMock);
+
+        $configManagerMock = $this->createMock(ConfigurationManagerInterface::class);
+        $this->stopWordsServiceMock = $this->createMock(StopWordsService::class);
+
+        $this->pageAnalysisService = new PageAnalysisService(
+            $this->contextMock, 
+            $configManagerMock, 
+            null, 
+            $this->stopWordsServiceMock
+        );
     }
+
+    
+    /**
+     * @test
+     */
+    public function correctLanguageIsDetectedForStopWordsRemoval()
+    {
+        $languageAspectMock = $this->createMock(LanguageAspect::class);
+        $languageAspectMock->method('getLanguageId')->willReturn(1); // Assuming 1 is French
+
+        $this->contextMock->method('getAspect')->with('language')->willReturn($languageAspectMock);
+
+        $this->stopWordsServiceMock->expects($this->once())
+            ->method('removeStopWords')
+            ->with($this->anything(), 'fr') // Expecting French language code
+            ->willReturn('content sans mots vides');
+
+        $pageData = [
+            'title' => ['content' => 'Le titre en français', 'weight' => 1.5],
+            'content' => ['content' => 'Le contenu en français avec des mots vides', 'weight' => 1.0],
+        ];
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'preparePageData', [$pageData, 1]);
+
+        $this->assertArrayHasKey('title', $result);
+        $this->assertArrayHasKey('content', $result);
+    }
+
+    /**
+     * @test
+     */
+    public function stopWordsAreCorrectlyRemovedForDifferentLanguages()
+    {
+        $languages = ['en' => 0, 'fr' => 1, 'de' => 2]; // Example language mappings
+
+        foreach ($languages as $langCode => $langId) {
+            $languageAspectMock = $this->createMock(LanguageAspect::class);
+            $languageAspectMock->method('getLanguageId')->willReturn($langId);
+
+            $this->contextMock->method('getAspect')->with('language')->willReturn($languageAspectMock);
+
+            $this->stopWordsServiceMock->expects($this->once())
+                ->method('removeStopWords')
+                ->with($this->anything(), $langCode)
+                ->willReturn("content without stopwords for {$langCode}");
+
+            $pageData = [
+                'title' => ['content' => "Title in {$langCode}", 'weight' => 1.5],
+                'content' => ['content' => "Content with stopwords in {$langCode}", 'weight' => 1.0],
+            ];
+
+            $result = $this->invokeMethod($this->pageAnalysisService, 'preparePageData', [$pageData, $langId]);
+
+            $this->assertEquals("content without stopwords for {$langCode}", $result['content']['content']);
+        }
+    }
+
+
+        /**
+         * @test
+         */
+        public function stopWordsServiceUsesCorrectLanguageFile()
+        {
+            $stopWordsService = new StopWordsService();
+            $availableLanguages = $stopWordsService->getAvailableLanguages();
+
+            $this->assertContains('en', $availableLanguages, 'English stopwords should be available');
+            $this->assertContains('fr', $availableLanguages, 'French stopwords should be available');
+            $this->assertContains('de', $availableLanguages, 'German stopwords should be available');
+
+            // Test removal of stopwords for each language
+            $testCases = [
+                'en' => ['input' => 'This is a test sentence', 'expected' => 'test sentence'],
+                'fr' => ['input' => 'Ceci est une phrase de test', 'expected' => 'phrase test'],
+                'de' => ['input' => 'Dies ist ein Testsatz', 'expected' => 'Testsatz'],
+            ];
+
+            foreach ($testCases as $lang => $case) {
+                $result = $stopWordsService->removeStopWords($case['input'], $lang);
+                $this->assertEquals($case['expected'], $result, "Stopwords not correctly removed for {$lang}");
+            }
+        }
+
+
+
+        /**
+         * @test
+         */
+        public function stopWordsAreRemovedBeforeSimilarityCalculation()
+        {
+            $page1 = [
+                'title' => ['content' => 'The TYPO3 CMS', 'weight' => 1.5],
+                'content' => ['content' => 'TYPO3 is a content management system', 'weight' => 1.0],
+                'content_modified_at' => time()
+            ];
+            $page2 = [
+                'title' => ['content' => 'A Web Development Framework', 'weight' => 1.5],
+                'content' => ['content' => 'TYPO3 can be used for web development', 'weight' => 1.0],
+                'content_modified_at' => time()
+            ];
+
+            $this->stopWordsServiceMock->expects($this->exactly(4))
+                ->method('removeStopWords')
+                ->willReturnOnConsecutiveCalls(
+                    'typo3 cms',
+                    'typo3 content management system',
+                    'web development framework',
+                    'typo3 used web development'
+                );
+
+            $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+            $this->assertGreaterThan(0.5, $result['semanticSimilarity'], 'Similarity should be significant even after stop words removal');
+            $this->assertLessThan(1.0, $result['semanticSimilarity'], 'Similarity should not be perfect due to different content');
+        }
+
+   
+
+    /**
+     * @test
+     */
+    public function similarityCalculationHandlesMultilingualContentWithStopWords()
+    {
+        $page1 = [
+            'title' => ['content' => 'TYPO3 Development', 'weight' => 1.5],
+            'content' => ['content' => 'Information about TYPO3 development', 'weight' => 1.0],
+            'sys_language_uid' => 0,
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'title' => ['content' => 'Développement TYPO3', 'weight' => 1.5],
+            'content' => ['content' => 'Informations sur le développement TYPO3', 'weight' => 1.0],
+            'sys_language_uid' => 1,
+            'content_modified_at' => time()
+        ];
+
+        $this->stopWordsServiceMock->expects($this->exactly(4))
+            ->method('removeStopWords')
+            ->withConsecutive(
+                ['TYPO3 Development', 'en'],
+                ['Information about TYPO3 development', 'en'],
+                ['Développement TYPO3', 'fr'],
+                ['Informations sur le développement TYPO3', 'fr']
+            )
+            ->willReturnOnConsecutiveCalls(
+                'typo3 development',
+                'information typo3 development',
+                'développement typo3',
+                'informations développement typo3'
+            );
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+        $this->assertGreaterThan(0.5, $result['semanticSimilarity'], 
+            'Similarity should be detected even for content in different languages after stop words removal');
+        $this->assertLessThan(0.9, $result['semanticSimilarity'], 
+            'Similarity should not be too high for content in different languages');
+    }
+
+    /**
+     * Helper method to invoke private methods
+     *
+     * @param object &$object    Instanced object that we will run method on
+     * @param string $methodName Method name to call
+     * @param array  $parameters Array of parameters to pass into method
+     *
+     * @return mixed Method return
+     */
+    private function invokeMethod(&$object, $methodName, array $parameters = [])
+    {
+        $reflection = new \ReflectionClass(get_class($object));
+        $method = $reflection->getMethod($methodName);
+        $method->setAccessible(true);
+        return $method->invokeArgs($object, $parameters);
+    }
+
 
     /**
      * @test
@@ -48,6 +228,38 @@ class PageAnalysisServiceTest extends UnitTestCase
         $this->assertEquals(2.5, $result['title'], 'The word "title" should have a weight of 1.5 from the title');
         $this->assertEquals(1.0, $result['content'], 'The word "content" should have a weight of 1.0 from the content');
     }
+
+
+        /**
+     * @test
+     */
+    public function getWeightedWordsReturnsCorrectWeightsWithStopWordsRemoved()
+    {
+        $pageData = [
+            'title' => ['content' => 'The Test Title', 'weight' => 1.5],
+            'content' => ['content' => 'This is a test content', 'weight' => 1.0]
+        ];
+
+        $this->stopWordsServiceMock->expects($this->exactly(2))
+            ->method('removeStopWords')
+            ->withConsecutive(
+                ['The Test Title', 'en'],
+                ['This is a test content', 'en']
+            )
+            ->willReturnOnConsecutiveCalls(
+                'test title',
+                'test content'
+            );
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'getWeightedWords', [$pageData]);
+
+        $this->assertEquals(1.5, $result['test'], 'The word "test" should have a weight of 1.5 from the title');
+        $this->assertEquals(2.5, $result['title'], 'The word "title" should have a weight of 1.5 from the title');
+        $this->assertEquals(1.0, $result['content'], 'The word "content" should have a weight of 1.0 from the content');
+        $this->assertArrayNotHasKey('the', $result, 'Stop word "the" should be removed');
+        $this->assertArrayNotHasKey('is', $result, 'Stop word "is" should be removed');
+    }
+
 
     /**
      * @test
@@ -71,6 +283,46 @@ class PageAnalysisServiceTest extends UnitTestCase
         $this->assertLessThan(0.1, $result['recencyBoost'], 'Pages with close modification dates should have low recency boost');
         $this->assertGreaterThan(0.7, $result['finalSimilarity'], 'Overall similarity should be high for similar pages');
     }
+
+
+       /**
+     * @test
+     */
+    public function calculateSimilarityReturnsExpectedValuesForSimilarPagesWithStopWordsRemoved()
+    {
+        $page1 = [
+            'title' => ['content' => 'TYPO3 Development', 'weight' => 1.5],
+            'content' => ['content' => 'TYPO3 is a powerful CMS for web development', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'title' => ['content' => 'Web Development with TYPO3', 'weight' => 1.5],
+            'content' => ['content' => 'TYPO3 offers great features for web development', 'weight' => 1.0],
+            'content_modified_at' => time() - 86400 // 1 day older
+        ];
+
+        $this->stopWordsServiceMock->expects($this->exactly(4))
+            ->method('removeStopWords')
+            ->withConsecutive(
+                ['TYPO3 Development', 'en'],
+                ['TYPO3 is a powerful CMS for web development', 'en'],
+                ['Web Development with TYPO3', 'en'],
+                ['TYPO3 offers great features for web development', 'en']
+            )
+            ->willReturnOnConsecutiveCalls(
+                'typo3 development',
+                'typo3 powerful cms web development',
+                'web development typo3',
+                'typo3 offers great features web development'
+            );
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+        $this->assertGreaterThan(0.7, $result['semanticSimilarity'], 'Pages with similar content should have high semantic similarity');
+        $this->assertLessThan(0.1, $result['recencyBoost'], 'Pages with close modification dates should have low recency boost');
+        $this->assertGreaterThan(0.7, $result['finalSimilarity'], 'Overall similarity should be high for similar pages');
+    }
+
 
     /**
      * @test
@@ -234,22 +486,39 @@ class PageAnalysisServiceTest extends UnitTestCase
         $this->assertNotContains('javascript', $result, 'Keyword "JavaScript" should not be in common keywords');
     }
 
-    /**
-     * Helper method to invoke private methods
-     *
-     * @param object &$object    Instanced object that we will run method on
-     * @param string $methodName Method name to call
-     * @param array  $parameters Array of parameters to pass into method
-     *
-     * @return mixed Method return
+
+     /**
+     * @test
      */
-    private function invokeMethod(&$object, $methodName, array $parameters = [])
+    public function findCommonKeywordsReturnsCorrectResultsWithStopWordsRemoved()
     {
-        $reflection = new \ReflectionClass(get_class($object));
-        $method = $reflection->getMethod($methodName);
-        $method->setAccessible(true);
-        return $method->invokeArgs($object, $parameters);
+        $page1 = [
+            'keywords' => ['content' => 'TYPO3, CMS, web development, PHP', 'weight' => 2.0],
+        ];
+        $page2 = [
+            'keywords' => ['content' => 'TYPO3, web development, JavaScript, frontend', 'weight' => 2.0],
+        ];
+
+        $this->stopWordsServiceMock->expects($this->exactly(2))
+            ->method('removeStopWords')
+            ->withConsecutive(
+                ['TYPO3, CMS, web development, PHP', 'en'],
+                ['TYPO3, web development, JavaScript, frontend', 'en']
+            )
+            ->willReturnOnConsecutiveCalls(
+                'typo3 cms web development php',
+                'typo3 web development javascript frontend'
+            );
+
+        $result = $this->invokeMethod($this->pageAnalysisService, 'findCommonKeywords', [$page1, $page2]);
+
+        $this->assertContains('typo3', $result, 'Common keyword "TYPO3" should be found');
+        $this->assertContains('web development', $result, 'Common keyword "web development" should be found');
+        $this->assertNotContains('php', $result, 'Keyword "PHP" should not be in common keywords');
+        $this->assertNotContains('javascript', $result, 'Keyword "JavaScript" should not be in common keywords');
     }
+
+
 
     /**
      * @test

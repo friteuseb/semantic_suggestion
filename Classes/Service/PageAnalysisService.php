@@ -23,16 +23,21 @@ class PageAnalysisService implements LoggerAwareInterface
     protected $cache;
     protected $connectionPool;
     protected $queryBuilder;
+    protected $stopWordsService;
+
 
     public function __construct(
         Context $context,
         ConfigurationManagerInterface $configurationManager,
         ?CacheManager $cacheManager = null,
+        StopWordsService $stopWordsService,
         $dbConnection = null,
         ?LoggerInterface $logger = null
     ) {
         $this->context = $context;
         $this->configurationManager = $configurationManager;
+        $this->stopWordsService = $stopWordsService;
+
 
         if ($logger) {
             $this->setLogger($logger);

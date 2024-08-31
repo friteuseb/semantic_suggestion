@@ -14,18 +14,21 @@ class StopWordsService
 
     protected function loadStopWords(): void
     {
-        $stopWordsFile = GeneralUtility::getFileAbsFileName('EXT:semantic_suggestion/Resources/Private/StopWords/stop_words.php');
-        if (file_exists($stopWordsFile)) {
-            $this->stopWords = require $stopWordsFile;
-        } else {
-            throw new \RuntimeException('Stop words file not found', 1234567890);
+        $stopWordsFile = GeneralUtility::getFileAbsFileName('EXT:semantic_suggestion/Resources/Private/StopWords/stopwords.json');
+        if (!file_exists($stopWordsFile)) {
+            throw new \RuntimeException('Stop words file not found: ' . $stopWordsFile, 1234567890);
+        }
+        $content = file_get_contents($stopWordsFile);
+        $this->stopWords = json_decode($content, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \RuntimeException('Error decoding stop words file: ' . json_last_error_msg(), 1234567891);
         }
     }
 
-    public function removeStopWords(string $text, string $language = 'français'): string
+    public function removeStopWords(string $text, string $language): string
     {
         if (!isset($this->stopWords[$language])) {
-            return $text; // Retourne le texte original si la langue n'est pas supportée
+            return $text; // Return original text if language is not supported
         }
 
         $words = preg_split('/\s+/', $text);
@@ -34,5 +37,10 @@ class StopWordsService
         });
 
         return implode(' ', $filteredWords);
+    }
+
+    public function getAvailableLanguages(): array
+    {
+        return array_keys($this->stopWords);
     }
 }
