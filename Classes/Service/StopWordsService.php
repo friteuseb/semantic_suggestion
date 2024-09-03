@@ -1,34 +1,41 @@
 <?php
+
 namespace TalanHdf\SemanticSuggestion\Service;
 
-use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 
 class StopWordsService
 {
     protected $stopWords = [];
+    protected $stopWordsFilePath;
 
-    public function __construct()
+    public function __construct(string $stopWordsFilePath = null)
     {
+        $this->stopWordsFilePath = $stopWordsFilePath ?? $this->getDefaultStopWordsFilePath();
         $this->loadStopWords();
+    }
+
+    protected function getDefaultStopWordsFilePath(): string
+    {
+        return ExtensionManagementUtility::extPath('semantic_suggestion') . 'Resources/Private/StopWords/stopwords.json';
     }
 
     protected function loadStopWords(): void
     {
-        $stopWordsFile = GeneralUtility::getFileAbsFileName('EXT:semantic_suggestion/Resources/Private/StopWords/stopwords.json');
-        if (!file_exists($stopWordsFile)) {
-            throw new \RuntimeException('Stop words file not found: ' . $stopWordsFile, 1234567890);
-        }
-        $content = file_get_contents($stopWordsFile);
-        $this->stopWords = json_decode($content, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \RuntimeException('Error decoding stop words file: ' . json_last_error_msg(), 1234567891);
+        if (file_exists($this->stopWordsFilePath)) {
+            $this->stopWords = json_decode(file_get_contents($this->stopWordsFilePath), true);
+            if ($this->stopWords === null) {
+                throw new \RuntimeException('Failed to parse stopwords.json file', 1234567891);
+            }
+        } else {
+            throw new \RuntimeException('Stop words file not found: ' . $this->stopWordsFilePath, 1234567890);
         }
     }
 
     public function removeStopWords(string $text, string $language): string
     {
         if (!isset($this->stopWords[$language])) {
-            return $text; // Return original text if language is not supported
+            return $text; // Retourne le texte original si la langue n'est pas supportée
         }
 
         $words = preg_split('/\s+/', $text);

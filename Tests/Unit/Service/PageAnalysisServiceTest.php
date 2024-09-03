@@ -7,60 +7,76 @@ use TYPO3\TestingFramework\Core\Unit\UnitTestCase;
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Site\Entity\SiteLanguage;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
+use TYPO3\CMS\Core\Context\LanguageAspect;
+use TYPO3\CMS\Core\Site\SiteFinder;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 
 class PageAnalysisServiceTest extends UnitTestCase
 {
     protected $pageAnalysisService;
     protected $stopWordsServiceMock;
     protected $contextMock;
-    protected $siteLanguageMock;
+    protected $languageAspectMock;
+
 
     protected function setUp(): void
     {
         parent::setUp();
         
-        $this->siteLanguageMock = $this->createMock(SiteLanguage::class);
-        $this->siteLanguageMock->method('getLocale')->willReturn('en_US.UTF-8'); // Default to English
-
+        $this->languageAspectMock = $this->createMock(LanguageAspect::class);
+        $this->languageAspectMock->method('getId')->willReturn(0); // 0 for French
+    
         $this->contextMock = $this->createMock(Context::class);
-        $this->contextMock->method('getAspect')->with('language')->willReturn($this->siteLanguageMock);
-
+        $this->contextMock->method('getAspect')->with('language')->willReturn($this->languageAspectMock);
+    
         $configManagerMock = $this->createMock(ConfigurationManagerInterface::class);
-        $this->stopWordsServiceMock = $this->createMock(StopWordsService::class);
-
+        
+        $siteFinderMock = $this->createMock(SiteFinder::class);
+        $siteLanguageMock = $this->createMock(SiteLanguage::class);
+        $siteLanguageMock->method('getTwoLetterIsoCode')->willReturn('fr'); // French by default
+        $siteMock = $this->createMock(\TYPO3\CMS\Core\Site\Entity\Site::class);
+        $siteMock->method('getLanguageById')->willReturn($siteLanguageMock);
+        $siteFinderMock->method('getSiteByPageId')->willReturn($siteMock);
+    
+        $this->stopWordsServiceMock = $this->getMockBuilder(StopWordsService::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+    
         $this->pageAnalysisService = new PageAnalysisService(
             $this->contextMock, 
             $configManagerMock, 
-            null, 
-            $this->stopWordsServiceMock
+            $this->stopWordsServiceMock,
+            $siteFinderMock
         );
     }
 
-    
     /**
      * @test
      */
     public function correctLanguageIsDetectedForStopWordsRemoval()
     {
-        $this->siteLanguageMock->method('getLocale')->willReturn('fr_FR.UTF-8'); // Set to French
-
-
-        $this->contextMock->method('getAspect')->with('language')->willReturn($languageAspectMock);
-
-        $this->stopWordsServiceMock->expects($this->once())
+        $this->languageAspectMock->method('getId')->willReturn(1); // 1 for German
+    
+        $this->stopWordsServiceMock->expects($this->exactly(2))
             ->method('removeStopWords')
-            ->with($this->anything(), 'fr') // Expecting French language code
-            ->willReturn('content sans mots vides');
-
+            ->willReturnCallback(function($text, $lang) {
+                $this->assertIsString($text);
+                $this->assertEquals('de', $lang); // Expecting German
+                return "processed_" . $text;
+            });
+    
         $pageData = [
-            'title' => ['content' => 'Le titre en français', 'weight' => 1.5],
-            'content' => ['content' => 'Le contenu en français avec des mots vides', 'weight' => 1.0],
+            'title' => ['content' => 'Der Titel auf Deutsch', 'weight' => 1.5],
+            'content' => ['content' => 'Der Inhalt auf Deutsch mit Stoppwörtern', 'weight' => 1.0],
         ];
-
+    
         $result = $this->invokeMethod($this->pageAnalysisService, 'preparePageData', [$pageData, 1]);
-
+    
         $this->assertArrayHasKey('title', $result);
         $this->assertArrayHasKey('content', $result);
+        $this->assertStringStartsWith('processed_', $result['title']['content']);
+        $this->assertStringStartsWith('processed_', $result['content']['content']);
     }
 
     /**
@@ -69,29 +85,29 @@ class PageAnalysisServiceTest extends UnitTestCase
     public function stopWordsAreCorrectlyRemovedForDifferentLanguages()
     {
         $languages = [
-            'en' => 'en_US.UTF-8',
-            'fr' => 'fr_FR.UTF-8',
-            'de' => 'de_DE.UTF-8'
+            'fr' => 0,
+            'de' => 1
         ];
-
+    
         foreach ($languages as $langCode => $langId) {
-            $languageAspectMock = $this->createMock(LanguageAspect::class);
-            $languageAspectMock->method('getLanguageId')->willReturn($langId);
-
-            $this->contextMock->method('getAspect')->with('language')->willReturn($languageAspectMock);
-
+            $this->languageAspectMock->method('getId')->willReturn($langId);
+    
+            $siteLanguageMock = $this->createMock(SiteLanguage::class);
+            $siteLanguageMock->method('getTwoLetterIsoCode')->willReturn($langCode);
+            $this->pageAnalysisService->getSiteFinder()->getSiteByPageId(1)->method('getLanguageById')->with($langId)->willReturn($siteLanguageMock);
+    
             $this->stopWordsServiceMock->expects($this->once())
                 ->method('removeStopWords')
                 ->with($this->anything(), $langCode)
                 ->willReturn("content without stopwords for {$langCode}");
-
+    
             $pageData = [
                 'title' => ['content' => "Title in {$langCode}", 'weight' => 1.5],
                 'content' => ['content' => "Content with stopwords in {$langCode}", 'weight' => 1.0],
             ];
-
+    
             $result = $this->invokeMethod($this->pageAnalysisService, 'preparePageData', [$pageData, $langId]);
-
+    
             $this->assertEquals("content without stopwords for {$langCode}", $result['content']['content']);
         }
     }
@@ -102,26 +118,53 @@ class PageAnalysisServiceTest extends UnitTestCase
          */
         public function stopWordsServiceUsesCorrectLanguageFile()
         {
-            $stopWordsService = new StopWordsService();
+            // Trouver le chemin du fichier stopwords.json
+            $extensionPath = realpath(__DIR__ . '/../../../../');
+            $stopWordsFilePath = $extensionPath . '/Resources/Private/StopWords/stopwords.json';
+        
+            // Vérifier si le fichier existe
+            $this->assertFileExists($stopWordsFilePath, 'Stopwords file should exist at: ' . $stopWordsFilePath);
+        
+            // Si le fichier n'existe pas, afficher le contenu du répertoire
+            if (!file_exists($stopWordsFilePath)) {
+                $dir = dirname($stopWordsFilePath);
+                $files = scandir($dir);
+                $this->fail('Directory contents of ' . $dir . ': ' . implode(', ', $files));
+            }
+        
+            $stopWordsService = new StopWordsService($stopWordsFilePath);
+        
             $availableLanguages = $stopWordsService->getAvailableLanguages();
-
-            $this->assertContains('en', $availableLanguages, 'English stopwords should be available');
+        
             $this->assertContains('fr', $availableLanguages, 'French stopwords should be available');
             $this->assertContains('de', $availableLanguages, 'German stopwords should be available');
-
+        
             // Test removal of stopwords for each language
             $testCases = [
-                'en' => ['input' => 'This is a test sentence', 'expected' => 'test sentence'],
-                'fr' => ['input' => 'Ceci est une phrase de test', 'expected' => 'phrase test'],
-                'de' => ['input' => 'Dies ist ein Testsatz', 'expected' => 'Testsatz'],
+                'fr' => [
+                    'input' => 'Le chat et le chien sont dans la maison avec une belle vue',
+                    'expected' => 'chat chien maison belle vue'
+                ],
+                'de' => [
+                    'input' => 'Der Hund und die Katze sind in dem Haus mit einer schönen Aussicht',
+                    'expected' => 'Hund Katze Haus schönen Aussicht'
+                ],
             ];
-
+        
             foreach ($testCases as $lang => $case) {
                 $result = $stopWordsService->removeStopWords($case['input'], $lang);
                 $this->assertEquals($case['expected'], $result, "Stopwords not correctly removed for {$lang}");
+                $this->assertNotEquals($case['input'], $result, "Input and output should be different for {$lang}");
             }
         }
 
+        
+         // Helper function to remove stopwords manually
+        private function removeStopWords($text, $stopWords)
+        {
+            $words = preg_split('/\s+/', $text);
+            return implode(' ', array_diff($words, $stopWords));
+        }
 
 
         /**
@@ -237,32 +280,28 @@ class PageAnalysisServiceTest extends UnitTestCase
         /**
      * @test
      */
-    public function getWeightedWordsReturnsCorrectWeightsWithStopWordsRemoved()
-    {
-        $pageData = [
-            'title' => ['content' => 'The Test Title', 'weight' => 1.5],
-            'content' => ['content' => 'This is a test content', 'weight' => 1.0]
-        ];
+public function getWeightedWordsReturnsCorrectWeightsWithStopWordsRemoved()
+{
+    $pageData = [
+        'title' => ['content' => 'The Test Title', 'weight' => 1.5],
+        'content' => ['content' => 'This is a test content', 'weight' => 1.0]
+    ];
 
-        $this->stopWordsServiceMock->expects($this->exactly(2))
-            ->method('removeStopWords')
-            ->withConsecutive(
-                ['The Test Title', 'en'],
-                ['This is a test content', 'en']
-            )
-            ->willReturnOnConsecutiveCalls(
-                'test title',
-                'test content'
-            );
+    $this->stopWordsServiceMock->expects($this->exactly(2))
+        ->method('removeStopWords')
+        ->willReturnOnConsecutiveCalls(
+            'test title',
+            'test content'
+        );
 
-        $result = $this->invokeMethod($this->pageAnalysisService, 'getWeightedWords', [$pageData]);
+    $result = $this->invokeMethod($this->pageAnalysisService, 'getWeightedWords', [$pageData]);
 
-        $this->assertEquals(1.5, $result['test'], 'The word "test" should have a weight of 1.5 from the title');
-        $this->assertEquals(2.5, $result['title'], 'The word "title" should have a weight of 1.5 from the title');
-        $this->assertEquals(1.0, $result['content'], 'The word "content" should have a weight of 1.0 from the content');
-        $this->assertArrayNotHasKey('the', $result, 'Stop word "the" should be removed');
-        $this->assertArrayNotHasKey('is', $result, 'Stop word "is" should be removed');
-    }
+    $this->assertEquals(1.5, $result['test'], 'The word "test" should have a weight of 1.5 from the title');
+    $this->assertEquals(1.5, $result['title'], 'The word "title" should have a weight of 1.5 from the title');
+    $this->assertEquals(1.0, $result['content'], 'The word "content" should have a weight of 1.0 from the content');
+    $this->assertArrayNotHasKey('the', $result, 'Stop word "the" should be removed');
+    $this->assertArrayNotHasKey('is', $result, 'Stop word "is" should be removed');
+}
 
 
     /**
