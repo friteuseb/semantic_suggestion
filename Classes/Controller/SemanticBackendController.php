@@ -136,89 +136,163 @@ class SemanticBackendController extends ActionController
         return $this->pageRepository;
     }
 
-   public function indexAction(): ResponseInterface
-{
-    try {
-        $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $fullTypoScript = $this->configurationManager->getConfiguration(
-            ConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
-        );
+    public function indexAction(): ResponseInterface
+    {
+        try {
+            $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
+            $fullTypoScript = $this->configurationManager->getConfiguration(
+                ConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
+            );
+    
+            $extensionConfig = $fullTypoScript['plugin.']['tx_semanticsuggestion_suggestions.']['settings.'] ?? [];
+    
+            $parentPageId = (int)($extensionConfig['parentPageId'] ?? 0);
+            $depth = (int)($extensionConfig['recursive'] ?? 1);
+            $proximityThreshold = (float)($extensionConfig['proximityThreshold'] ?? 0.5);
+            $maxSuggestions = (int)($extensionConfig['maxSuggestions'] ?? 5);
+            $excludePages = GeneralUtility::intExplode(',', $extensionConfig['excludePages'] ?? '', true);
+            $recencyWeight = (float)($extensionConfig['recencyWeight'] ?? 0.2);
+            $showStatistics = (bool)($extensionConfig['showStatistics'] ?? true);
+            $showPerformanceMetrics = (bool)($extensionConfig['showPerformanceMetrics'] ?? true);
+            $showLanguageStatistics = (bool)($extensionConfig['showLanguageStatistics'] ?? true);
+            $calculateDistribution = (bool)($extensionConfig['calculateDistribution'] ?? true);
+            $calculateTopSimilarPairs = (bool)($extensionConfig['calculateTopSimilarPairs'] ?? true);
+    
+            $startTime = microtime(true);
+            
+            $allFromCache = true;
 
-        $extensionConfig = $fullTypoScript['plugin.']['tx_semanticsuggestion_suggestions.']['settings.'] ?? [];
-
-        $parentPageId = (int)($extensionConfig['parentPageId'] ?? 0);
-        $depth = (int)($extensionConfig['recursive'] ?? 1);
-        $proximityThreshold = (float)($extensionConfig['proximityThreshold'] ?? 0.5);
-        $maxSuggestions = (int)($extensionConfig['maxSuggestions'] ?? 5);
-        $excludePages = GeneralUtility::intExplode(',', $extensionConfig['excludePages'] ?? '', true);
-        $recencyWeight = (float)($extensionConfig['recencyWeight'] ?? 0.2);
-        $showStatistics = (bool)($extensionConfig['showStatistics'] ?? true);
-        $showPerformanceMetrics = (bool)($extensionConfig['showPerformanceMetrics'] ?? true);
-        $showLanguageStatistics = (bool)($extensionConfig['showLanguageStatistics'] ?? true);
-        $calculateDistribution = (bool)($extensionConfig['calculateDistribution'] ?? true);
-        $calculateTopSimilarPairs = (bool)($extensionConfig['calculateTopSimilarPairs'] ?? true);
-
-        $currentLanguageUid = $this->getCurrentLanguageUid();
-
-        $startTime = microtime(true);
-        $cacheIdentifier = $this->generateValidCacheIdentifier($parentPageId, $depth, $proximityThreshold, $maxSuggestions, $currentLanguageUid);
-
-        if ($this->getCache()->has($cacheIdentifier)) {
-            $data = $this->getCache()->get($cacheIdentifier);
-            $fromCache = true;
-            $executionTime = 0;
-        } else {
-            $pages = $this->getPages($parentPageId, $depth);
-            $analysisData = $this->pageAnalysisService->analyzePages($pages, $currentLanguageUid);
-            $data = $this->processAnalysisData($analysisData, $proximityThreshold, $excludePages, $maxSuggestions);
-            $this->getCache()->set($cacheIdentifier, $data, ['semantic_suggestion'], 3600);
-            $fromCache = false;
+            // Récupérer toutes les langues disponibles
+            $allLanguages = $this->getAllLanguages();
+            
+            $data = [];
+            foreach ($allLanguages as $languageUid => $languageInfo) {
+                $cacheIdentifier = $this->generateValidCacheIdentifier($parentPageId, $depth, $proximityThreshold, $maxSuggestions, $languageUid);
+                
+                if ($this->getCache()->has($cacheIdentifier)) {
+                    $languageData = $this->getCache()->get($cacheIdentifier);
+                } else {
+                    $allFromCache = false;
+                    $pages = $this->getPages($parentPageId, $depth, $languageUid);
+                    $analysisData = $this->pageAnalysisService->analyzePages($pages, $languageUid);
+                    $languageData = $this->processAnalysisData($analysisData, $proximityThreshold, $excludePages, $maxSuggestions);
+                    $this->getCache()->set($cacheIdentifier, $languageData, ['semantic_suggestion'], 3600);
+                }
+                
+                $data[$languageUid] = $languageData;
+            }
+            
+            // Fusionner les données de toutes les langues
+            $mergedData = $this->mergeLanguageData($data);
+            
             $executionTime = microtime(true) - $startTime;
+    
+            // Ajouter les métriques de performance
+            $performanceMetrics = [
+                'executionTime' => $executionTime,
+                'totalPages' => $mergedData['totalPages'],
+                'similarityCalculations' => $mergedData['statistics']['totalPages'] * ($mergedData['statistics']['totalPages'] - 1) / 2,
+                'fromCache' => $allFromCache,
+            ];
+    
+            $moduleTemplate->assignMultiple([
+                'parentPageId' => $parentPageId,
+                'depth' => $depth,
+                'proximityThreshold' => $proximityThreshold,
+                'maxSuggestions' => $maxSuggestions,
+                'excludePages' => implode(', ', $excludePages),
+                'recencyWeight' => $recencyWeight,
+                'statistics' => $showStatistics ? $mergedData['statistics'] : null,
+                'analysisResults' => $mergedData['analysisResults'],
+                'performanceMetrics' => $showPerformanceMetrics ? $performanceMetrics : null,
+                'languageStatistics' => $showLanguageStatistics ? $mergedData['languageStatistics'] : null,
+                'totalPages' => $mergedData['totalPages'],
+                'showStatistics' => $showStatistics,
+                'showPerformanceMetrics' => $showPerformanceMetrics,
+                'showLanguageStatistics' => $showLanguageStatistics,
+                'showTopSimilarPairs' => (bool)($extensionConfig['showTopSimilarPairs'] ?? true),
+                'showDistributionScores' => (bool)($extensionConfig['showDistributionScores'] ?? true),
+                'showTopSimilarPages' => (bool)($extensionConfig['showTopSimilarPages'] ?? true),
+            ]);
+    
+            $moduleTemplate->setContent($this->view->render());
+            return $moduleTemplate->renderResponse();
+    
+        } catch (\Exception $e) {
+            $this->logger->error('Error in indexAction', ['exception' => $e->getMessage()]);
+            $this->addFlashMessage(
+                'An error occurred while processing the data. Please check the logs for more information.',
+                'Error',
+                \TYPO3\CMS\Core\Messaging\AbstractMessage::ERROR
+            );
+            return $this->htmlResponse();
         }
-
-        // Ajouter les métriques de performance actuelles
-        $performanceMetrics = [
-            'executionTime' => $executionTime,
-            'totalPages' => $data['totalPages'],
-            'similarityCalculations' => $data['statistics']['totalPages'] * ($data['statistics']['totalPages'] - 1) / 2,
-            'fromCache' => $fromCache ? 'Yes' : 'No',
-        ];
-
-        $moduleTemplate->assignMultiple([
-            'parentPageId' => $parentPageId,
-            'depth' => $depth,
-            'proximityThreshold' => $proximityThreshold,
-            'maxSuggestions' => $maxSuggestions,
-            'excludePages' => implode(', ', $excludePages),
-            'recencyWeight' => $recencyWeight,
-            'statistics' => $showStatistics ? $data['statistics'] : null,
-            'analysisResults' => $data['analysisResults'],
-            'performanceMetrics' => $showPerformanceMetrics ? $performanceMetrics : null,
-            'languageStatistics' => $showLanguageStatistics ? $data['languageStatistics'] : null,
-            'totalPages' => $data['totalPages'],
-            'showStatistics' => $showStatistics,
-            'showPerformanceMetrics' => $showPerformanceMetrics,
-            'showLanguageStatistics' => $showLanguageStatistics,
-            'showTopSimilarPairs' => (bool)($extensionConfig['showTopSimilarPairs'] ?? true),
-            'showDistributionScores' => (bool)($extensionConfig['showDistributionScores'] ?? true),
-            'showTopSimilarPages' => (bool)($extensionConfig['showTopSimilarPages'] ?? true),
-        ]);
-
-        $moduleTemplate->setContent($this->view->render());
-        return $moduleTemplate->renderResponse();
-
-    } catch (\Exception $e) {
-        $this->logger->error('Error in indexAction', ['exception' => $e->getMessage()]);
-        $this->addFlashMessage(
-            'An error occurred while processing the data. Please check the logs for more information.',
-            'Error',
-            \TYPO3\CMS\Core\Messaging\AbstractMessage::ERROR
-        );
-        return $this->htmlResponse();
     }
+
+
+    protected function mergeLanguageData(array $data): array
+{
+    $mergedData = [
+        'statistics' => [],
+        'analysisResults' => [],
+        'languageStatistics' => [],
+        'totalPages' => 0,
+    ];
+
+    foreach ($data as $languageUid => $languageData) {
+        $mergedData['totalPages'] += $languageData['totalPages'];
+        $mergedData['analysisResults'] += $languageData['analysisResults'];
+        $mergedData['languageStatistics'][$languageUid] = $languageData['languageStatistics'][$languageUid] ?? [];
+    }
+
+    // Fusionner les statistiques (vous devrez peut-être ajuster cela selon vos besoins spécifiques)
+    $mergedData['statistics'] = $this->mergeStatistics(array_column($data, 'statistics'));
+
+    return $mergedData;
 }
 
-    protected function getPages(int $parentPageId, int $depth): array
+protected function mergeStatistics(array $statisticsArray): array
+{
+    $mergedStats = [
+        'totalPages' => 0,
+        'averageSimilarity' => 0,
+        'topSimilarPairs' => [],
+        'distributionScores' => [],
+        'topSimilarPages' => [],
+    ];
+
+    $totalSimilarityScore = 0;
+    $totalPairs = 0;
+
+    foreach ($statisticsArray as $stats) {
+        $mergedStats['totalPages'] += $stats['totalPages'];
+        $totalSimilarityScore += $stats['averageSimilarity'] * $stats['totalPages'] * ($stats['totalPages'] - 1) / 2;
+        $totalPairs += $stats['totalPages'] * ($stats['totalPages'] - 1) / 2;
+
+        $mergedStats['topSimilarPairs'] = array_merge($mergedStats['topSimilarPairs'], $stats['topSimilarPairs'] ?? []);
+        $mergedStats['topSimilarPages'] += $stats['topSimilarPages'] ?? [];
+
+        foreach ($stats['distributionScores'] ?? [] as $range => $count) {
+            $mergedStats['distributionScores'][$range] = ($mergedStats['distributionScores'][$range] ?? 0) + $count;
+        }
+    }
+
+    $mergedStats['averageSimilarity'] = $totalPairs > 0 ? $totalSimilarityScore / $totalPairs : 0;
+
+    usort($mergedStats['topSimilarPairs'], function($a, $b) {
+        return $b['score'] <=> $a['score'];
+    });
+    $mergedStats['topSimilarPairs'] = array_slice($mergedStats['topSimilarPairs'], 0, 5);
+
+    arsort($mergedStats['topSimilarPages']);
+    $mergedStats['topSimilarPages'] = array_slice($mergedStats['topSimilarPages'], 0, 5, true);
+
+    return $mergedStats;
+}
+
+
+
+    protected function getPages(int $parentPageId, int $depth, int $languageUid): array
     {
         $pages = [];
         $defaultLanguagePages = $this->getPageRepository()->getMenu(

@@ -63,9 +63,14 @@ class PageAnalysisService implements LoggerAwareInterface
 
     protected function initializeSettings(): void
     {
+        $this->logger?->debug('Initializing settings', ['current_settings' => $this->settings]);
+        // initialiser debugMode
+        $this->logger?->debug('Current settings before using debugMode', ['settings' => $this->settings]);
+        $this->settings['debugMode'] = $this->settings['debugMode'] ?? false;
+    
         $this->settings['recencyWeight'] = $this->settings['recencyWeight'] ?? 0.2;
         $this->settings['recencyWeight'] = max(0, min(1, (float)$this->settings['recencyWeight']));
-
+    
         $this->settings['analyzedFields'] = $this->settings['analyzedFields'] ?? [
             'title' => 1.5,
             'description' => 1.0,
@@ -200,7 +205,6 @@ class PageAnalysisService implements LoggerAwareInterface
         }
         return null;
     }
-    
 
     protected function getCurrentPageId(): ?int
     {
