@@ -1,15 +1,18 @@
 <?php
+
+declare(strict_types=1);
+
 namespace TalanHdf\SemanticSuggestion\Service;
 
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Cache\CacheManager;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
+use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
@@ -17,39 +20,34 @@ class PageAnalysisService implements LoggerAwareInterface
 {
     use LoggerAwareTrait;
 
-    protected $context;
-    protected $configurationManager;
-    protected $settings;
-    protected $cache;
-    protected $connectionPool;
-    protected $queryBuilder;
-    protected $stopWordsService;
-
+    protected Context $context;
+    protected ConfigurationManagerInterface $configurationManager;
+    protected array $settings;
+    protected ?CacheManager $cacheManager;
+    protected ConnectionPool $connectionPool;
+    protected ?QueryBuilder $queryBuilder = null;
+    protected StopWordsService $stopWordsService;
+    protected SiteFinder $siteFinder;
+    protected FrontendInterface $cache;
 
     public function __construct(
         Context $context,
         ConfigurationManagerInterface $configurationManager,
-        ?CacheManager $cacheManager = null,
         StopWordsService $stopWordsService,
-        $dbConnection = null,
+        SiteFinder $siteFinder,
+        ?CacheManager $cacheManager = null,
+        ?ConnectionPool $connectionPool = null,
         ?LoggerInterface $logger = null
     ) {
         $this->context = $context;
         $this->configurationManager = $configurationManager;
         $this->stopWordsService = $stopWordsService;
+        $this->siteFinder = $siteFinder;
+        $this->cacheManager = $cacheManager;
+        $this->connectionPool = $connectionPool ?? GeneralUtility::makeInstance(ConnectionPool::class);
 
-
-
-        if ($logger) {
+        if ($logger !== null) {
             $this->setLogger($logger);
-        }
-
-        if ($dbConnection instanceof ConnectionPool) {
-            $this->connectionPool = $dbConnection;
-        } elseif ($dbConnection instanceof QueryBuilder) {
-            $this->queryBuilder = $dbConnection;
-        } else {
-            $this->connectionPool = GeneralUtility::makeInstance(ConnectionPool::class);
         }
 
         $this->settings = $this->configurationManager->getConfiguration(
@@ -57,92 +55,82 @@ class PageAnalysisService implements LoggerAwareInterface
             'semanticsuggestion_suggestions'
         );
 
-        if (!isset($this->settings['recencyWeight'])) {
-            $this->settings['recencyWeight'] = 0.2;
-        }
+        $this->initializeSettings();
+        $this->initializeCache();
+    }
+
+    protected function initializeSettings(): void
+    {
+        $this->settings['recencyWeight'] = $this->settings['recencyWeight'] ?? 0.2;
         $this->settings['recencyWeight'] = max(0, min(1, (float)$this->settings['recencyWeight']));
 
-        if ($cacheManager) {
+        $this->settings['analyzedFields'] = $this->settings['analyzedFields'] ?? [
+            'title' => 1.5,
+            'description' => 1.0,
+            'keywords' => 2.0,
+            'abstract' => 1.2,
+            'content' => 1.0
+        ];
+    }
+
+    protected function initializeCache(): void
+    {
+        if ($this->cacheManager !== null) {
             try {
-                $this->cache = $cacheManager->getCache('semantic_suggestion');
+                $this->cache = $this->cacheManager->getCache('semantic_suggestion');
             } catch (\TYPO3\CMS\Core\Cache\Exception\NoSuchCacheException $e) {
-                $this->cache = $cacheManager->getCache('null');
+                $this->cache = $this->cacheManager->getCache('null');
             }
         } else {
             $this->cache = new class implements FrontendInterface {
-                private $data = [];
-                public function set($entryIdentifier, $data, array $tags = [], $lifetime = null) {
+                private array $data = [];
+                public function set($entryIdentifier, $data, array $tags = [], $lifetime = null): void {
                     $this->data[$entryIdentifier] = $data;
                 }
                 public function get($entryIdentifier) {
                     return $this->data[$entryIdentifier] ?? false;
                 }
-                public function has($entryIdentifier) {
+                public function has($entryIdentifier): bool {
                     return isset($this->data[$entryIdentifier]);
                 }
-                public function remove($entryIdentifier) {
+                public function remove($entryIdentifier): void {
                     unset($this->data[$entryIdentifier]);
                 }
-                public function flush() {
+                public function flush(): void {
                     $this->data = [];
                 }
-                public function flushByTag($tag) {}
-                public function flushByTags(array $tags) {}
-                public function collectGarbage() {}
-                public function isValidEntryIdentifier($identifier) {
+                public function flushByTag($tag): void {}
+                public function flushByTags(array $tags): void {}
+                public function collectGarbage(): void {}
+                public function isValidEntryIdentifier($identifier): bool {
                     return is_string($identifier);
                 }
-                public function isValidTag($tag) {
+                public function isValidTag($tag): bool {
                     return is_string($tag);
                 }
-                public function getIdentifier() {
+                public function getIdentifier(): string {
                     return 'fallback_cache';
                 }
                 public function getBackend() {
                     return null;
                 }
-                public function getSettings(): array {
-                    return $this->settings;
-                }
-                public function setSettings(array $settings): void {
-                    $this->settings = $settings;
-                }
             };
         }
-
-        if (!isset($this->settings['analyzedFields']) || !is_array($this->settings['analyzedFields'])) {
-            $this->settings['analyzedFields'] = [
-                'title' => 1.5,
-                'description' => 1.0,
-                'keywords' => 2.0,
-                'abstract' => 1.2,
-                'content' => 1.0
-            ];
-        }
-
-        
     }
 
 
-    public function setSettings(array $settings): void                                                                                        
-      {                                                                                                                                         
-          $this->settings = array_merge($this->settings, $settings);                                                                            
-          if (!isset($this->settings['recencyWeight'])) {                                                                                       
-              $this->settings['recencyWeight'] = 0.2; // Valeur par défaut                                                                      
-          }                                                                                                                                     
-          $this->settings['recencyWeight'] = max(0, min(1, (float)$this->settings['recencyWeight'])); // Assurez-vous que la valeur est entre 0 et 1                                                                                                                                      
-      }     
+    public function setSettings(array $settings): void
+    {
+        $this->settings = array_merge($this->settings, $settings);
+        $this->initializeSettings();
+    }
 
     protected function getQueryBuilder(string $table = 'pages'): QueryBuilder
     {
-        if ($this->queryBuilder) {
-            return $this->queryBuilder;
-        }
-        if ($this->connectionPool === null) {
-            $this->connectionPool = GeneralUtility::makeInstance(ConnectionPool::class);
-        }
         return $this->connectionPool->getQueryBuilderForTable($table);
     }
+
+
 
     public function getContext(): Context
     {
@@ -170,33 +158,62 @@ class PageAnalysisService implements LoggerAwareInterface
         $languageAspect = $this->context->getAspect('language');
         $languageId = $languageAspect->getId();
         
-        // Map language IDs to ISO codes. Adjust this mapping according to your TYPO3 setup.
-        $languageMap = [
-            0 => 'en',  // Default language
-            1 => 'de',  // German
-            2 => 'fr',  // French
-            // Add more mappings as needed
-        ];
+        $this->logger?->debug('Detecting language', ['languageId' => $languageId]);
         
-        $language = $languageMap[$languageId] ?? 'en';  // Default to 'en' if not found
+        // Tentative de détection automatique
+        $language = $this->detectLanguageAutomatically($languageId);
         
-        // Debug log
-        $this->logger->debug('Current language detected', [
-            'languageId' => $languageId,
-            'mappedLanguage' => $language
-        ]);
+        if ($language) {
+            $this->logger?->debug('Language detected automatically', ['language' => $language]);
+        } else {
+            // Si la détection automatique échoue, utilisez le mapping TypoScript
+            $language = $this->getLanguageFromTypoScript($languageId);
+            if ($language) {
+                $this->logger?->debug('Language detected from TypoScript', ['language' => $language]);
+            } else {
+                $language = 'en';
+                $this->logger?->debug('Fallback to default language', ['language' => $language]);
+            }
+        }
         
         return $language;
     }
+
+    protected function detectLanguageAutomatically(int $languageId): ?string
+    {
+        try {
+            $currentSite = $this->siteFinder->getSiteByPageId($GLOBALS['TSFE']->id);
+            $siteLanguage = $currentSite->getLanguageById($languageId);
+            if ($siteLanguage) {
+                return strtolower(substr($siteLanguage->getHreflang(), 0, 2));
+            }
+        } catch (\Exception $e) {
+            $this->logger?->warning('Failed to detect language automatically', ['exception' => $e->getMessage()]);
+        }
+        return null;
+    }
+
+    protected function getLanguageFromTypoScript(int $languageId): ?string
+    {
+        $typoscriptMapping = $this->settings['languageMapping'] ?? [];
+        return $typoscriptMapping[$languageId] ?? null;
+    }
+
+
+    protected function getCurrentLanguageUid(): int
+    {
+        return GeneralUtility::makeInstance(Context::class)->getAspect('language')->getId();
+    }
+
+
+
 
     public function analyzePages(array $pages, int $currentLanguageUid): array
     {
         $startTime = microtime(true);
 
         if (empty($pages)) {
-            if ($this->logger) {
-                $this->logger->warning('No pages provided for analysis');
-            }
+            $this->logger?->warning('No pages provided for analysis');
             return [
                 'results' => [],
                 'metrics' => [
@@ -217,7 +234,7 @@ class PageAnalysisService implements LoggerAwareInterface
         }
 
         if ($firstPage === null) {
-            $this->logger->warning('No valid pages found in the provided array');
+            $this->logger?->warning('No valid pages found in the provided array');
             return [
                 'results' => [],
                 'metrics' => [
@@ -232,7 +249,7 @@ class PageAnalysisService implements LoggerAwareInterface
         $parentPageId = $firstPage['pid'] ?? 0;
         $depth = $this->calculateDepth($pages);
         $language = $this->getCurrentLanguage();
-        $cacheIdentifier = 'semantic_analysis_' . $parentPageId . '_' . $depth . '_' . $language;
+        $cacheIdentifier = "semantic_analysis_{$parentPageId}_{$depth}_{$language}";
 
         if ($this->cache->has($cacheIdentifier)) {
             $cachedResult = $this->cache->get($cacheIdentifier);
@@ -242,7 +259,7 @@ class PageAnalysisService implements LoggerAwareInterface
         }
 
         try {
-            $this->logger->debug('Analyzing pages', ['pageCount' => count($pages), 'languageUid' => $currentLanguageUid]);
+            $this->logger?->debug('Analyzing pages', ['pageCount' => count($pages), 'languageUid' => $currentLanguageUid]);
             $totalPages = count($pages);
             $analysisResults = [];
 
@@ -250,7 +267,7 @@ class PageAnalysisService implements LoggerAwareInterface
                 if (isset($page['uid'])) {
                     $analysisResults[$page['uid']] = $this->preparePageData($page, $currentLanguageUid);
                 } else {
-                    $this->logger->warning('Page without UID encountered', ['page' => $page]);
+                    $this->logger?->warning('Page without UID encountered', ['page' => $page]);
                 }
             }
 
@@ -265,7 +282,7 @@ class PageAnalysisService implements LoggerAwareInterface
                             'recencyBoost' => $similarity['recencyBoost'],
                             'commonKeywords' => $this->findCommonKeywords($pageData, $comparisonPageData),
                             'relevance' => $this->determineRelevance($similarity['finalSimilarity']),
-                            'ageInDays' => round((time() - $comparisonPageData['content_modified_at']) / (24 * 3600), 1),
+                            'ageInDays' => round((time() - ($comparisonPageData['content_modified_at'] ?? time())) / (24 * 3600), 1),
                         ];
                         
                         $similarityCalculations++;
@@ -273,8 +290,27 @@ class PageAnalysisService implements LoggerAwareInterface
                 }
             }
 
+            $result = [
+                'results' => $analysisResults,
+                'metrics' => [
+                    'executionTime' => microtime(true) - $startTime,
+                    'totalPages' => $totalPages,
+                    'similarityCalculations' => $similarityCalculations,
+                    'fromCache' => false,
+                ],
+            ];
+
+            $this->cache->set(
+                $cacheIdentifier,
+                $result,
+                ['tx_semanticsuggestion', "pages_{$parentPageId}"],
+                86400
+            );
+
+            return $result;
+
         } catch (\Exception $e) {
-            $this->logger->error('Error during page analysis', ['exception' => $e->getMessage()]);
+            $this->logger?->error('Error during page analysis', ['exception' => $e->getMessage()]);
             return [
                 'results' => [],
                 'metrics' => [
@@ -286,28 +322,6 @@ class PageAnalysisService implements LoggerAwareInterface
                 ],
             ];
         }
-
-        $endTime = microtime(true);
-        $executionTime = $endTime - $startTime;
-
-        $result = [
-            'results' => $analysisResults,
-            'metrics' => [
-                'executionTime' => $executionTime,
-                'totalPages' => $totalPages,
-                'similarityCalculations' => $similarityCalculations,
-                'fromCache' => false,
-            ],
-        ];
-
-        $this->cache->set(
-            $cacheIdentifier,
-            $result,
-            ['tx_semanticsuggestion', 'pages_' . $parentPageId],
-            86400
-        );
-
-        return $result;
     }
 
 
@@ -339,79 +353,66 @@ class PageAnalysisService implements LoggerAwareInterface
     }
 
 
-        protected function preparePageData(array $page, int $currentLanguageUid): array
-    {
-        $preparedData = [
-            'uid' => $page['uid'],
-            'sys_language_uid' => $page['sys_language_uid'] ?? 0,
-            'isTranslation' => isset($page['_PAGES_OVERLAY']),
-        ];
+    protected function preparePageData(array $page, int $currentLanguageUid): array
+{
+    $preparedData = [
+        'uid' => $page['uid'],
+        'sys_language_uid' => $page['sys_language_uid'] ?? 0,
+        'isTranslation' => isset($page['_PAGES_OVERLAY']),
+    ];
 
-        if (!is_array($this->settings['analyzedFields'])) {
-            $this->logger?->warning('analyzedFields is not an array', ['settings' => $this->settings]);
-            return $preparedData;
-        }
-
-        $language = $this->getCurrentLanguage();
-        
-        foreach ($this->settings['analyzedFields'] as $field => $weight) {
-            if ($field === 'content') {
-                try {
-                    $content = $this->getPageContent($page['uid'], $currentLanguageUid);
-                    $contentWithoutStopWords = $this->stopWordsService->removeStopWords($content, $language);
-                    
-                    // Debug log
-                    $this->logger->debug('Stopwords removed from content', [
-                        'pageUid' => $page['uid'],
-                        'language' => $language,
-                        'originalLength' => strlen($content),
-                        'processedLength' => strlen($contentWithoutStopWords)
-                    ]);
-                    
-                    $preparedData['content'] = [
-                        'content' => $contentWithoutStopWords,
-                        'weight' => (float)$weight
-                    ];
-                } catch (\Exception $e) {
-                    $this->logger->error('Error fetching page content', ['pageId' => $page['uid'], 'language' => $currentLanguageUid, 'exception' => $e->getMessage()]);
-                    $preparedData['content'] = [
-                        'content' => '',
-                        'weight' => (float)$weight
-                    ];
-                }
-            } elseif (isset($page[$field])) {
-                $contentWithoutStopWords = $this->stopWordsService->removeStopWords($page[$field], $language);
-                
-                // Debug log
-                $this->logger->debug('Stopwords removed from field', [
-                    'pageUid' => $page['uid'],
-                    'field' => $field,
-                    'language' => $language,
-                    'originalLength' => strlen($page[$field]),
-                    'processedLength' => strlen($contentWithoutStopWords)
-                ]);
-                
-                $preparedData[$field] = [
-                    'content' => $contentWithoutStopWords,
-                    'weight' => (float)$weight
-                ];
-            } else {
-                $preparedData[$field] = [
-                    'content' => '',
-                    'weight' => (float)$weight
-                ];
-            }
-        }
-
-        $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
-
+    if (!is_array($this->settings['analyzedFields'])) {
+        $this->logger?->warning('analyzedFields is not an array', ['settings' => $this->settings]);
         return $preparedData;
     }
 
-    protected function getCurrentLanguageUid(): int
-    {
-        return GeneralUtility::makeInstance(Context::class)->getAspect('language')->getId();
+    $language = $this->getCurrentLanguage();
+    
+    foreach ($this->settings['analyzedFields'] as $field => $weight) {
+        $originalContent = '';
+        $processedContent = '';
+
+        if ($field === 'content') {
+            try {
+                $originalContent = $this->getPageContent($page['uid'], $currentLanguageUid);
+            } catch (\Exception $e) {
+                $this->logger->error('Error fetching page content', [
+                    'pageId' => $page['uid'], 
+                    'language' => $currentLanguageUid, 
+                    'exception' => $e->getMessage()
+                ]);
+                $originalContent = '';
+            }
+        } elseif (isset($page[$field])) {
+            $originalContent = $page[$field];
+        }
+
+        if (!empty($originalContent)) {
+            $processedContent = $this->stopWordsService->removeStopWords($originalContent, $language);
+            
+            if ($this->settings['debugMode']) {
+                $this->logger->debug('Content before and after stopwords removal', [
+                    'pageUid' => $page['uid'],
+                    'field' => $field,
+                    'language' => $language,
+                    'originalContent' => substr($originalContent, 0, 200) . '...',
+                    'processedContent' => substr($processedContent, 0, 200) . '...',
+                    'originalLength' => strlen($originalContent),
+                    'processedLength' => strlen($processedContent)
+                ]);
+            }
+        }
+
+        $preparedData[$field] = [
+            'content' => $processedContent,
+            'weight' => (float)$weight
+        ];
     }
+
+    $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
+
+    return $preparedData;
+}
 
 
 
@@ -488,7 +489,7 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
     protected function getPageContent(int $pageId, int $languageUid = 0): string
     {
         try {
-            $queryBuilder = $this->getQueryBuilder();
+            $queryBuilder = $this->getQueryBuilder('tt_content');
     
             $content = $queryBuilder
                 ->select('bodytext')
