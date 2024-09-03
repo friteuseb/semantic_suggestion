@@ -13,8 +13,10 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use TYPO3\CMS\Core\Site\SiteFinder;
+use TYPO3\CMS\Core\Routing\PageArguments;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+use Psr\Http\Message\ServerRequestInterface;
 
 class PageAnalysisService implements LoggerAwareInterface
 {
@@ -171,8 +173,8 @@ class PageAnalysisService implements LoggerAwareInterface
             if ($language) {
                 $this->logger?->debug('Language detected from TypoScript', ['language' => $language]);
             } else {
-                $language = 'en';
-                $this->logger?->debug('Fallback to default language', ['language' => $language]);
+                $language = $this->settings['defaultLanguage'] ?? 'en';
+                $this->logger?->debug('Using default language', ['language' => $language]);
             }
         }
         
@@ -182,7 +184,13 @@ class PageAnalysisService implements LoggerAwareInterface
     protected function detectLanguageAutomatically(int $languageId): ?string
     {
         try {
-            $currentSite = $this->siteFinder->getSiteByPageId($GLOBALS['TSFE']->id);
+            $currentPageId = $this->getCurrentPageId();
+            if ($currentPageId === null) {
+                $this->logger?->warning('Unable to determine current page ID for language detection');
+                return null;
+            }
+    
+            $currentSite = $this->siteFinder->getSiteByPageId($currentPageId);
             $siteLanguage = $currentSite->getLanguageById($languageId);
             if ($siteLanguage) {
                 return strtolower(substr($siteLanguage->getHreflang(), 0, 2));
@@ -192,6 +200,33 @@ class PageAnalysisService implements LoggerAwareInterface
         }
         return null;
     }
+    
+
+    protected function getCurrentPageId(): ?int
+    {
+        $request = $GLOBALS['TYPO3_REQUEST'] ?? null;
+        if ($request instanceof ServerRequestInterface) {
+            $pageArguments = $request->getAttribute('routing');
+            if ($pageArguments instanceof PageArguments) {
+                return $pageArguments->getPageId();
+            }
+            
+            // Fallback pour le contexte backend
+            $pageId = $request->getQueryParams()['id'] ?? null;
+            if ($pageId !== null) {
+                return (int)$pageId;
+            }
+        }
+        
+        // Fallback pour d'autres contextes
+        if (isset($GLOBALS['TSFE']) && $GLOBALS['TSFE']->id) {
+            return (int)$GLOBALS['TSFE']->id;
+        }
+        
+        $this->logger?->warning('Unable to determine current page ID');
+        return null;
+    }
+
 
     protected function getLanguageFromTypoScript(int $languageId): ?string
     {
