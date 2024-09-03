@@ -5,7 +5,7 @@ use TalanHdf\SemanticSuggestion\Service\PageAnalysisService;
 use TalanHdf\SemanticSuggestion\Service\StopWordsService;
 use TYPO3\TestingFramework\Core\Unit\UnitTestCase;
 use TYPO3\CMS\Core\Context\Context;
-use TYPO3\CMS\Core\Context\LanguageAspect;
+use TYPO3\CMS\Core\Site\Entity\SiteLanguage;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 
 class PageAnalysisServiceTest extends UnitTestCase
@@ -13,17 +13,17 @@ class PageAnalysisServiceTest extends UnitTestCase
     protected $pageAnalysisService;
     protected $stopWordsServiceMock;
     protected $contextMock;
-    protected $languageAspectMock;
+    protected $siteLanguageMock;
 
     protected function setUp(): void
     {
         parent::setUp();
         
-        $this->languageAspectMock = $this->createMock(LanguageAspect::class);
-        $this->languageAspectMock->method('getId')->willReturn(0); // Default to language ID 0
+        $this->siteLanguageMock = $this->createMock(SiteLanguage::class);
+        $this->siteLanguageMock->method('getLocale')->willReturn('en_US.UTF-8'); // Default to English
 
         $this->contextMock = $this->createMock(Context::class);
-        $this->contextMock->method('getAspect')->with('language')->willReturn($this->languageAspectMock);
+        $this->contextMock->method('getAspect')->with('language')->willReturn($this->siteLanguageMock);
 
         $configManagerMock = $this->createMock(ConfigurationManagerInterface::class);
         $this->stopWordsServiceMock = $this->createMock(StopWordsService::class);
@@ -42,8 +42,8 @@ class PageAnalysisServiceTest extends UnitTestCase
      */
     public function correctLanguageIsDetectedForStopWordsRemoval()
     {
-        $languageAspectMock = $this->createMock(LanguageAspect::class);
-        $languageAspectMock->method('getLanguageId')->willReturn(1); // Assuming 1 is French
+        $this->siteLanguageMock->method('getLocale')->willReturn('fr_FR.UTF-8'); // Set to French
+
 
         $this->contextMock->method('getAspect')->with('language')->willReturn($languageAspectMock);
 
@@ -68,7 +68,11 @@ class PageAnalysisServiceTest extends UnitTestCase
      */
     public function stopWordsAreCorrectlyRemovedForDifferentLanguages()
     {
-        $languages = ['en' => 0, 'fr' => 1, 'de' => 2]; // Example language mappings
+        $languages = [
+            'en' => 'en_US.UTF-8',
+            'fr' => 'fr_FR.UTF-8',
+            'de' => 'de_DE.UTF-8'
+        ];
 
         foreach ($languages as $langCode => $langId) {
             $languageAspectMock = $this->createMock(LanguageAspect::class);
