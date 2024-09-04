@@ -69,16 +69,22 @@ plugin.tx_semanticsuggestion_suggestions {
             abstract = {$plugin.tx_semanticsuggestion_suggestions.settings.analyzedFields.abstract}
             content = {$plugin.tx_semanticsuggestion_suggestions.settings.analyzedFields.content}
         }
-
-        languageMapping {
-            0 = fr
-            1 = de
-            2 = nl
-            # Ajoutez d'autres mappings si nécessaire
-        }
-
     }
 }
+
+
+plugin.tx_semanticsuggestion_suggestions {
+    settings {
+        languageMapping {
+            0 = en
+            1 = fr
+            2 = de
+            # Ajoutez d'autres mappings selon vos besoins
+        }
+        defaultLanguage = en
+    }
+}
+
 
 # Configuration to include the plugin in content elements
 # This allows you to include the semantic suggestion functionality

@@ -17,6 +17,7 @@ use TYPO3\CMS\Core\Routing\PageArguments;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use Psr\Http\Message\ServerRequestInterface;
+use TYPO3\CMS\Core\Context\LanguageAspect;
 
 class PageAnalysisService implements LoggerAwareInterface
 {
@@ -165,26 +166,25 @@ class PageAnalysisService implements LoggerAwareInterface
         $languageAspect = $this->context->getAspect('language');
         $languageId = $languageAspect->getId();
         
-        $this->logger?->debug('Detecting language', ['languageId' => $languageId]);
-        
-        // Tentative de détection automatique
-        $language = $this->detectLanguageAutomatically($languageId);
-        
-        if ($language) {
-            $this->logger?->debug('Language detected automatically', ['language' => $language]);
-        } else {
-            // Si la détection automatique échoue, utilisez le mapping TypoScript
-            $language = $this->getLanguageFromTypoScript($languageId);
-            if ($language) {
-                $this->logger?->debug('Language detected from TypoScript', ['language' => $language]);
-            } else {
-                $language = $this->settings['defaultLanguage'] ?? 'en';
-                $this->logger?->debug('Using default language', ['language' => $language]);
+        try {
+            $currentPageId = $this->getCurrentPageId();
+            if ($currentPageId === null) {
+                throw new \RuntimeException('Unable to determine current page ID');
             }
+    
+            $currentSite = $this->siteFinder->getSiteByPageId($currentPageId);
+            $siteLanguage = $currentSite->getLanguageById($languageId);
+            if ($siteLanguage) {
+                return strtolower(substr($siteLanguage->getHreflang(), 0, 2));
+            }
+        } catch (\Exception $e) {
+            $this->logger?->warning('Failed to detect language automatically', ['exception' => $e->getMessage()]);
         }
-        
-        return $language;
+    
+        // Fallback to default language
+        return $this->settings['defaultLanguage'] ?? 'en';
     }
+
 
     protected function detectLanguageAutomatically(int $languageId): ?string
     {
@@ -393,66 +393,51 @@ class PageAnalysisService implements LoggerAwareInterface
 
 
     protected function preparePageData(array $page, int $currentLanguageUid): array
-{
-    $preparedData = [
-        'uid' => $page['uid'],
-        'sys_language_uid' => $page['sys_language_uid'] ?? 0,
-        'isTranslation' => isset($page['_PAGES_OVERLAY']),
-    ];
-
-    if (!is_array($this->settings['analyzedFields'])) {
-        $this->logger?->warning('analyzedFields is not an array', ['settings' => $this->settings]);
+    {
+        $preparedData = [
+            'uid' => $page['uid'],
+            'sys_language_uid' => $page['sys_language_uid'] ?? 0,
+            'isTranslation' => isset($page['_PAGES_OVERLAY']),
+        ];
+    
+        $language = $this->getCurrentLanguage();
+    
+        foreach ($this->settings['analyzedFields'] as $field => $weight) {
+            $originalContent = $page[$field] ?? '';
+    
+            if ($field === 'content' && empty($originalContent)) {
+                try {
+                    $originalContent = $this->getPageContent($page['uid'], $currentLanguageUid);
+                } catch (\Exception $e) {
+                    $this->logger->error('Error fetching page content', [
+                        'pageId' => $page['uid'], 
+                        'language' => $currentLanguageUid, 
+                        'exception' => $e->getMessage()
+                    ]);
+                    $originalContent = '';
+                }
+            }
+    
+            if (!empty($originalContent) && is_string($originalContent)) {
+                $processedContent = $this->stopWordsService->removeStopWords($originalContent, $language);
+                
+                $preparedData[$field] = [
+                    'content' => $processedContent,
+                    'weight' => (float)$weight
+                ];
+            } else {
+                $preparedData[$field] = [
+                    'content' => '',
+                    'weight' => (float)$weight
+                ];
+            }
+        }
+    
+        $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
+    
         return $preparedData;
     }
-
-    $language = $this->getCurrentLanguage();
     
-    foreach ($this->settings['analyzedFields'] as $field => $weight) {
-        $originalContent = '';
-        $processedContent = '';
-
-        if ($field === 'content') {
-            try {
-                $originalContent = $this->getPageContent($page['uid'], $currentLanguageUid);
-            } catch (\Exception $e) {
-                $this->logger->error('Error fetching page content', [
-                    'pageId' => $page['uid'], 
-                    'language' => $currentLanguageUid, 
-                    'exception' => $e->getMessage()
-                ]);
-                $originalContent = '';
-            }
-        } elseif (isset($page[$field])) {
-            $originalContent = $page[$field];
-        }
-
-        if (!empty($originalContent)) {
-            $processedContent = $this->stopWordsService->removeStopWords($originalContent, $language);
-            
-            if ($this->settings['debugMode']) {
-                $this->logger->debug('Content before and after stopwords removal', [
-                    'pageUid' => $page['uid'],
-                    'field' => $field,
-                    'language' => $language,
-                    'originalContent' => substr($originalContent, 0, 200) . '...',
-                    'processedContent' => substr($processedContent, 0, 200) . '...',
-                    'originalLength' => strlen($originalContent),
-                    'processedLength' => strlen($processedContent)
-                ]);
-            }
-        }
-
-        $preparedData[$field] = [
-            'content' => $processedContent,
-            'weight' => (float)$weight
-        ];
-    }
-
-    $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
-
-    return $preparedData;
-}
-
 
 
 private function getAllSubpages(int $parentId, int $depth = 0): array
@@ -549,84 +534,122 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
         }
     }
 
-private function getWeightedWords(array $pageData): array
-{
-    $weightedWords = [];
-
-    foreach ($pageData as $field => $data) {
-        if (!isset($data['content']) || !is_string($data['content'])) {
-            continue;
+        private function getWeightedWords(array $pageData): array
+        {
+            $weightedWords = [];
+            $language = $this->getCurrentLanguage();
+        
+            foreach ($pageData as $field => $data) {
+                if (!isset($data['content']) || !is_string($data['content'])) {
+                    continue;
+                }
+        
+                // Appliquer removeStopWords avant de compter les mots
+                $content = $this->stopWordsService->removeStopWords($data['content'], $language);
+                
+                $words = array_count_values(str_word_count(strtolower($content), 1));
+                $weight = $data['weight'] ?? 1.0;
+        
+                foreach ($words as $word => $count) {
+                    $weightedWords[$word] = ($weightedWords[$word] ?? 0) + ($count * $weight);
+                }
+            }
+        
+            return $weightedWords;
         }
 
-        $words = array_count_values(str_word_count(strtolower($data['content']), 1));
-        $weight = $data['weight'] ?? 1.0;
 
-        foreach ($words as $word => $count) {
-            $weightedWords[$word] = ($weightedWords[$word] ?? 0) + ($count * $weight);
+
+        private function calculateSimilarity(array $page1, array $page2): array
+        {
+            $this->logger?->debug('Starting similarity calculation', [
+                'page1' => $page1['uid'] ?? 'unknown',
+                'page2' => $page2['uid'] ?? 'unknown'
+            ]);
+
+            $words1 = $this->getWeightedWords($page1);
+            $words2 = $this->getWeightedWords($page2);
+
+            $this->logger?->debug('Weighted words', [
+                'page1' => count($words1),
+                'page2' => count($words2)
+            ]);
+
+            if (empty($words1) || empty($words2)) {
+                $this->logger?->warning('One or both pages have no weighted words', [
+                    'page1' => $page1['uid'] ?? 'unknown',
+                    'page2' => $page2['uid'] ?? 'unknown'
+                ]);
+                return [
+                    'semanticSimilarity' => 0.0,
+                    'recencyBoost' => 0.0,
+                    'finalSimilarity' => 0.0
+                ];
+            }
+
+            $allWords = array_unique(array_merge(array_keys($words1), array_keys($words2)));
+            $dotProduct = 0;
+            $magnitude1 = 0;
+            $magnitude2 = 0;
+
+            foreach ($allWords as $word) {
+                $weight1 = $words1[$word] ?? 0;
+                $weight2 = $words2[$word] ?? 0;
+                $dotProduct += $weight1 * $weight2;
+                $magnitude1 += $weight1 * $weight1;
+                $magnitude2 += $weight2 * $weight2;
+            }
+
+            $this->logger?->debug('Calculation intermediates', [
+                'dotProduct' => $dotProduct,
+                'magnitude1' => $magnitude1,
+                'magnitude2' => $magnitude2
+            ]);
+
+            $magnitude1 = sqrt($magnitude1);
+            $magnitude2 = sqrt($magnitude2);
+
+            if ($magnitude1 === 0 || $magnitude2 === 0) {
+                $this->logger?->warning('Zero magnitude detected', [
+                    'magnitude1' => $magnitude1,
+                    'magnitude2' => $magnitude2
+                ]);
+                return [
+                    'semanticSimilarity' => 0.0,
+                    'recencyBoost' => 0.0,
+                    'finalSimilarity' => 0.0
+                ];
+            }
+
+            $semanticSimilarity = $dotProduct / ($magnitude1 * $magnitude2);
+
+            $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
+
+            $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
+            $finalSimilarity = ($semanticSimilarity * (1 - $recencyWeight)) + ($recencyBoost * $recencyWeight);
+
+            $fieldScores = [
+                'title' => $this->calculateFieldSimilarity($page1['title'] ?? [], $page2['title'] ?? []),
+                'description' => $this->calculateFieldSimilarity($page1['description'] ?? [], $page2['description'] ?? []),
+                'keywords' => $this->calculateFieldSimilarity($page1['keywords'] ?? [], $page2['keywords'] ?? []),
+                'content' => $this->calculateFieldSimilarity($page1['content'] ?? [], $page2['content'] ?? []),
+            ];
+
+            $this->logger?->info('Similarity calculation complete', [
+                'page1' => $page1['uid'] ?? 'unknown',
+                'page2' => $page2['uid'] ?? 'unknown',
+                'semanticSimilarity' => $semanticSimilarity, 
+                'recencyBoost' => $recencyBoost,
+                'finalSimilarity' => $finalSimilarity,
+                'fieldScores' => $fieldScores
+            ]);
+
+            return [
+                'semanticSimilarity' => $semanticSimilarity,
+                'recencyBoost' => $recencyBoost,
+                'finalSimilarity' => min($finalSimilarity, 1.0)
+            ];
         }
-    }
-
-    return $weightedWords;
-}
-
-
-
-private function calculateSimilarity(array $page1, array $page2): array
-{
-    $words1 = $this->getWeightedWords($page1);
-    $words2 = $this->getWeightedWords($page2);
-
-    $allWords = array_unique(array_merge(array_keys($words1), array_keys($words2)));
-    $dotProduct = 0;
-    $magnitude1 = 0;
-    $magnitude2 = 0;
-
-    foreach ($allWords as $word) {
-        $weight1 = $words1[$word] ?? 0;
-        $weight2 = $words2[$word] ?? 0;
-        $dotProduct += $weight1 * $weight2;
-        $magnitude1 += $weight1 * $weight1;
-        $magnitude2 += $weight2 * $weight2;
-    }
-
-    $magnitude1 = sqrt($magnitude1);
-    $magnitude2 = sqrt($magnitude2);
-
-    if ($magnitude1 === 0 || $magnitude2 === 0) {
-        return [
-            'semanticSimilarity' => 0.0,
-            'recencyBoost' => 0.0,
-            'finalSimilarity' => 0.0
-        ];
-    }
-
-    $semanticSimilarity = $dotProduct / ($magnitude1 * $magnitude2);
-
-    $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
-
-    $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
-    $finalSimilarity = ($semanticSimilarity * (1 - $recencyWeight)) + ($recencyBoost * $recencyWeight);
-
-    $this->logger?->info('Similarity calculation', [
-        'page1' => $page1['uid'] ?? 'unknown',
-        'page2' => $page2['uid'] ?? 'unknown',
-        'semanticSimilarity' => $semanticSimilarity, 
-        'recencyBoost' => $recencyBoost,
-        'finalSimilarity' => $finalSimilarity,
-        'fieldScores' => [
-            'title' => $this->calculateFieldSimilarity($page1['title'] ?? [], $page2['title'] ?? []),
-            'description' => $this->calculateFieldSimilarity($page1['description'] ?? [], $page2['description'] ?? []),
-            'keywords' => $this->calculateFieldSimilarity($page1['keywords'] ?? [], $page2['keywords'] ?? []),
-            'content' => $this->calculateFieldSimilarity($page1['content'] ?? [], $page2['content'] ?? []),
-        ]
-    ]);
-
-    return [
-        'semanticSimilarity' => $semanticSimilarity,
-        'recencyBoost' => $recencyBoost,
-        'finalSimilarity' => min($finalSimilarity, 1.0)
-    ];
-}
 
 private function calculateRecencyBoost(array $page1, array $page2): float
 {
