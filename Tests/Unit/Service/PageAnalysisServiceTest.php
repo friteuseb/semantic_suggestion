@@ -13,6 +13,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 use TYPO3\CMS\Core\Log\LogManager;
 use TYPO3\CMS\Core\Log\Logger;
+use Psr\Log\NullLogger;
+
 
 
 class PageAnalysisServiceTest extends UnitTestCase
@@ -230,133 +232,149 @@ class PageAnalysisServiceTest extends UnitTestCase
         }
 
 
-        /**
-         * @test
-         */
-        public function stopWordsServiceUsesCorrectLanguageFile()
-        {
-            // Trouver le chemin du fichier stopwords.json
-            $extensionPath = realpath(__DIR__ . '/../../../../');
-            $stopWordsFilePath = $extensionPath . '/semantic_suggestion/Resources/Private/StopWords/stopwords.json';
-        
-            // Vérifier si le fichier existe
-            $this->assertFileExists($stopWordsFilePath, 'Stopwords file should exist at: ' . $stopWordsFilePath);
-        
-            // Si le fichier n'existe pas, afficher le contenu du répertoire
-            if (!file_exists($stopWordsFilePath)) {
-                $dir = dirname($stopWordsFilePath);
-                $files = scandir($dir);
-                $this->fail('Directory contents of ' . $dir . ': ' . implode(', ', $files));
+            /**
+             * @test
+             */
+            public function stopWordsServiceUsesCorrectLanguageFile()
+            {
+                // Trouver le chemin du fichier stopwords.json
+                $extensionPath = realpath(__DIR__ . '/../../../../');
+                $stopWordsFilePath = $extensionPath . '/semantic_suggestion/Resources/Private/StopWords/stopwords.json';
+            
+                // Vérifier si le fichier existe
+                $this->assertFileExists($stopWordsFilePath, 'Stopwords file should exist at: ' . $stopWordsFilePath);
+            
+                // Si le fichier n'existe pas, afficher le contenu du répertoire
+                if (!file_exists($stopWordsFilePath)) {
+                    $dir = dirname($stopWordsFilePath);
+                    $files = scandir($dir);
+                    $this->fail('Directory contents of ' . $dir . ': ' . implode(', ', $files));
+                }
+            
+                $stopWordsService = new StopWordsService($stopWordsFilePath);
+            
+                $availableLanguages = $stopWordsService->getAvailableLanguages();
+            
+                $this->assertContains('fr', $availableLanguages, 'French stopwords should be available');
+                $this->assertContains('de', $availableLanguages, 'German stopwords should be available');
+            
+                // Test removal of stopwords for each language
+                $testCases = [
+                    'fr' => [
+                        'input' => 'Le chat et le chien sont dans la maison avec une belle vue',
+                        'expected' => 'chat chien maison belle vue'
+                    ],
+                    'de' => [
+                        'input' => 'Der Hund und die Katze sind in dem Haus mit einer schönen Aussicht',
+                        'expected' => 'Hund Katze Haus schönen Aussicht'
+                    ],
+                ];
+            
+                foreach ($testCases as $lang => $case) {
+                    $result = $stopWordsService->removeStopWords($case['input'], $lang);
+                    $this->assertEquals($case['expected'], $result, "Stopwords not correctly removed for {$lang}");
+                    $this->assertNotEquals($case['input'], $result, "Input and output should be different for {$lang}");
+                }
             }
-        
-            $stopWordsService = new StopWordsService($stopWordsFilePath);
-        
-            $availableLanguages = $stopWordsService->getAvailableLanguages();
-        
-            $this->assertContains('fr', $availableLanguages, 'French stopwords should be available');
-            $this->assertContains('de', $availableLanguages, 'German stopwords should be available');
-        
-            // Test removal of stopwords for each language
-            $testCases = [
-                'fr' => [
-                    'input' => 'Le chat et le chien sont dans la maison avec une belle vue',
-                    'expected' => 'chat chien maison belle vue'
-                ],
-                'de' => [
-                    'input' => 'Der Hund und die Katze sind in dem Haus mit einer schönen Aussicht',
-                    'expected' => 'Hund Katze Haus schönen Aussicht'
-                ],
-            ];
-        
-            foreach ($testCases as $lang => $case) {
-                $result = $stopWordsService->removeStopWords($case['input'], $lang);
-                $this->assertEquals($case['expected'], $result, "Stopwords not correctly removed for {$lang}");
-                $this->assertNotEquals($case['input'], $result, "Input and output should be different for {$lang}");
+
+            
+            // Helper function to remove stopwords manually
+            private function removeStopWords($text, $stopWords)
+            {
+                $words = preg_split('/\s+/', $text);
+                return implode(' ', array_diff($words, $stopWords));
             }
-        }
-
-        
-         // Helper function to remove stopwords manually
-        private function removeStopWords($text, $stopWords)
-        {
-            $words = preg_split('/\s+/', $text);
-            return implode(' ', array_diff($words, $stopWords));
-        }
 
 
-        /**
-         * @test
-         */
-        public function stopWordsAreRemovedBeforeSimilarityCalculation()
-        {
-            // Créez un mock pour StopWordsService
-            $this->stopWordsServiceMock = $this->getMockBuilder(StopWordsService::class)
-                ->disableOriginalConstructor()
-                ->getMock();
+    /**
+     * @test
+     */
+    public function stopWordsAreRemovedBeforeSimilarityCalculation()
+    {
+        $this->stopWordsServiceMock = $this->getMockBuilder(StopWordsService::class)
+            ->disableOriginalConstructor()
+            ->getMock();
 
-            // Configurez le mock pour StopWordsService
-            $this->stopWordsServiceMock->expects($this->atLeastOnce())
-                ->method('removeStopWords')
-                ->willReturnCallback(function($text, $lang) {
-                    return preg_replace('/\b(is|a|for|can|be|used|and)\b/i', '', $text);
-                });
+        $this->stopWordsServiceMock->expects($this->atLeastOnce())
+            ->method('removeStopWords')
+            ->willReturnCallback(function($text, $lang) {
+                return preg_replace('/\b(is|a|for|can|be|used|and)\b/i', '', $text);
+            });
 
-            // Créez un mock partiel pour PageAnalysisService
-            $this->pageAnalysisService = $this->getMockBuilder(PageAnalysisService::class)
-                ->setConstructorArgs([
-                    $this->contextMock,
-                    $this->createMock(ConfigurationManagerInterface::class),
-                    $this->stopWordsServiceMock,
-                    $this->createMock(SiteFinder::class)
-                ])
-                ->onlyMethods(['getCurrentLanguage'])
-                ->getMock();
+        $this->pageAnalysisService = $this->getMockBuilder(PageAnalysisService::class)
+            ->setConstructorArgs([
+                $this->contextMock,
+                $this->createMock(ConfigurationManagerInterface::class),
+                $this->stopWordsServiceMock,
+                $this->createMock(SiteFinder::class),
+                null,
+                null,
+                new NullLogger()
+            ])
+            ->onlyMethods(['getCurrentLanguage', 'getWeightedWords'])
+            ->getMock();
 
-            // Configurez getCurrentLanguage pour retourner une langue spécifique
-            $this->pageAnalysisService->method('getCurrentLanguage')
-                ->willReturn('en');
+        $this->pageAnalysisService->method('getCurrentLanguage')->willReturn('en');
+        $this->pageAnalysisService->method('getWeightedWords')->willReturnCallback(function ($pageData) {
+            $weightedWords = [];
+            foreach (['title', 'content'] as $field) {
+                if (isset($pageData[$field]['content'])) {
+                    $words = str_word_count(strtolower($pageData[$field]['content']), 1);
+                    $weight = $pageData[$field]['weight'];
+                    foreach ($words as $word) {
+                        $weightedWords[$word] = ($weightedWords[$word] ?? 0) + $weight;
+                    }
+                }
+            }
+            return $weightedWords;
+        });
 
-            // Préparez les données de test
-            $page1 = [
-                'uid' => 1,
-                'title' => ['content' => 'TYPO3 CMS Development', 'weight' => 1.5],
-                'content' => ['content' => 'TYPO3 is a powerful content management system for web development', 'weight' => 1.0],
-                'content_modified_at' => time()
-            ];
-            $page2 = [
-                'uid' => 2,
-                'title' => ['content' => 'Web Development with TYPO3', 'weight' => 1.5],
-                'content' => ['content' => 'TYPO3 can be used for web development and content management', 'weight' => 1.0],
-                'content_modified_at' => time() - 86400 // 1 jour plus ancien
-            ];
+        $page1 = [
+            'uid' => 1,
+            'title' => ['content' => 'TYPO3 CMS Development', 'weight' => 1.5],
+            'content' => ['content' => 'TYPO3 is a powerful content management system for web development', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'uid' => 2,
+            'title' => ['content' => 'Web Development with TYPO3', 'weight' => 1.5],
+            'content' => ['content' => 'TYPO3 can be used for web development and content management', 'weight' => 1.0],
+            'content_modified_at' => time() - 86400
+        ];
 
-            // Injectez les paramètres nécessaires
-            $this->injectObjectIntoPageAnalysisService('settings', [
-                'analyzedFields' => [
-                    'title' => 1.5,
-                    'content' => 1.0
-                ],
-                'recencyWeight' => 0.2
-            ]);
+        $this->injectObjectIntoPageAnalysisService('settings', [
+            'analyzedFields' => [
+                'title' => 1.5,
+                'content' => 1.0
+            ],
+            'recencyWeight' => 0.2
+        ]);
 
-            // Appelez la méthode à tester
-            $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
 
-            // Vérifiez les résultats
-            $this->assertIsArray($result, 'Result should be an array');
-            $this->assertArrayHasKey('semanticSimilarity', $result, 'Result should have a semanticSimilarity key');
-            $this->assertArrayHasKey('recencyBoost', $result, 'Result should have a recencyBoost key');
-            $this->assertArrayHasKey('finalSimilarity', $result, 'Result should have a finalSimilarity key');
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('semanticSimilarity', $result);
+        $this->assertArrayHasKey('recencyBoost', $result);
+        $this->assertArrayHasKey('finalSimilarity', $result);
 
-            $this->assertGreaterThan(0, $result['semanticSimilarity'], 'Semantic similarity should be greater than 0');
-            $this->assertLessThanOrEqual(1, $result['semanticSimilarity'], 'Semantic similarity should be less than or equal to 1');
-            $this->assertGreaterThan(0, $result['finalSimilarity'], 'Final similarity should be greater than 0');
-            $this->assertLessThanOrEqual(1, $result['finalSimilarity'], 'Final similarity should be less than or equal to 1');
+        $this->assertGreaterThan(0, $result['semanticSimilarity']);
+        $this->assertLessThanOrEqual(1, $result['semanticSimilarity']);
+        $this->assertGreaterThan(0, $result['finalSimilarity']);
+        $this->assertLessThanOrEqual(1, $result['finalSimilarity']);
 
-            // Vérifiez que la similarité est significative mais pas parfaite
-            $this->assertGreaterThan(0.3, $result['semanticSimilarity'], 'Similarity should be significant even after stop words removal');
-            $this->assertLessThan(1.0, $result['semanticSimilarity'], 'Similarity should not be perfect due to different content');
-        }
+        $this->assertGreaterThan(0.3, $result['semanticSimilarity']);
+        $this->assertLessThan(1.0, $result['semanticSimilarity']);
+
+        $commonKeywords = $this->invokeMethod($this->pageAnalysisService, 'findCommonKeywords', [$page1, $page2]);
+        $this->assertContains('typo3', $commonKeywords);
+        $this->assertContains('development', $commonKeywords);
+        $this->assertNotContains('is', $commonKeywords);
+        $this->assertNotContains('a', $commonKeywords);
+        $this->assertNotContains('for', $commonKeywords);
+
+        $this->assertGreaterThan(0, $result['recencyBoost']);
+        $this->assertLessThan($result['semanticSimilarity'], $result['recencyBoost']);
+    }
 
     /**
      * @test

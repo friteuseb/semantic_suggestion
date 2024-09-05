@@ -18,6 +18,7 @@ use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Context\LanguageAspect;
+use Psr\Log\NullLogger;
 
 class PageAnalysisService implements LoggerAwareInterface
 {
@@ -48,6 +49,8 @@ class PageAnalysisService implements LoggerAwareInterface
         $this->siteFinder = $siteFinder;
         $this->cacheManager = $cacheManager;
         $this->connectionPool = $connectionPool ?? GeneralUtility::makeInstance(ConnectionPool::class);
+        $this->logger = $logger ?? new NullLogger();
+
 
         if ($logger !== null) {
             $this->setLogger($logger);
@@ -62,9 +65,30 @@ class PageAnalysisService implements LoggerAwareInterface
         $this->initializeCache();
     }
 
+    private function logDebug(string $message, array $context = []): void
+    {
+        $this->logger->debug($message, $context);
+    }
+
+    private function logInfo(string $message, array $context = []): void
+    {
+        $this->logger->info($message, $context);
+    }
+
+    private function logWarning(string $message, array $context = []): void
+    {
+        $this->logger->warning($message, $context);
+    }
+
+    private function logError(string $message, array $context = []): void
+    {
+        $this->logger->error($message, $context);
+    }
+
     protected function initializeSettings(): void
     {
-        $this->logger?->debug('Initializing settings', ['current_settings' => $this->settings]);
+        $this->logDebug('Initializing settings', ['current_settings' => $this->settings]);
+
         // initialiser debugMode
         $this->logger?->debug('Current settings before using debugMode', ['settings' => $this->settings]);
         $this->settings['debugMode'] = $this->settings['debugMode'] ?? false;
@@ -534,7 +558,7 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
         }
     }
 
-        private function getWeightedWords(array $pageData): array
+        protected function getWeightedWords(array $pageData): array
         {
             $weightedWords = [];
             $language = $this->getCurrentLanguage();
@@ -547,6 +571,9 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
                 // Appliquer removeStopWords avant de compter les mots
                 $content = $this->stopWordsService->removeStopWords($data['content'], $language);
                 
+                $this->logger->debug('Content after stop words removal', ['field' => $field, 'content' => $content]);
+
+
                 $words = array_count_values(str_word_count(strtolower($content), 1));
                 $weight = $data['weight'] ?? 1.0;
         
@@ -569,6 +596,8 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
 
             $words1 = $this->getWeightedWords($page1);
             $words2 = $this->getWeightedWords($page2);
+
+            $this->logger->debug('Weighted words', ['words1' => $words1, 'words2' => $words2]);
 
             $this->logger?->debug('Weighted words', [
                 'page1' => count($words1),
