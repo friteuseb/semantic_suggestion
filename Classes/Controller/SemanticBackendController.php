@@ -231,26 +231,25 @@ class SemanticBackendController extends ActionController
 
 
     protected function mergeLanguageData(array $data): array
-{
-    $mergedData = [
-        'statistics' => [],
-        'analysisResults' => [],
-        'languageStatistics' => [],
-        'totalPages' => 0,
-    ];
-
-    foreach ($data as $languageUid => $languageData) {
-        $mergedData['totalPages'] += $languageData['totalPages'];
-        $mergedData['analysisResults'] += $languageData['analysisResults'];
-        $mergedData['languageStatistics'][$languageUid] = $languageData['languageStatistics'][$languageUid] ?? [];
+    {
+        $mergedData = [
+            'statistics' => [],
+            'analysisResults' => [],
+            'languageStatistics' => [],
+            'totalPages' => 0,
+        ];
+    
+        foreach ($data as $languageUid => $languageData) {
+            $mergedData['totalPages'] += $languageData['totalPages'];
+            $mergedData['analysisResults'] += $languageData['analysisResults'];
+            $mergedData['languageStatistics'][$languageUid] = $languageData['languageStatistics'][$languageUid] ?? [];
+        }
+    
+        // Fusionner les statistiques
+        $mergedData['statistics'] = $this->mergeStatistics(array_column($data, 'statistics'));
+    
+        return $mergedData;
     }
-
-    // Fusionner les statistiques (vous devrez peut-être ajuster cela selon vos besoins spécifiques)
-    $mergedData['statistics'] = $this->mergeStatistics(array_column($data, 'statistics'));
-
-    return $mergedData;
-}
-
 protected function mergeStatistics(array $statisticsArray): array
 {
     $mergedStats = [
@@ -292,36 +291,41 @@ protected function mergeStatistics(array $statisticsArray): array
 
 
 
-    protected function getPages(int $parentPageId, int $depth, int $languageUid): array
-    {
-        $pages = [];
-        $defaultLanguagePages = $this->getPageRepository()->getMenu(
-            $parentPageId,
-            '*',
-            'sorting',
-            '',
-            false
-        );
+protected function getPages(int $parentPageId, int $depth, int $languageUid): array
+{
+    $pages = [];
+    $pageRepository = $this->getPageRepository();
 
-        foreach ($defaultLanguagePages as $pageUid => $defaultLanguagePage) {
-            $defaultLanguagePage['sys_language_uid'] = 0;  // Assurez-vous que c'est bien défini
-            $pages[$pageUid] = $defaultLanguagePage;
+    // Récupérer les pages dans la langue par défaut
+    $defaultLanguagePages = $pageRepository->getMenu($parentPageId, '*', 'sorting', '', false);
 
-            $translations = $this->getPageTranslations($pageUid);
-            foreach ($translations as $languageId => $translation) {
-                $translatedPageUid = $translation['_PAGES_OVERLAY_UID'] ?? $pageUid;
-                $translation['uid'] = $translatedPageUid;
-                $translation['sys_language_uid'] = $languageId;
-                $pages[$translatedPageUid] = $translation;
-            }
+    foreach ($defaultLanguagePages as $pageUid => $defaultPage) {
+        // Ajouter la page dans la langue par défaut
+        $pages[$pageUid] = $defaultPage;
+        $pages[$pageUid]['sys_language_uid'] = 0;
 
-            if ($depth > 1) {
-                $subpages = $this->getPages($pageUid, $depth - 1);
-                $pages = array_merge($pages, $subpages);
+        // Récupérer la traduction si elle existe
+        if ($languageUid > 0) {
+            $translatedPage = $pageRepository->getPageOverlay($pageUid, $languageUid);
+            if ($translatedPage) {
+                $translatedPageUid = $translatedPage['_PAGES_OVERLAY_UID'] ?? $pageUid;
+                $pages[$translatedPageUid] = $translatedPage;
+                $pages[$translatedPageUid]['sys_language_uid'] = $languageUid;
             }
         }
-        return $pages;
+
+        // Récupérer les sous-pages si nécessaire
+        if ($depth > 1) {
+            $subpages = $this->getPages($pageUid, $depth - 1, $languageUid);
+            $pages = array_merge($pages, $subpages);
+        }
     }
+
+    return $pages;
+}
+
+
+
 
     protected function getPageTranslations(int $pageUid): array
     {
@@ -396,8 +400,10 @@ protected function mergeStatistics(array $statisticsArray): array
             usort($similarityPairs, function($a, $b) {
                 return $b['score'] <=> $a['score'];
             });
+            // Utiliser array_unique pour éliminer les doublons
+            $similarityPairs = array_unique($similarityPairs, SORT_REGULAR);
             $result['topSimilarPairs'] = array_slice($similarityPairs, 0, 5);
-            $result['topSimilarPages'] = arsort($pagesSimilarityCount) ? array_slice($pagesSimilarityCount, 0, 5, true) : [];
+
         }
 
         if ($calculateDistribution) {
