@@ -558,127 +558,147 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
         }
     }
 
-        protected function getWeightedWords(array $pageData): array
-        {
-            $weightedWords = [];
-            $language = $this->getCurrentLanguage();
-        
-            foreach ($pageData as $field => $data) {
-                if (!isset($data['content']) || !is_string($data['content'])) {
-                    continue;
-                }
-        
-                // Appliquer removeStopWords avant de compter les mots
-                $content = $this->stopWordsService->removeStopWords($data['content'], $language);
-                
-                $this->logger->debug('Content after stop words removal', ['field' => $field, 'content' => $content]);
-
-
-                $words = array_count_values(str_word_count(strtolower($content), 1));
-                $weight = $data['weight'] ?? 1.0;
-        
-                foreach ($words as $word => $count) {
-                    $weightedWords[$word] = ($weightedWords[$word] ?? 0) + ($count * $weight);
-                }
+    protected function getWeightedWords(array $pageData): array
+    {
+        $weightedWords = [];
+        $language = $this->getCurrentLanguage();
+    
+        $this->logger->debug('Starting getWeightedWords', ['pageData' => $pageData, 'language' => $language]);
+    
+        foreach ($this->settings['analyzedFields'] as $field => $weight) {
+            if (!isset($pageData[$field]['content']) || !is_string($pageData[$field]['content'])) {
+                $this->logger->warning('Invalid or missing field data', ['field' => $field]);
+                continue;
             }
-        
-            return $weightedWords;
+    
+            $originalContent = $pageData[$field]['content'];
+            $this->logger->debug('Original content', ['field' => $field, 'content' => $originalContent]);
+    
+            $content = $this->stopWordsService->removeStopWords($originalContent, $language);
+            
+            $this->logger->debug('Content after stop words removal', ['field' => $field, 'content' => $content]);
+    
+            $words = array_count_values(str_word_count(strtolower($content), 1));
+            $this->logger->debug('Word count', ['field' => $field, 'words' => $words]);
+    
+            foreach ($words as $word => $count) {
+                $weightedWords[$word] = ($weightedWords[$word] ?? 0) + ($count * $weight);
+            }
         }
+    
+        $this->logger->debug('Final weighted words result', ['weightedWords' => $weightedWords]);
+    
+        return $weightedWords;
+    }
 
 
 
-        private function calculateSimilarity(array $page1, array $page2): array
-        {
-            $this->logger?->debug('Starting similarity calculation', [
+    private function calculateSimilarity(array $page1, array $page2): array
+    {
+        $this->logger?->debug('Starting similarity calculation', [
+            'page1' => $page1['uid'] ?? 'unknown',
+            'page2' => $page2['uid'] ?? 'unknown',
+            'page1_fields' => array_keys($page1),
+            'page2_fields' => array_keys($page2)
+        ]);
+    
+        $words1 = $this->getWeightedWords($page1);
+        $words2 = $this->getWeightedWords($page2);
+    
+        $this->logger->debug('Weighted words', ['words1' => $words1, 'words2' => $words2]);
+        $this->logger->debug('Word counts', [
+            'page1' => count($words1),
+            'page2' => count($words2)
+        ]);
+    
+        if (empty($words1) || empty($words2)) {
+            $this->logger?->warning('One or both pages have no weighted words', [
                 'page1' => $page1['uid'] ?? 'unknown',
                 'page2' => $page2['uid'] ?? 'unknown'
             ]);
-
-            $words1 = $this->getWeightedWords($page1);
-            $words2 = $this->getWeightedWords($page2);
-
-            $this->logger->debug('Weighted words', ['words1' => $words1, 'words2' => $words2]);
-
-            $this->logger?->debug('Weighted words', [
-                'page1' => count($words1),
-                'page2' => count($words2)
-            ]);
-
-            if (empty($words1) || empty($words2)) {
-                $this->logger?->warning('One or both pages have no weighted words', [
-                    'page1' => $page1['uid'] ?? 'unknown',
-                    'page2' => $page2['uid'] ?? 'unknown'
-                ]);
-                return [
-                    'semanticSimilarity' => 0.0,
-                    'recencyBoost' => 0.0,
-                    'finalSimilarity' => 0.0
-                ];
-            }
-
-            $allWords = array_unique(array_merge(array_keys($words1), array_keys($words2)));
-            $dotProduct = 0;
-            $magnitude1 = 0;
-            $magnitude2 = 0;
-
-            foreach ($allWords as $word) {
-                $weight1 = $words1[$word] ?? 0;
-                $weight2 = $words2[$word] ?? 0;
-                $dotProduct += $weight1 * $weight2;
-                $magnitude1 += $weight1 * $weight1;
-                $magnitude2 += $weight2 * $weight2;
-            }
-
-            $this->logger?->debug('Calculation intermediates', [
-                'dotProduct' => $dotProduct,
+            return [
+                'semanticSimilarity' => 0.0,
+                'recencyBoost' => 0.0,
+                'finalSimilarity' => 0.0
+            ];
+        }
+    
+        $allWords = array_unique(array_merge(array_keys($words1), array_keys($words2)));
+        $this->logger->debug('Unique words', ['count' => count($allWords), 'words' => $allWords]);
+    
+        $dotProduct = 0;
+        $magnitude1 = 0;
+        $magnitude2 = 0;
+    
+        foreach ($allWords as $word) {
+            $weight1 = $words1[$word] ?? 0;
+            $weight2 = $words2[$word] ?? 0;
+            $dotProduct += $weight1 * $weight2;
+            $magnitude1 += $weight1 * $weight1;
+            $magnitude2 += $weight2 * $weight2;
+        }
+    
+        $this->logger?->debug('Calculation intermediates', [
+            'dotProduct' => $dotProduct,
+            'magnitude1' => $magnitude1,
+            'magnitude2' => $magnitude2
+        ]);
+    
+        $magnitude1 = sqrt($magnitude1);
+        $magnitude2 = sqrt($magnitude2);
+    
+        if ($magnitude1 === 0 || $magnitude2 === 0) {
+            $this->logger?->warning('Zero magnitude detected', [
                 'magnitude1' => $magnitude1,
                 'magnitude2' => $magnitude2
             ]);
-
-            $magnitude1 = sqrt($magnitude1);
-            $magnitude2 = sqrt($magnitude2);
-
-            if ($magnitude1 === 0 || $magnitude2 === 0) {
-                $this->logger?->warning('Zero magnitude detected', [
-                    'magnitude1' => $magnitude1,
-                    'magnitude2' => $magnitude2
-                ]);
-                return [
-                    'semanticSimilarity' => 0.0,
-                    'recencyBoost' => 0.0,
-                    'finalSimilarity' => 0.0
-                ];
-            }
-
-            $semanticSimilarity = $dotProduct / ($magnitude1 * $magnitude2);
-
-            $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
-
-            $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
-            $finalSimilarity = ($semanticSimilarity * (1 - $recencyWeight)) + ($recencyBoost * $recencyWeight);
-
-            $fieldScores = [
-                'title' => $this->calculateFieldSimilarity($page1['title'] ?? [], $page2['title'] ?? []),
-                'description' => $this->calculateFieldSimilarity($page1['description'] ?? [], $page2['description'] ?? []),
-                'keywords' => $this->calculateFieldSimilarity($page1['keywords'] ?? [], $page2['keywords'] ?? []),
-                'content' => $this->calculateFieldSimilarity($page1['content'] ?? [], $page2['content'] ?? []),
-            ];
-
-            $this->logger?->info('Similarity calculation complete', [
-                'page1' => $page1['uid'] ?? 'unknown',
-                'page2' => $page2['uid'] ?? 'unknown',
-                'semanticSimilarity' => $semanticSimilarity, 
-                'recencyBoost' => $recencyBoost,
-                'finalSimilarity' => $finalSimilarity,
-                'fieldScores' => $fieldScores
-            ]);
-
             return [
-                'semanticSimilarity' => $semanticSimilarity,
-                'recencyBoost' => $recencyBoost,
-                'finalSimilarity' => min($finalSimilarity, 1.0)
+                'semanticSimilarity' => 0.0,
+                'recencyBoost' => 0.0,
+                'finalSimilarity' => 0.0
             ];
         }
+    
+        $semanticSimilarity = $dotProduct / ($magnitude1 * $magnitude2);
+    
+        $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
+        $this->logger->debug('Recency boost', ['recencyBoost' => $recencyBoost]);
+    
+        $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
+        $this->logger->debug('Recency weight', ['recencyWeight' => $recencyWeight]);
+    
+        $finalSimilarity = ($semanticSimilarity * (1 - $recencyWeight)) + ($recencyBoost * $recencyWeight);
+    
+        $fieldScores = [
+            'title' => $this->calculateFieldSimilarity($page1['title'] ?? [], $page2['title'] ?? []),
+            'description' => $this->calculateFieldSimilarity($page1['description'] ?? [], $page2['description'] ?? []),
+            'keywords' => $this->calculateFieldSimilarity($page1['keywords'] ?? [], $page2['keywords'] ?? []),
+            'content' => $this->calculateFieldSimilarity($page1['content'] ?? [], $page2['content'] ?? []),
+        ];
+    
+        $this->logger?->info('Similarity calculation complete', [
+            'page1' => $page1['uid'] ?? 'unknown',
+            'page2' => $page2['uid'] ?? 'unknown',
+            'semanticSimilarity' => $semanticSimilarity, 
+            'recencyBoost' => $recencyBoost,
+            'finalSimilarity' => $finalSimilarity,
+            'fieldScores' => $fieldScores
+        ]);
+    
+        $this->logger->debug('Final similarity calculation', [
+            'semanticSimilarity' => $semanticSimilarity,
+            'recencyBoost' => $recencyBoost,
+            'finalSimilarity' => $finalSimilarity,
+            'words1' => $words1,
+            'words2' => $words2
+        ]);
+    
+        return [
+            'semanticSimilarity' => $semanticSimilarity,
+            'recencyBoost' => $recencyBoost,
+            'finalSimilarity' => min($finalSimilarity, 1.0)
+        ];
+    }
 
 private function calculateRecencyBoost(array $page1, array $page2): float
 {

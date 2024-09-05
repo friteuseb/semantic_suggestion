@@ -23,17 +23,18 @@ class PageAnalysisServiceTest extends UnitTestCase
     protected $stopWordsServiceMock;
     protected $contextMock;
     protected $languageAspectMock;
+    protected $loggerMock; 
 
-        protected function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
         
         $this->languageAspectMock = $this->createMock(LanguageAspect::class);
         $this->languageAspectMock->method('getId')->willReturn(0); // 0 pour la langue par défaut (anglais)
-
+    
         $this->contextMock = $this->createMock(Context::class);
         $this->contextMock->method('getAspect')->with('language')->willReturn($this->languageAspectMock);
-
+    
         $configManagerMock = $this->createMock(ConfigurationManagerInterface::class);
         
         $siteFinderMock = $this->createMock(SiteFinder::class);
@@ -42,16 +43,21 @@ class PageAnalysisServiceTest extends UnitTestCase
         $siteMock = $this->createMock(\TYPO3\CMS\Core\Site\Entity\Site::class);
         $siteMock->method('getLanguageById')->willReturn($siteLanguageMock);
         $siteFinderMock->method('getSiteByPageId')->willReturn($siteMock);
-
+    
+        $this->loggerMock = $this->createMock(\Psr\Log\LoggerInterface::class);
+    
         $this->stopWordsServiceMock = $this->getMockBuilder(StopWordsService::class)
             ->disableOriginalConstructor()
             ->getMock();
-
+    
         $this->pageAnalysisService = new PageAnalysisService(
             $this->contextMock, 
             $configManagerMock, 
             $this->stopWordsServiceMock,
-            $siteFinderMock
+            $siteFinderMock,
+            null,
+            null,
+            $this->loggerMock
         );
         
         $this->pageAnalysisService->setSettings([
@@ -376,93 +382,125 @@ class PageAnalysisServiceTest extends UnitTestCase
         $this->assertLessThan($result['semanticSimilarity'], $result['recencyBoost']);
     }
 
-    /**
-     * @test
-     */
-    public function similarityCalculationHandlesMultilingualContentWithStopWords()
-    {
-        $page1 = [
-            'title' => ['content' => 'TYPO3 Development', 'weight' => 1.5],
-            'content' => ['content' => 'Information about TYPO3 development', 'weight' => 1.0],
-            'sys_language_uid' => 0,
-            'content_modified_at' => time()
-        ];
-        $page2 = [
-            'title' => ['content' => 'Développement TYPO3', 'weight' => 1.5],
-            'content' => ['content' => 'Informations sur le développement TYPO3', 'weight' => 1.0],
-            'sys_language_uid' => 1,
-            'content_modified_at' => time()
-        ];
+        /**
+         * @test
+         */
+        public function similarityCalculationHandlesMultilingualContentWithStopWords()
+        {
+            $page1 = [
+                'title' => ['content' => 'TYPO3 Development', 'weight' => 1.5],
+                'content' => ['content' => 'Information about TYPO3 development', 'weight' => 1.0],
+                'sys_language_uid' => 0,
+                'content_modified_at' => time()
+            ];
+            $page2 = [
+                'title' => ['content' => 'Développement TYPO3', 'weight' => 1.5],
+                'content' => ['content' => 'Informations sur le développement TYPO3', 'weight' => 1.0],
+                'sys_language_uid' => 1,
+                'content_modified_at' => time()
+            ];
 
-        $this->stopWordsServiceMock->expects($this->exactly(4))
-            ->method('removeStopWords')
-            ->withConsecutive(
-                ['TYPO3 Development', 'en'],
-                ['Information about TYPO3 development', 'en'],
-                ['Développement TYPO3', 'fr'],
-                ['Informations sur le développement TYPO3', 'fr']
-            )
-            ->willReturnOnConsecutiveCalls(
-                'typo3 development',
-                'information typo3 development',
-                'développement typo3',
-                'informations développement typo3'
-            );
+            $this->stopWordsServiceMock->expects($this->exactly(4))
+                ->method('removeStopWords')
+                ->willReturnMap([
+                    ['TYPO3 Development', 'en', 'typo3 development'],
+                    ['Information about TYPO3 development', 'en', 'information typo3 development'],
+                    ['Développement TYPO3', 'fr', 'développement typo3'],
+                    ['Informations sur le développement TYPO3', 'fr', 'informations développement typo3']
+                ]);
 
-        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+            $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
 
-        $this->assertGreaterThan(0.5, $result['semanticSimilarity'], 
-            'Similarity should be detected even for content in different languages after stop words removal');
-        $this->assertLessThan(0.9, $result['semanticSimilarity'], 
-            'Similarity should not be too high for content in different languages');
-    }
-
- 
-
-    /**
-     * @test
-     */
-    public function getWeightedWordsReturnsCorrectWeights()
-    {
-        $pageData = [
-            'title' => ['content' => 'Test Title', 'weight' => 1.5],
-            'content' => ['content' => 'This is test content', 'weight' => 1.0]
-        ];
-
-        $result = $this->invokeMethod($this->pageAnalysisService, 'getWeightedWords', [$pageData]);
-
-        $this->assertEquals(1.5, $result['test'], 'The word "test" should have a weight of 1.5 from the title');
-        $this->assertEquals(2.5, $result['title'], 'The word "title" should have a weight of 1.5 from the title');
-        $this->assertEquals(1.0, $result['content'], 'The word "content" should have a weight of 1.0 from the content');
-    }
-
+            $this->assertGreaterThan(0.5, $result['semanticSimilarity'], 
+                'Similarity should be detected even for content in different languages after stop words removal');
+            $this->assertLessThan(0.9, $result['semanticSimilarity'], 
+                'Similarity should not be too high for content in different languages');
+        }
+        
 
         /**
+         * @test
+         */
+        public function getWeightedWordsReturnsCorrectWeights()
+        {
+            $pageData = [
+                'title' => ['content' => 'Test Title', 'weight' => 1.5],
+                'content' => ['content' => 'This is test content', 'weight' => 1.0]
+            ];
+
+            $settings = [
+                'analyzedFields' => [
+                    'title' => 1.5,
+                    'content' => 1.0
+                ]
+            ];
+
+            // Create a partial mock of PageAnalysisService
+            $pageAnalysisServiceMock = $this->getMockBuilder(PageAnalysisService::class)
+                ->setConstructorArgs([
+                    $this->contextMock,
+                    $this->createMock(ConfigurationManagerInterface::class),
+                    $this->stopWordsServiceMock,
+                    $this->createMock(SiteFinder::class),
+                    null,
+                    null,
+                    $this->loggerMock
+                ])
+                ->onlyMethods(['getCurrentLanguage'])
+                ->getMock();
+
+            $pageAnalysisServiceMock->setSettings($settings);
+
+            // Mock the getCurrentLanguage method
+            $pageAnalysisServiceMock->expects($this->any())
+                ->method('getCurrentLanguage')
+                ->willReturn('en');
+
+            // Mock the stopWordsService
+            $this->stopWordsServiceMock->expects($this->exactly(2))
+                ->method('removeStopWords')
+                ->willReturnMap([
+                    ['Test Title', 'en', 'Test Title'],
+                    ['This is test content', 'en', 'test content']
+                ]);
+
+            $result = $this->invokeMethod($pageAnalysisServiceMock, 'getWeightedWords', [$pageData]);
+
+            $this->assertEquals(2.5, $result['test'], 'The word "test" should have a weight of 2.5 (1.5 from title + 1.0 from content)');
+            $this->assertEquals(1.5, $result['title'], 'The word "title" should have a weight of 1.5 from the title');
+            $this->assertEquals(1.0, $result['content'], 'The word "content" should have a weight of 1.0 from the content');
+        }
+
+    /**
      * @test
      */
-public function getWeightedWordsReturnsCorrectWeightsWithStopWordsRemoved()
-{
-    $pageData = [
-        'title' => ['content' => 'The Test Title', 'weight' => 1.5],
-        'content' => ['content' => 'This is a test content', 'weight' => 1.0]
-    ];
-
-    $this->stopWordsServiceMock->expects($this->exactly(2))
-        ->method('removeStopWords')
-        ->willReturnOnConsecutiveCalls(
-            'test title',
-            'test content'
-        );
-
-    $result = $this->invokeMethod($this->pageAnalysisService, 'getWeightedWords', [$pageData]);
-
-    $this->assertEquals(1.5, $result['test'], 'The word "test" should have a weight of 1.5 from the title');
-    $this->assertEquals(1.5, $result['title'], 'The word "title" should have a weight of 1.5 from the title');
-    $this->assertEquals(1.0, $result['content'], 'The word "content" should have a weight of 1.0 from the content');
-    $this->assertArrayNotHasKey('the', $result, 'Stop word "the" should be removed');
-    $this->assertArrayNotHasKey('is', $result, 'Stop word "is" should be removed');
-}
-
+    public function getWeightedWordsReturnsCorrectWeightsWithStopWordsRemoved()
+    {
+        $pageData = [
+            'title' => ['content' => 'The Test Title', 'weight' => 1.5],
+            'content' => ['content' => 'This is a test content', 'weight' => 1.0]
+        ];
+    
+        $this->stopWordsServiceMock->expects($this->exactly(2))
+            ->method('removeStopWords')
+            ->willReturnMap([
+                ['The Test Title', 'en', 'Test Title'],
+                ['This is a test content', 'en', 'test content']
+            ]);
+    
+        $this->pageAnalysisService->setSettings([
+            'analyzedFields' => [
+                'title' => 1.5,
+                'content' => 1.0
+            ]
+        ]);
+    
+        $result = $this->invokeMethod($this->pageAnalysisService, 'getWeightedWords', [$pageData]);
+    
+        $this->assertEquals(2.5, $result['test'], 'The word "test" should have a weight of 2.5 (1.5 from title + 1.0 from content)');
+        $this->assertEquals(1.5, $result['title'], 'The word "title" should have a weight of 1.5 from the title');
+        $this->assertEquals(1.0, $result['content'], 'The word "content" should have a weight of 1.0 from the content');
+    }
 
     /**
      * @test
@@ -481,6 +519,15 @@ public function getWeightedWordsReturnsCorrectWeightsWithStopWordsRemoved()
         ];
 
         $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+
+        $this->loggerMock->expects($this->once())
+        ->method('debug')
+        ->with(
+            $this->equalTo('Test result'),
+            $this->callback(function ($context) use ($result, $page1, $page2) {
+                return isset($context['result']) && isset($context['page1']) && isset($context['page2']);
+            })
+        );
 
         $this->assertGreaterThan(0.7, $result['semanticSimilarity'], 'Pages with similar content should have high semantic similarity');
         $this->assertLessThan(0.1, $result['recencyBoost'], 'Pages with close modification dates should have low recency boost');
