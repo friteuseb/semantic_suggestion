@@ -443,7 +443,21 @@ class PageAnalysisService implements LoggerAwareInterface
             }
     
             if (!empty($originalContent) && is_string($originalContent)) {
+                if ($this->settings['debugMode']) {
+                    $this->logger->debug('Original content before stop words removal', [
+                        'field' => $field,
+                        'content' => $originalContent
+                    ]);
+                }
+                
                 $processedContent = $this->stopWordsService->removeStopWords($originalContent, $language);
+                
+                if ($this->settings['debugMode']) {
+                    $this->logger->debug('Content after stop words removal', [
+                        'field' => $field,
+                        'content' => $processedContent
+                    ]);
+                }
                 
                 $preparedData[$field] = [
                     'content' => $processedContent,
@@ -563,30 +577,38 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
         $weightedWords = [];
         $language = $this->getCurrentLanguage();
     
-        $this->logger->debug('Starting getWeightedWords', ['pageData' => $pageData, 'language' => $language]);
+        if ($this->settings['debugMode']) {
+            $this->logger->debug('Starting getWeightedWords', ['pageData' => $pageData, 'language' => $language]);
+        }
     
         foreach ($this->settings['analyzedFields'] as $field => $weight) {
             if (!isset($pageData[$field]['content']) || !is_string($pageData[$field]['content'])) {
-                $this->logger->warning('Invalid or missing field data', ['field' => $field]);
+                if ($this->settings['debugMode']) {
+                    $this->logger->warning('Invalid or missing field data', ['field' => $field]);
+                }
                 continue;
             }
     
-            $originalContent = $pageData[$field]['content'];
-            $this->logger->debug('Original content', ['field' => $field, 'content' => $originalContent]);
-    
-            $content = $this->stopWordsService->removeStopWords($originalContent, $language);
+            $content = $pageData[$field]['content'];
             
-            $this->logger->debug('Content after stop words removal', ['field' => $field, 'content' => $content]);
+            if ($this->settings['debugMode']) {
+                $this->logger->debug('Content for field', ['field' => $field, 'content' => $content]);
+            }
     
             $words = array_count_values(str_word_count(strtolower($content), 1));
-            $this->logger->debug('Word count', ['field' => $field, 'words' => $words]);
+            
+            if ($this->settings['debugMode']) {
+                $this->logger->debug('Word count', ['field' => $field, 'words' => $words]);
+            }
     
             foreach ($words as $word => $count) {
                 $weightedWords[$word] = ($weightedWords[$word] ?? 0) + ($count * $weight);
             }
         }
     
-        $this->logger->debug('Final weighted words result', ['weightedWords' => $weightedWords]);
+        if ($this->settings['debugMode']) {
+            $this->logger->debug('Final weighted words result', ['weightedWords' => $weightedWords]);
+        }
     
         return $weightedWords;
     }
