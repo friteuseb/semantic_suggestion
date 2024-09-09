@@ -79,7 +79,7 @@
                                 <f:if condition="{languageUid} == 0">
                                     <f:then>
                                         <span class="flag-icon flag-icon-{langStat.info.flagIdentifier}"></span>
-                                        Default (English)
+                                        {langStat.info.title} ({langStat.info.twoLetterIsoCode})
                                     </f:then>
                                     <f:else>
                                         <f:if condition="{langStat.info.flagIdentifier}">

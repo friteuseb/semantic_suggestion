@@ -161,9 +161,13 @@ class SemanticBackendController extends ActionController
             $startTime = microtime(true);
             
             $allFromCache = true;
-
+    
             // Récupérer toutes les langues disponibles
             $allLanguages = $this->getAllLanguages();
+            
+            // Récupérer toutes les pages, y compris les traductions
+            $allPages = $this->getPages($parentPageId, $depth);
+            $this->logger->debug('All pages retrieved', ['count' => count($allPages), 'pages' => $allPages]);
             
             $data = [];
             foreach ($allLanguages as $languageUid => $languageInfo) {
@@ -173,8 +177,19 @@ class SemanticBackendController extends ActionController
                     $languageData = $this->getCache()->get($cacheIdentifier);
                 } else {
                     $allFromCache = false;
-                    $pages = $this->getPages($parentPageId, $depth, $languageUid);
-                    $analysisData = $this->pageAnalysisService->analyzePages($pages, $languageUid);
+                    $languagePages = array_filter($allPages, function($page) use ($languageUid) {
+                        return $page['sys_language_uid'] == $languageUid || isset($page['translations'][$languageUid]);
+                    });
+                    $this->logger->debug('Filtered pages for language', [
+                        'languageUid' => $languageUid,
+                        'pageCount' => count($languagePages),
+                        'pageUids' => array_keys($languagePages)
+                    ]);
+                    $analysisData = $this->pageAnalysisService->analyzePages($languagePages, $languageUid);
+                    $this->logger->debug('Pages analysées pour la langue ' . $languageUid, [
+                        'count' => count($analysisData['results']),
+                        'pages' => array_keys($analysisData['results'])
+                    ]);
                     $languageData = $this->processAnalysisData($analysisData, $proximityThreshold, $excludePages, $maxSuggestions);
                     $this->getCache()->set($cacheIdentifier, $languageData, ['semantic_suggestion'], 3600);
                 }
@@ -184,6 +199,7 @@ class SemanticBackendController extends ActionController
             
             // Fusionner les données de toutes les langues
             $mergedData = $this->mergeLanguageData($data);
+            $this->logger->debug('Merged data', ['totalPages' => $mergedData['totalPages'], 'analysisResults' => array_keys($mergedData['analysisResults'])]);
             
             $executionTime = microtime(true) - $startTime;
     
@@ -225,6 +241,13 @@ class SemanticBackendController extends ActionController
                 'Error',
                 \TYPO3\CMS\Core\Messaging\AbstractMessage::ERROR
             );
+
+            $this->logger->debug('Final statistics', [
+                'totalPages' => $mergedData['totalPages'],
+                'languageStatistics' => $mergedData['languageStatistics'],
+                'topSimilarPairsCount' => count($mergedData['statistics']['topSimilarPairs'] ?? []),
+                'distributionScores' => $mergedData['statistics']['distributionScores'] ?? [],
+            ]);
             return $this->htmlResponse();
         }
     }
@@ -239,31 +262,36 @@ class SemanticBackendController extends ActionController
             'totalPages' => 0,
         ];
     
+        $allPageUids = [];
         foreach ($data as $languageUid => $languageData) {
-            $mergedData['totalPages'] += $languageData['totalPages'];
+            $allPageUids = array_merge($allPageUids, array_keys($languageData['analysisResults']));
             $mergedData['analysisResults'] += $languageData['analysisResults'];
             $mergedData['languageStatistics'][$languageUid] = $languageData['languageStatistics'][$languageUid] ?? [];
         }
+    
+        $mergedData['totalPages'] = count($allPageUids);
     
         // Fusionner les statistiques
         $mergedData['statistics'] = $this->mergeStatistics(array_column($data, 'statistics'));
     
         return $mergedData;
     }
-protected function mergeStatistics(array $statisticsArray): array
-{
-    $mergedStats = [
-        'totalPages' => 0,
-        'averageSimilarity' => 0,
-        'topSimilarPairs' => [],
-        'distributionScores' => [],
-        'topSimilarPages' => [],
-    ];
 
-    $totalSimilarityScore = 0;
-    $totalPairs = 0;
 
-    foreach ($statisticsArray as $stats) {
+    protected function mergeStatistics(array $statisticsArray): array
+    {
+        $mergedStats = [
+            'totalPages' => 0,
+            'averageSimilarity' => 0,
+            'topSimilarPairs' => [],
+            'distributionScores' => [],
+            'topSimilarPages' => [],
+        ];
+    
+        $totalSimilarityScore = 0;
+        $totalPairs = 0;
+    
+        foreach ($statisticsArray as $stats) {
         $mergedStats['totalPages'] += $stats['totalPages'];
         $totalSimilarityScore += $stats['averageSimilarity'] * $stats['totalPages'] * ($stats['totalPages'] - 1) / 2;
         $totalPairs += $stats['totalPages'] * ($stats['totalPages'] - 1) / 2;
@@ -285,41 +313,57 @@ protected function mergeStatistics(array $statisticsArray): array
 
     arsort($mergedStats['topSimilarPages']);
     $mergedStats['topSimilarPages'] = array_slice($mergedStats['topSimilarPages'], 0, 5, true);
+    $mergedStats['totalPages'] = count(array_unique(array_keys($mergedStats['topSimilarPages'])));
 
     return $mergedStats;
 }
 
 
-
-protected function getPages(int $parentPageId, int $depth, int $languageUid): array
+protected function getPages(int $parentPageId, int $depth): array
 {
     $pages = [];
     $pageRepository = $this->getPageRepository();
 
+    $this->logger->debug('Fetching pages', ['parentPageId' => $parentPageId, 'depth' => $depth]);
+
     // Récupérer les pages dans la langue par défaut
-    $defaultLanguagePages = $pageRepository->getMenu($parentPageId, '*', 'sorting', '', false);
+    $defaultLanguagePages = $pageRepository->getMenu($parentPageId, '*', 'sorting', 'AND hidden=0 AND deleted=0', false);
+
+    $this->logger->debug('Default language pages found', ['count' => count($defaultLanguagePages)]);
 
     foreach ($defaultLanguagePages as $pageUid => $defaultPage) {
-        // Ajouter la page dans la langue par défaut
         $pages[$pageUid] = $defaultPage;
         $pages[$pageUid]['sys_language_uid'] = 0;
 
-        // Récupérer la traduction si elle existe
-        if ($languageUid > 0) {
-            $translatedPage = $pageRepository->getPageOverlay($pageUid, $languageUid);
-            if ($translatedPage) {
-                $translatedPageUid = $translatedPage['_PAGES_OVERLAY_UID'] ?? $pageUid;
-                $pages[$translatedPageUid] = $translatedPage;
-                $pages[$translatedPageUid]['sys_language_uid'] = $languageUid;
+        // Récupérer toutes les traductions
+        $translations = $this->getPageTranslations($pageUid);
+        $this->logger->debug('Translations found for page', ['pageUid' => $pageUid, 'translationsCount' => count($translations)]);
+
+        foreach ($translations as $languageId => $translatedPage) {
+            $originalPageUid = $translatedPage['l10n_parent'] ?? $pageUid;
+            
+            if (!isset($pages[$originalPageUid])) {
+                $pages[$originalPageUid] = [];
             }
+            
+            // Ajouter la traduction comme une sous-entrée de la page originale
+            $pages[$originalPageUid]['translations'][$languageId] = $translatedPage;
+            $pages[$originalPageUid]['translations'][$languageId]['sys_language_uid'] = $languageId;
         }
 
         // Récupérer les sous-pages si nécessaire
         if ($depth > 1) {
-            $subpages = $this->getPages($pageUid, $depth - 1, $languageUid);
+            $subpages = $this->getPages($pageUid, $depth - 1);
             $pages = array_merge($pages, $subpages);
         }
     }
+
+    $this->logger->debug('Total pages retrieved', ['count' => count($pages)]);
+    $this->logger->debug('Pages retrieved', [
+        'defaultLanguageCount' => count($defaultLanguagePages),
+        'totalPagesCount' => count($pages),
+        'depth' => $depth,
+    ]);
 
     return $pages;
 }
@@ -419,46 +463,32 @@ protected function getPages(int $parentPageId, int $depth, int $languageUid): ar
     private function calculateLanguageStatistics(array $pages): array
     {
         $languageStats = [];
-
+        $allLanguages = $this->getAllLanguages();
+    
+        // Initialiser le tableau avec toutes les langues et un compteur à 0
+        foreach ($allLanguages as $languageUid => $languageInfo) {
+            $languageStats[$languageUid] = 0;
+        }
+    
         foreach ($pages as $page) {
             $languageUid = $page['sys_language_uid'] ?? 0;
-            if (!isset($languageStats[$languageUid])) {
-                $languageStats[$languageUid] = 0;
-            }
             $languageStats[$languageUid]++;
         }
-
-        $allLanguages = $this->getAllLanguages();
+    
         $result = [];
-
         foreach ($allLanguages as $languageUid => $languageInfo) {
             $result[$languageUid] = [
-                'count' => $languageStats[$languageUid] ?? 0,
+                'count' => $languageStats[$languageUid],
                 'info' => $languageInfo,
             ];
         }
-
-        // Ajoutez ce log de débogage
-        if ($this->logger instanceof LoggerInterface) {
-            $this->logger->debug('Language statistics calculation', [
-                'input_pages' => $pages,
-                'calculated_stats' => $languageStats,
-                'result' => $result
-            ]);
-        }
-
+    
         return $result;
     }
+
     private function getAllLanguages(): array
     {
-        $languages = [
-            0 => [
-                'title' => 'Default (English)',
-                'twoLetterIsoCode' => 'en',
-                'flagIdentifier' => 'gb',
-            ]
-        ];
-        
+        $languages = [];
         $siteFinder = GeneralUtility::makeInstance(SiteFinder::class);
         $sites = $siteFinder->getAllSites();
 
@@ -467,15 +497,26 @@ protected function getPages(int $parentPageId, int $depth, int $languageUid): ar
                 $languageId = $language->getLanguageId();
                 $languages[$languageId] = [
                     'title' => $language->getTitle(),
-                    'twoLetterIsoCode' => $language->getLocale()->getLanguageCode(),
+                    'twoLetterIsoCode' => $language->getTwoLetterIsoCode(),
                     'flagIdentifier' => $language->getFlagIdentifier(),
                 ];
             }
         }
 
+        // Assurez-vous que la langue par défaut (ID 0) est incluse
+        if (!isset($languages[0])) {
+            $defaultLanguage = $sites[array_key_first($sites)]->getDefaultLanguage();
+            $languages[0] = [
+                'title' => $defaultLanguage->getTitle(),
+                'twoLetterIsoCode' => $defaultLanguage->getTwoLetterIsoCode(),
+                'flagIdentifier' => $defaultLanguage->getFlagIdentifier(),
+            ];
+        }
+
         ksort($languages);
         return $languages;
     }
+
 
     protected function generateValidCacheIdentifier(int $parentPageId, int $depth, float $proximityThreshold, int $maxSuggestions, int $currentLanguageUid): string
     {

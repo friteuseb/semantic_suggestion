@@ -270,7 +270,6 @@ class PageAnalysisService implements LoggerAwareInterface
 
 
 
-
     public function analyzePages(array $pages, int $currentLanguageUid): array
     {
         $startTime = microtime(true);
