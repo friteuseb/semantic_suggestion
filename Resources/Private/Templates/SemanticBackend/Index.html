@@ -20,9 +20,6 @@
                 <strong>NLP Analysis Enabled:</strong> The results include Natural Language Processing analysis.
             </div>
         </f:if>
-        <f:be.infobox title="Total Validated Pages Analyzed" state="-1">
-            {totalPages}
-        </f:be.infobox>
         <f:if condition="{showStatistics}">
             <div class="panel panel-default bg-light p-3">
                 <h3>Configuration &amp; General Statistics</h3>
@@ -32,8 +29,7 @@
                 <f:render section="Card" arguments="{icon: 'apps-pagetree-category-expand-all', header: depth, content: 'Depth'}" />
                 <f:render section="Card" arguments="{icon: 'actions-insert', header: '{proximityThreshold -> f:format.number(decimals: 2)}', content: 'Proximity Threshold'}" />
                 <f:render section="Card" arguments="{icon: 'actions-plus-square', header: maxSuggestions, content: 'Max Suggestions'}" />
-                <f:render section="Card" arguments="{icon: 'apps-pagetree-page-default', header: statistics.totalPages, content: 'Total Validated Pages Analyzed'}" />
-                <f:render section="Card" arguments="{icon: 'apps-toolbar-menu-search', header: '{statistics.averageSimilarity -> f:format.number(decimals: 2)}', content: 'Average Similarity Score'}" />
+                <f:render section="Card" arguments="{icon: 'apps-pagetree-page-default', header: totalPages, content: 'Total Validated Pages Analyzed'}" />                <f:render section="Card" arguments="{icon: 'apps-toolbar-menu-search', header: '{statistics.averageSimilarity -> f:format.number(decimals: 2)}', content: 'Average Similarity Score'}" />
                 <f:render section="Card" arguments="{icon: 'status-status-permission-denied', header: 'Exclusions', content: '<strong>Pages :</strong> {excludePages}', colClass: 'col-sm-12 col-md-6'}" />
             </div>
         </div>
@@ -51,7 +47,7 @@
                 </f:if>
 
                 <f:render section="Card" arguments="{icon: 'actions-clock', header: '{performanceMetrics.executionTime -> f:format.number(decimals: 2)}', content: 'Execution Time (seconds)', cardClass: execTimeCardClass}" />
-                <f:render section="Card" arguments="{icon: 'apps-pagetree-page-default', header: performanceMetrics.totalPages, content: 'Total Pages Analyzed'}" />
+                <f:render section="Card" arguments="{icon: 'apps-pagetree-page-default', header: totalPagesAnalyzed, content: 'Total Pages Analyzed'}" />
                 <f:render section="Card" arguments="{icon: 'actions-barcode-read', header: performanceMetrics.similarityCalculations, content: 'Similarity Calculations'}" />
 
                 <f:if condition="{performanceMetrics.fromCache} == 'Yes'">
@@ -64,47 +60,15 @@
         </f:if>
 
 
-        <f:be.infobox title="Total Validated Pages Analyzed" state="-1">
-    {totalPages}
-</f:be.infobox>
-
-<f:if condition="{languageStatistics}">
-    <h3>Statistiques par langue</h3>
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Langue</th>
-                <th>Nombre de pages</th>
-                <th>Pourcentage</th>
-            </tr>
-        </thead>
-        <tbody>
-            <f:for each="{languageStatistics}" as="langStat" key="langUid">
-                <tr>
-                    <td>
-                        <span class="flag-icon flag-icon-{langStat.info.flagIdentifier}"></span>
-                        {langStat.info.title} ({langStat.info.twoLetterIsoCode})
-                    </td>
-                    <td>{langStat.count}</td>
-                    <td>{langStat.percentage -> f:format.number(decimals: 2)}%</td>
-                </tr>
-            </f:for>
-        </tbody>
-    </table>
-</f:if>
-
-
-
-
         <f:if condition="{showLanguageStatistics}">
-            <h3>Statistiques par langue</h3>
+            <h3>Language Statistics</h3>
             <div class="panel panel-default">
-                <table class="table table-striped table-hover">
+            <table class="table table-striped table-hover">
                 <thead>
                     <tr>
                         <th>Langue</th>
-                        <th>Nombre de pages</th>
-                        <th>Pourcentage</th>
+                        <th>Nb of pages</th>
+                        <th>Percentages</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -115,48 +79,14 @@
                                 {langStat.info.title} ({langStat.info.twoLetterIsoCode})
                             </td>
                             <td>{langStat.count}</td>
-                            <td>
-                                <f:variable name="percentage" value="{langStat.count / totalPages * 100}" />
-                                <f:variable name="roundedPercentage" value="{percentage -> f:format.number(decimals: 1)}" />
-                                {roundedPercentage}%
-                            </td>
-                        </tr>
-                    </f:for>
-                    <f:for each="{languageStatistics}" as="langStat" key="languageUid">
-                        <tr>
-                            <td>
-                                <f:if condition="{languageUid} == 0">
-                                    <f:then>
-                                        <span class="flag-icon flag-icon-{langStat.info.flagIdentifier}"></span>
-                                        {langStat.info.title} ({langStat.info.twoLetterIsoCode})
-                                    </f:then>
-                                    <f:else>
-                                        <f:if condition="{langStat.info.flagIdentifier}">
-                                            <span class="flag-icon flag-icon-{langStat.info.flagIdentifier}"></span>
-                                        </f:if>
-                                        {langStat.info.title} ({langStat.info.twoLetterIsoCode})
-                                    </f:else>
-                                </f:if>
-                            </td>
-                            <td>{langStat.count}</td>
-                            <td>
-                                <f:if condition="{totalPages} > 0">
-                                    <f:then>
-                                        <f:variable name="percentage" value="{langStat.count / totalPages * 100}" />
-                                        <f:variable name="roundedPercentage" value="{percentage -> f:format.number(decimals: 2)}" />
-                                        {roundedPercentage}%
-                                    </f:then>
-                                    <f:else>
-                                        0%
-                                    </f:else>
-                                </f:if>
-                            </td>
+                            <td>{langStat.percentage -> f:format.number(decimals: 2)}%</td>
                         </tr>
                     </f:for>
                 </tbody>
             </table>
             </div>
         </f:if>
+
 
         <f:if condition="{showTopSimilarPairs}">
             <h3>Top 5 Most Similar Page Pairs</h3>

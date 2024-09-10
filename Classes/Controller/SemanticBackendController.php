@@ -165,17 +165,21 @@ class SemanticBackendController extends ActionController
             
             $allFromCache = true;
     
-                    // Récupérer toutes les langues disponibles pour le site
+            // Récupérer toutes les langues disponibles pour le site
             $siteLanguages = $this->getSiteLanguages($parentPageId);
-
+    
             $allPages = $this->getPages($parentPageId, $depth);
-            $this->logger->debug('All pages retrieved', ['count' => count($allPages), 'pages' => $allPages]);
-
-            $totalPages = count($allPages);
-            $siteLanguages = $this->getSiteLanguages($parentPageId);
-            $languageStatistics = $this->calculateLanguageStatistics($allPages, $siteLanguages);
+            $totalPagesAnalyzed = count($allPages);
+    
+            // Appliquer les exclusions
+            $validatedPages = array_filter($allPages, function($page) use ($excludePages) {
+                return !in_array($page['uid'], $excludePages);
+            });
+            $totalValidatedPages = count($validatedPages);
+    
+            $languageStatistics = $this->calculateLanguageStatistics($validatedPages, $siteLanguages);
             
-            $this->logger->debug('All pages retrieved', ['count' => count($allPages), 'pages' => $allPages]);
+            $this->logger->debug('All pages retrieved', ['count' => $totalPagesAnalyzed, 'validatedCount' => $totalValidatedPages]);
             
             $data = [];
             foreach ($siteLanguages as $language) {
@@ -186,7 +190,7 @@ class SemanticBackendController extends ActionController
                     $languageData = $this->getCache()->get($cacheIdentifier);
                 } else {
                     $allFromCache = false;
-                    $languagePages = array_filter($allPages, function($page) use ($languageUid) {
+                    $languagePages = array_filter($validatedPages, function($page) use ($languageUid) {
                         return $page['sys_language_uid'] == $languageUid || isset($page['translations'][$languageUid]);
                     });
                     $this->logger->debug('Filtered pages for language', [
@@ -207,28 +211,22 @@ class SemanticBackendController extends ActionController
             }
             
             $mergedData = $this->mergeLanguageData($data);
-            $this->logger->debug('Merged data', ['totalPages' => $mergedData['totalPages'], 'analysisResults' => array_keys($mergedData['analysisResults'])]);
-            // Journalisation pour le débogage
             $this->logger->debug('Merged data', [
-                'totalPages' => $mergedData['totalPages'], 
-                'languageStatistics' => $mergedData['languageStatistics']
-            ]); 
-
+                'totalPagesAnalyzed' => $totalPagesAnalyzed,
+                'totalValidatedPages' => $totalValidatedPages,
+                'languageStatistics' => $languageStatistics
+            ]);
+    
             $executionTime = microtime(true) - $startTime;
     
             $performanceMetrics = [
                 'executionTime' => $executionTime,
-                'totalPages' => $mergedData['totalPages'] ?? 0,
-                'similarityCalculations' => ($mergedData['statistics']['totalPages'] ?? 0) * (($mergedData['statistics']['totalPages'] ?? 0) - 1) / 2,
+                'totalPagesAnalyzed' => $totalPagesAnalyzed,
+                'totalValidatedPages' => $totalValidatedPages,
+                'similarityCalculations' => $totalValidatedPages * ($totalValidatedPages - 1) / 2,
                 'fromCache' => $allFromCache,
             ];
     
-
-            $this->logger->debug('Variables being assigned to template', [                                        
-            'totalPages' => $mergedData['totalPages'] ?? 0,                                                               
-            'statistics.totalPages' => $mergedData['statistics']['totalPages'] ?? 0                                       
-            ]);   
-
             $moduleTemplate->assignMultiple([
                 'parentPageId' => $parentPageId,
                 'depth' => $depth,
@@ -245,12 +243,10 @@ class SemanticBackendController extends ActionController
                 'showTopSimilarPages' => (bool)($extensionConfig['showTopSimilarPages'] ?? true),
                 'statistics' => $showStatistics ? ($mergedData['statistics'] ?? null) : null,
                 'analysisResults' => $mergedData['analysisResults'] ?? [],
-                'totalPages' => $totalPages,
-                'languageStatistics' => $languageStatistics,
+                'totalPagesAnalyzed' => $totalPagesAnalyzed,
+                'totalValidatedPages' => $totalValidatedPages,
+                'languageStatistics' => $languageStatistics['statistics'],
             ]);
-
-            // Ajoutez également un log pour vérifier la valeur de totalPages
-            $this->logger->debug('Total pages assigned to template', ['totalPages' => $mergedData['totalPages'] ?? 0]);
     
         } catch (\Exception $e) {
             $this->logger->error('Error in indexAction', ['exception' => $e->getMessage()]);
@@ -259,15 +255,6 @@ class SemanticBackendController extends ActionController
                 'Error',
                 \TYPO3\CMS\Core\Messaging\AbstractMessage::ERROR
             );
-        }
-    
-        if (!empty($mergedData)) {
-            $this->logger->debug('Final statistics', [
-                'totalPages' => $mergedData['totalPages'] ?? 0,
-                'languageStatistics' => $mergedData['languageStatistics'] ?? [],
-                'topSimilarPairsCount' => count($mergedData['statistics']['topSimilarPairs'] ?? []),
-                'distributionScores' => $mergedData['statistics']['distributionScores'] ?? [],
-            ]);
         }
     
         try {
@@ -581,8 +568,8 @@ class SemanticBackendController extends ActionController
     private function calculateLanguageStatistics(array $pages, array $siteLanguages): array
     {
         $languageStats = [];
-        $totalPages = count($pages);
-
+        $totalPages = 0;
+    
         foreach ($siteLanguages as $language) {
             $languageId = $language->getLanguageId();
             $languageStats[$languageId] = [
@@ -594,21 +581,24 @@ class SemanticBackendController extends ActionController
                 ],
             ];
         }
-
+    
         foreach ($pages as $page) {
             $languageId = $page['sys_language_uid'] ?? 0;
             if (isset($languageStats[$languageId])) {
                 $languageStats[$languageId]['count']++;
+                $totalPages++;
             }
         }
-
+    
         foreach ($languageStats as &$stat) {
             $stat['percentage'] = ($totalPages > 0) ? ($stat['count'] / $totalPages) * 100 : 0;
         }
-
-        return $languageStats;
+    
+        return [
+            'statistics' => $languageStats,
+            'totalPages' => $totalPages
+        ];
     }
-
 
 
     protected function getCurrentLanguageUid(): int
