@@ -112,6 +112,51 @@ class PageAnalysisServiceTest extends UnitTestCase
     }
 
 
+    
+    public function testCalculateSimilarity()
+    {
+        $page1 = [
+            'uid' => 1,
+            'title' => ['content' => 'TYPO3 Development', 'weight' => 1.5],
+            'content' => ['content' => 'TYPO3 is a powerful CMS', 'weight' => 1.0],
+            'content_modified_at' => time()
+        ];
+        $page2 = [
+            'uid' => 2,
+            'title' => ['content' => 'Web Development with TYPO3', 'weight' => 1.5],
+            'content' => ['content' => 'TYPO3 is great for web development', 'weight' => 1.0],
+            'content_modified_at' => time() - 86400
+        ];
+    
+        // Mock getWeightedWords si nécessaire
+        $this->pageAnalysisService->method('getWeightedWords')
+            ->willReturnCallback(function ($page) {
+                $words = [];
+                foreach (['title', 'content'] as $field) {
+                    if (isset($page[$field]['content'])) {
+                        $fieldWords = explode(' ', strtolower($page[$field]['content']));
+                        foreach ($fieldWords as $word) {
+                            $words[$word] = ($words[$word] ?? 0) + $page[$field]['weight'];
+                        }
+                    }
+                }
+                return $words;
+            });
+    
+        $result = $this->invokeMethod($this->pageAnalysisService, 'calculateSimilarity', [$page1, $page2]);
+    
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('semanticSimilarity', $result);
+        $this->assertArrayHasKey('recencyBoost', $result);
+        $this->assertArrayHasKey('finalSimilarity', $result);
+    
+        $this->assertGreaterThan(0, $result['semanticSimilarity']);
+        $this->assertLessThanOrEqual(1, $result['semanticSimilarity']);
+    }
+
+
+
+
         /**
          * @test
          */

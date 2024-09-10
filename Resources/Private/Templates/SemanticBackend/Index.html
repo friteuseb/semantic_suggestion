@@ -20,7 +20,9 @@
                 <strong>NLP Analysis Enabled:</strong> The results include Natural Language Processing analysis.
             </div>
         </f:if>
-
+        <f:be.infobox title="Total Validated Pages Analyzed" state="-1">
+            {totalPages}
+        </f:be.infobox>
         <f:if condition="{showStatistics}">
             <div class="panel panel-default bg-light p-3">
                 <h3>Configuration &amp; General Statistics</h3>
@@ -61,6 +63,39 @@
             </div>
         </f:if>
 
+
+        <f:be.infobox title="Total Validated Pages Analyzed" state="-1">
+    {totalPages}
+</f:be.infobox>
+
+<f:if condition="{languageStatistics}">
+    <h3>Statistiques par langue</h3>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Langue</th>
+                <th>Nombre de pages</th>
+                <th>Pourcentage</th>
+            </tr>
+        </thead>
+        <tbody>
+            <f:for each="{languageStatistics}" as="langStat" key="langUid">
+                <tr>
+                    <td>
+                        <span class="flag-icon flag-icon-{langStat.info.flagIdentifier}"></span>
+                        {langStat.info.title} ({langStat.info.twoLetterIsoCode})
+                    </td>
+                    <td>{langStat.count}</td>
+                    <td>{langStat.percentage -> f:format.number(decimals: 2)}%</td>
+                </tr>
+            </f:for>
+        </tbody>
+    </table>
+</f:if>
+
+
+
+
         <f:if condition="{showLanguageStatistics}">
             <h3>Statistiques par langue</h3>
             <div class="panel panel-default">
@@ -73,6 +108,20 @@
                     </tr>
                 </thead>
                 <tbody>
+                    <f:for each="{languageStatistics}" as="langStat" key="langUid">
+                        <tr>
+                            <td>
+                                <span class="flag-icon flag-icon-{langStat.info.flagIdentifier}"></span>
+                                {langStat.info.title} ({langStat.info.twoLetterIsoCode})
+                            </td>
+                            <td>{langStat.count}</td>
+                            <td>
+                                <f:variable name="percentage" value="{langStat.count / totalPages * 100}" />
+                                <f:variable name="roundedPercentage" value="{percentage -> f:format.number(decimals: 1)}" />
+                                {roundedPercentage}%
+                            </td>
+                        </tr>
+                    </f:for>
                     <f:for each="{languageStatistics}" as="langStat" key="languageUid">
                         <tr>
                             <td>
@@ -176,6 +225,7 @@
             </table>
             </div>
         </f:if>
+
 
         <f:if condition="{showTopSimilarPages}">
             <h3>Top 5 Pages with Most Similarities</h3>
