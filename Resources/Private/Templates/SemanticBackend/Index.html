@@ -29,7 +29,7 @@
                 <f:render section="Card" arguments="{icon: 'apps-pagetree-category-expand-all', header: depth, content: 'Depth'}" />
                 <f:render section="Card" arguments="{icon: 'actions-insert', header: '{proximityThreshold -> f:format.number(decimals: 2)}', content: 'Proximity Threshold'}" />
                 <f:render section="Card" arguments="{icon: 'actions-plus-square', header: maxSuggestions, content: 'Max Suggestions'}" />
-                <f:render section="Card" arguments="{icon: 'apps-pagetree-page-default', header: totalPages, content: 'Total Validated Pages Analyzed'}" />                <f:render section="Card" arguments="{icon: 'apps-toolbar-menu-search', header: '{statistics.averageSimilarity -> f:format.number(decimals: 2)}', content: 'Average Similarity Score'}" />
+                <f:render section="Card" arguments="{icon: 'apps-pagetree-page-default', header: totalValidatedPages, content: 'Total Validated Pages Analyzed'}" />
                 <f:render section="Card" arguments="{icon: 'status-status-permission-denied', header: 'Exclusions', content: '<strong>Pages :</strong> {excludePages}', colClass: 'col-sm-12 col-md-6'}" />
             </div>
         </div>
@@ -48,6 +48,8 @@
 
                 <f:render section="Card" arguments="{icon: 'actions-clock', header: '{performanceMetrics.executionTime -> f:format.number(decimals: 2)}', content: 'Execution Time (seconds)', cardClass: execTimeCardClass}" />
                 <f:render section="Card" arguments="{icon: 'apps-pagetree-page-default', header: totalPagesAnalyzed, content: 'Total Pages Analyzed'}" />
+
+
                 <f:render section="Card" arguments="{icon: 'actions-barcode-read', header: performanceMetrics.similarityCalculations, content: 'Similarity Calculations'}" />
 
                 <f:if condition="{performanceMetrics.fromCache} == 'Yes'">
