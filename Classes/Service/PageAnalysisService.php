@@ -68,9 +68,10 @@ class PageAnalysisService implements LoggerAwareInterface
     private function logDebug(string $message, array $context = []): void
     {
         if ($this->settings['debugMode']) {
-            $this->logDebug($message, $context);
+            $this->logger->debug($message, $context);
         }
     }
+    
 
     private function logInfo(string $message, array $context = []): void
     {
@@ -282,7 +283,7 @@ class PageAnalysisService implements LoggerAwareInterface
             return [
                 'results' => [],
                 'metrics' => [
-                    'executionTime' => 0,
+                    'executionTime' => microtime(true) - $startTime,
                     'totalPages' => 0,
                     'similarityCalculations' => 0,
                     'fromCache' => false,
@@ -303,7 +304,7 @@ class PageAnalysisService implements LoggerAwareInterface
             return [
                 'results' => [],
                 'metrics' => [
-                    'executionTime' => 0,
+                    'executionTime' => microtime(true) - $startTime,
                     'totalPages' => 0,
                     'similarityCalculations' => 0,
                     'fromCache' => false,
