@@ -44,9 +44,18 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
         $this->pageRepository = $pageRepository;
     }
 
+    private function logDebug(string $message, array $context = []): void
+{
+    $debugMode = $this->pageAnalysisService->getSettings()['debugMode'] ?? false;
+    if ($debugMode && $this->logger instanceof LoggerInterface) {
+        $this->logDebug($message, $context);
+    }
+}
+
+
     public function listAction(int $currentPage = 1, int $itemsPerPage = self::DEFAULT_ITEMS_PER_PAGE): ResponseInterface
     {
-        $this->logger->info('listAction called', ['currentPage' => $currentPage, 'itemsPerPage' => $itemsPerPage]);
+        $this->logDebug('listAction called', ['currentPage' => $currentPage, 'itemsPerPage' => $itemsPerPage]);
     
         $currentPageId = $GLOBALS['TSFE']->id;
         $currentLanguageUid = $this->getCurrentLanguageUid();
@@ -57,16 +66,16 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
     
         try {
             if ($cache->has($cacheIdentifier)) {
-                $this->logger->debug('Cache hit for suggestions', ['pageId' => $currentPageId, 'currentPage' => $currentPage, 'languageUid' => $currentLanguageUid]);
+                $this->logDebug('Cache hit for suggestions', ['pageId' => $currentPageId, 'currentPage' => $currentPage, 'languageUid' => $currentLanguageUid]);
                 $viewData = $cache->get($cacheIdentifier);
             } else {
-                $this->logger->debug('Cache miss for suggestions', ['pageId' => $currentPageId, 'currentPage' => $currentPage, 'languageUid' => $currentLanguageUid]);
+                $this->logDebug('Cache miss for suggestions', ['pageId' => $currentPageId, 'currentPage' => $currentPage, 'languageUid' => $currentLanguageUid]);
                 $viewData = $this->generateSuggestions($currentPageId, $currentPage, $itemsPerPage, $currentLanguageUid);
                 
                 if (!empty($viewData['suggestions'])) {
                     $cache->set($cacheIdentifier, $viewData, ['tx_semanticsuggestion'], 3600);
                 } else {
-                    $this->logger->warning('No suggestions generated', ['pageId' => $currentPageId, 'currentPage' => $currentPage, 'languageUid' => $currentLanguageUid]);
+                    $this->logDebug('No suggestions generated', ['pageId' => $currentPageId, 'currentPage' => $currentPage, 'languageUid' => $currentLanguageUid]);
                 }
             }
     
@@ -111,7 +120,7 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
         $hasNextPage = $currentPage < $numberOfPages;
         $hasPreviousPage = $currentPage > 1;
 
-        $this->logger->debug('Suggestions generated', [
+        $this->logDebug('Suggestions generated', [
             'count' => count($paginatedSuggestions),
             'parentPageId' => $parentPageId,
             'currentPageId' => $currentPageId,
@@ -167,7 +176,7 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
 
     protected function findSimilarPages(array $analysisResults, int $currentPageId, float $threshold, array $excludePages, int $currentLanguageUid, int $maxSuggestions): array
     {
-        $this->logger->info('Finding similar pages', [
+        $this->logDebug('Finding similar pages', [
             'currentPageId' => $currentPageId,
             'threshold' => $threshold,
             'currentLanguageUid' => $currentLanguageUid,
@@ -186,7 +195,7 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
                                 ($pageLangUid == 0 && $currentLanguageUid == 0);
     
                 if ($similarity['score'] < $threshold || in_array($pageId, $excludePages) || !$sameLanguage) {
-                    $this->logger->debug('Page excluded', [
+                    $this->logDebug('Page excluded', [
                         'pageId' => $pageId, 
                         'reason' => $similarity['score'] < $threshold ? 'below threshold' : 
                             (!$sameLanguage ? 'different language' : 'in exclude list'),
@@ -213,7 +222,7 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
                 ];
                 $suggestions[$pageId]['data']['media'] = $this->getPageMedia($pageId);
                 
-                $this->logger->debug('Added suggestion', [
+                $this->logDebug('Added suggestion', [
                     'pageId' => $pageId, 
                     'similarity' => $similarity['score'],
                     'pageLangUid' => $pageLangUid
@@ -224,10 +233,10 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
                 }
             }
         } else {
-            $this->logger->warning('No similarities found for current page', ['currentPageId' => $currentPageId]);
+            $this->logDebug('No similarities found for current page', ['currentPageId' => $currentPageId]);
         }
     
-        $this->logger->info('Found similar pages', ['count' => count($suggestions)]);
+        $this->logDebug('Found similar pages', ['count' => count($suggestions)]);
         return $suggestions;
     }
 
@@ -302,7 +311,7 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
             }
         }
         if ($this->logger instanceof LoggerInterface) {
-            $this->logger->debug('Retrieved pages', ['pages' => $pages]);
+            $this->logDebug('Retrieved pages', ['pages' => $pages]);
         }
         return $pages;
     }

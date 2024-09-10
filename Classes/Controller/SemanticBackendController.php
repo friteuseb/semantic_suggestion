@@ -60,6 +60,16 @@ class SemanticBackendController extends ActionController
         return $this->cache;
     }
 
+    private function logDebug(string $message, array $context = []): void
+    {
+        $debugMode = $this->pageAnalysisService instanceof PageAnalysisService 
+            ? ($this->pageAnalysisService->getSettings()['debugMode'] ?? false)
+            : false;
+    
+        if ($debugMode && $this->logger instanceof LoggerInterface) {
+            $this->logDebug($message, $context);
+        }
+    }
     
 
     
@@ -97,9 +107,7 @@ class SemanticBackendController extends ActionController
     public function injectModuleTemplateFactory(ModuleTemplateFactory $moduleTemplateFactory): void
     {
         $this->moduleTemplateFactory = $moduleTemplateFactory;
-        if ($this->logger instanceof LoggerInterface) {
-            $this->logger->debug('ModuleTemplateFactory injected');
-        }
+        $this->logDebug('ModuleTemplateFactory injected');
     }
 
     public function injectPageAnalysisService(PageAnalysisService $pageAnalysisService): void
@@ -138,7 +146,7 @@ class SemanticBackendController extends ActionController
 
     public function indexAction(): ResponseInterface
     {
-        $this->logger->debug('Début de indexAction');
+        $this->logDebug('Début de indexAction');
         $mergedData = [];
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
     
@@ -179,7 +187,7 @@ class SemanticBackendController extends ActionController
     
             $languageStatistics = $this->calculateLanguageStatistics($validatedPages, $siteLanguages);
             
-            $this->logger->debug('All pages retrieved', ['count' => $totalPagesAnalyzed, 'validatedCount' => $totalValidatedPages]);
+            $this->logDebug('All pages retrieved', ['count' => $totalPagesAnalyzed, 'validatedCount' => $totalValidatedPages]);
             
             $data = [];
             foreach ($siteLanguages as $language) {
@@ -193,13 +201,13 @@ class SemanticBackendController extends ActionController
                     $languagePages = array_filter($validatedPages, function($page) use ($languageUid) {
                         return $page['sys_language_uid'] == $languageUid || isset($page['translations'][$languageUid]);
                     });
-                    $this->logger->debug('Filtered pages for language', [
+                    $this->logDebug('Filtered pages for language', [
                         'languageUid' => $languageUid,
                         'pageCount' => count($languagePages),
                         'pageUids' => array_keys($languagePages)
                     ]);
                     $analysisData = $this->pageAnalysisService->analyzePages($languagePages, $languageUid);
-                    $this->logger->debug('Pages analysées pour la langue ' . $languageUid, [
+                    $this->logDebug('Pages analysées pour la langue ' . $languageUid, [
                         'count' => count($analysisData['results']),
                         'pages' => array_keys($analysisData['results'])
                     ]);
@@ -211,7 +219,7 @@ class SemanticBackendController extends ActionController
             }
             
             $mergedData = $this->mergeLanguageData($data);
-            $this->logger->debug('Merged data', [
+            $this->logDebug('Merged data', [
                 'totalPagesAnalyzed' => $totalPagesAnalyzed,
                 'totalValidatedPages' => $totalValidatedPages,
                 'languageStatistics' => $languageStatistics
@@ -270,7 +278,7 @@ class SemanticBackendController extends ActionController
             $moduleTemplate->setContent('An error occurred while rendering the view.');
         }
     
-        $this->logger->debug('Fin de indexAction');
+        $this->logDebug('Fin de indexAction');
         return $moduleTemplate->renderResponse();
     }
 

@@ -67,7 +67,9 @@ class PageAnalysisService implements LoggerAwareInterface
 
     private function logDebug(string $message, array $context = []): void
     {
-        $this->logger->debug($message, $context);
+        if ($this->settings['debugMode']) {
+            $this->logDebug($message, $context);
+        }
     }
 
     private function logInfo(string $message, array $context = []): void
@@ -87,14 +89,13 @@ class PageAnalysisService implements LoggerAwareInterface
 
     protected function initializeSettings(): void
     {
-        $this->logDebug('Initializing settings', ['current_settings' => $this->settings]);
-
-        // initialiser debugMode
-        $this->logger?->debug('Current settings before using debugMode', ['settings' => $this->settings]);
-        $this->settings['debugMode'] = $this->settings['debugMode'] ?? false;
+        // Initialiser debugMode en premier
+        $this->settings['debugMode'] = (bool)($this->settings['debugMode'] ?? false);
     
-        $this->settings['recencyWeight'] = $this->settings['recencyWeight'] ?? 0.2;
-        $this->settings['recencyWeight'] = max(0, min(1, (float)$this->settings['recencyWeight']));
+        // Utiliser logDebug au lieu de $this->logger->debug directement
+        $this->logDebug('Initializing settings', ['current_settings' => $this->settings]);
+    
+        $this->settings['recencyWeight'] = max(0, min(1, (float)($this->settings['recencyWeight'] ?? 0.2)));
     
         $this->settings['analyzedFields'] = $this->settings['analyzedFields'] ?? [
             'title' => 1.5,
@@ -103,6 +104,8 @@ class PageAnalysisService implements LoggerAwareInterface
             'abstract' => 1.2,
             'content' => 1.0
         ];
+    
+        $this->logDebug('Settings initialized', ['final_settings' => $this->settings]);
     }
 
     protected function initializeCache(): void
@@ -321,7 +324,7 @@ class PageAnalysisService implements LoggerAwareInterface
         }
 
         try {
-            $this->logger?->debug('Analyzing pages', ['pageCount' => count($pages), 'languageUid' => $currentLanguageUid]);
+          $this->logDebug('Analyzing pages', ['pageCount' => count($pages), 'languageUid' => $currentLanguageUid]);
             $totalPages = count($pages);
             $analysisResults = [];
 
@@ -443,7 +446,7 @@ class PageAnalysisService implements LoggerAwareInterface
     
             if (!empty($originalContent) && is_string($originalContent)) {
                 if ($this->settings['debugMode']) {
-                    $this->logger->debug('Original content before stop words removal', [
+                    $this->logDebug('Original content before stop words removal', [
                         'field' => $field,
                         'content' => $originalContent
                     ]);
@@ -452,7 +455,7 @@ class PageAnalysisService implements LoggerAwareInterface
                 $processedContent = $this->stopWordsService->removeStopWords($originalContent, $language);
                 
                 if ($this->settings['debugMode']) {
-                    $this->logger->debug('Content after stop words removal', [
+                    $this->logDebug('Content after stop words removal', [
                         'field' => $field,
                         'content' => $processedContent
                     ]);
@@ -515,7 +518,7 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
             $existingColumns = array_keys($tableColumns);
             $fieldsToSelect = array_intersect($fieldsToSelect, $existingColumns);
 
-            $this->logger?->debug('Fields to select', ['fields' => $fieldsToSelect]);
+          $this->logDebug('Fields to select', ['fields' => $fieldsToSelect]);
 
             $result = $queryBuilder
                 ->select(...$fieldsToSelect)
@@ -538,7 +541,7 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
             }
 
             $this->logger?->info('Subpages fetched successfully', ['count' => count($result), 'languageCode' => $languageCode]);
-            $this->logger?->debug('Fetched subpages', ['subpages' => $result]);
+          $this->logDebug('Fetched subpages', ['subpages' => $result]);
 
             return $result;
         } catch (\Exception $e) {
@@ -577,7 +580,7 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
         $language = $this->getCurrentLanguage();
     
         if ($this->settings['debugMode']) {
-            $this->logger->debug('Starting getWeightedWords', ['pageData' => $pageData, 'language' => $language]);
+            $this->logDebug('Starting getWeightedWords', ['pageData' => $pageData, 'language' => $language]);
         }
     
         foreach ($this->settings['analyzedFields'] as $field => $weight) {
@@ -591,13 +594,13 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
             $content = $pageData[$field]['content'];
             
             if ($this->settings['debugMode']) {
-                $this->logger->debug('Content for field', ['field' => $field, 'content' => $content]);
+                $this->logDebug('Content for field', ['field' => $field, 'content' => $content]);
             }
     
             $words = array_count_values(str_word_count(strtolower($content), 1));
             
             if ($this->settings['debugMode']) {
-                $this->logger->debug('Word count', ['field' => $field, 'words' => $words]);
+                $this->logDebug('Word count', ['field' => $field, 'words' => $words]);
             }
     
             foreach ($words as $word => $count) {
@@ -606,7 +609,7 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
         }
     
         if ($this->settings['debugMode']) {
-            $this->logger->debug('Final weighted words result', ['weightedWords' => $weightedWords]);
+            $this->logDebug('Final weighted words result', ['weightedWords' => $weightedWords]);
         }
     
         return $weightedWords;
@@ -616,7 +619,7 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
 
     private function calculateSimilarity(array $page1, array $page2): array
     {
-        $this->logger?->debug('Starting similarity calculation', [
+      $this->logDebug('Starting similarity calculation', [
             'page1' => $page1['uid'] ?? 'unknown',
             'page2' => $page2['uid'] ?? 'unknown',
             'page1_fields' => array_keys($page1),
@@ -626,8 +629,8 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
         $words1 = $this->getWeightedWords($page1);
         $words2 = $this->getWeightedWords($page2);
     
-        $this->logger->debug('Weighted words', ['words1' => $words1, 'words2' => $words2]);
-        $this->logger->debug('Word counts', [
+        $this->logDebug('Weighted words', ['words1' => $words1, 'words2' => $words2]);
+        $this->logDebug('Word counts', [
             'page1' => count($words1),
             'page2' => count($words2)
         ]);
@@ -645,7 +648,7 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
         }
     
         $allWords = array_unique(array_merge(array_keys($words1), array_keys($words2)));
-        $this->logger->debug('Unique words', ['count' => count($allWords), 'words' => $allWords]);
+        $this->logDebug('Unique words', ['count' => count($allWords), 'words' => $allWords]);
     
         $dotProduct = 0;
         $magnitude1 = 0;
@@ -659,7 +662,7 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
             $magnitude2 += $weight2 * $weight2;
         }
     
-        $this->logger?->debug('Calculation intermediates', [
+      $this->logDebug('Calculation intermediates', [
             'dotProduct' => $dotProduct,
             'magnitude1' => $magnitude1,
             'magnitude2' => $magnitude2
@@ -683,10 +686,10 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
         $semanticSimilarity = $dotProduct / ($magnitude1 * $magnitude2);
     
         $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
-        $this->logger->debug('Recency boost', ['recencyBoost' => $recencyBoost]);
+        $this->logDebug('Recency boost', ['recencyBoost' => $recencyBoost]);
     
         $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
-        $this->logger->debug('Recency weight', ['recencyWeight' => $recencyWeight]);
+        $this->logDebug('Recency weight', ['recencyWeight' => $recencyWeight]);
     
         $finalSimilarity = ($semanticSimilarity * (1 - $recencyWeight)) + ($recencyBoost * $recencyWeight);
     
@@ -697,7 +700,7 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
             'content' => $this->calculateFieldSimilarity($page1['content'] ?? [], $page2['content'] ?? []),
         ];
     
-        $this->logger?->info('Similarity calculation complete', [
+         $this->logDebug('Similarity calculation complete', [
             'page1' => $page1['uid'] ?? 'unknown',
             'page2' => $page2['uid'] ?? 'unknown',
             'semanticSimilarity' => $semanticSimilarity, 
@@ -706,7 +709,7 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
             'fieldScores' => $fieldScores
         ]);
     
-        $this->logger->debug('Final similarity calculation', [
+        $this->logDebug('Final similarity calculation', [
             'semanticSimilarity' => $semanticSimilarity,
             'recencyBoost' => $recencyBoost,
             'finalSimilarity' => $finalSimilarity,
