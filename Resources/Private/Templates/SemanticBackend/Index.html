@@ -89,33 +89,36 @@
             </div>
         </f:if>
 
-
         <f:if condition="{showTopSimilarPairs}">
             <h3>Top 5 Most Similar Page Pairs</h3>
             <div class="panel panel-default">
                 <table class="table table-striped table-hover">
-                <thead>
-                <tr>
-                    <th>Page 1</th>
-                    <th>Page 2</th>
-                    <th>Similarity Score</th>
-                </tr>
-                </thead>
-                <tbody>
-                <f:for each="{statistics.topSimilarPairs}" as="pair">
-                    <tr>
-                        <td>{analysisResults.{pair.page1}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pair.page1})</td>
-                        <td>{analysisResults.{pair.page2}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pair.page2})</td>
-                        <td>
-                            <f:variable name="roundedScore" value="{pair.score -> f:format.number(decimals: 2)}" />
-                            <f:variable name="scorePercentage" value="{roundedScore * 100}" />
-
-                            <f:render section="ProgressBar" arguments="{value: scorePercentage, label: roundedScore, enableColors: 1}" />
-                        </td>
-                    </tr>
-                </f:for>
-                </tbody>
-            </table>
+                    <thead>
+                        <tr>
+                            <th>Page 1</th>
+                            <th>Page 2</th>
+                            <th>Similarity Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <f:variable name="displayedPairs" value="{}" />
+                        <f:for each="{statistics.topSimilarPairs}" as="pair">
+                            <f:variable name="pairKey" value="{pair.page1}-{pair.page2}" />
+                            <f:if condition="{f:variable(name: 'displayedPairs.{pairKey}') -> f:or(alternative: '0')} == 0">
+                                <f:variable name="displayedPairs.{pairKey}" value="1" />
+                                <tr>
+                                    <td>{analysisResults.{pair.page1}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pair.page1})</td>
+                                    <td>{analysisResults.{pair.page2}.title.content -> f:format.crop(maxCharacters: 50, append: '...')} (ID: {pair.page2})</td>
+                                    <td>
+                                        <f:variable name="roundedScore" value="{pair.score -> f:format.number(decimals: 2)}" />
+                                        <f:variable name="scorePercentage" value="{roundedScore * 100}" />
+                                        <f:render section="ProgressBar" arguments="{value: scorePercentage, label: roundedScore, enableColors: 1}" />
+                                    </td>
+                                </tr>
+                            </f:if>
+                        </f:for>
+                    </tbody>
+                </table>
             </div>
         </f:if>
 

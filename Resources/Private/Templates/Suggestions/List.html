@@ -80,4 +80,16 @@
         </div>
     </div>
 </div>
+<f:if condition="{debugLogs}">
+    <div id="semantic-suggestion-debug" class="debug-logs" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; background-color: #f8f8f8;">
+        <h3>Debug Logs</h3>
+        <f:for each="{debugLogs}" as="log">
+            <div class="debug-log-entry" style="margin-bottom: 10px;">
+                <strong>Message:</strong> {log.message}<br>
+                <strong>Context:</strong>
+                <pre style="margin: 5px 0; padding: 5px; background-color: #eee;"><f:format.json>{log.context}</f:format.json></pre>
+            </div>
+        </f:for>
+    </div>
+</f:if>
 </html>

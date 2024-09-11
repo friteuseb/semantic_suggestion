@@ -67,7 +67,7 @@ class SemanticBackendController extends ActionController
             : false;
     
         if ($debugMode && $this->logger instanceof LoggerInterface) {
-            $this->logDebug($message, $context);
+            $this->logger->debug($message, $context);  // Utilise $this->logger->debug au lieu de $this->logDebug
         }
     }
     
@@ -113,6 +113,7 @@ class SemanticBackendController extends ActionController
     public function injectPageAnalysisService(PageAnalysisService $pageAnalysisService): void
     {
         $this->pageAnalysisService = $pageAnalysisService;
+        $this->logger->error('PageAnalysisService settings', ['settings' => $this->pageAnalysisService->getSettings()]);
     }
 
     public function injectConfigurationManager(ConfigurationManagerInterface $configurationManager): void
@@ -146,6 +147,7 @@ class SemanticBackendController extends ActionController
 
     public function indexAction(): ResponseInterface
     {
+
         $this->logDebug('Début de indexAction');
         $mergedData = [];
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
@@ -156,7 +158,9 @@ class SemanticBackendController extends ActionController
             );
     
             $extensionConfig = $fullTypoScript['plugin.']['tx_semanticsuggestion_suggestions.']['settings.'] ?? [];
-    
+            $this->pageAnalysisService->setSettings($extensionConfig);
+            $this->logDebug('Debug mode in controller', ['debugMode' => $this->pageAnalysisService->getSettings()['debugMode']]);
+
             $parentPageId = (int)($extensionConfig['parentPageId'] ?? 0);
             $depth = (int)($extensionConfig['recursive'] ?? 1);
             $proximityThreshold = (float)($extensionConfig['proximityThreshold'] ?? 0.5);
@@ -187,8 +191,12 @@ class SemanticBackendController extends ActionController
     
             $languageStatistics = $this->calculateLanguageStatistics($validatedPages, $siteLanguages);
             
-            $this->logDebug('All pages retrieved', ['count' => $totalPagesAnalyzed, 'validatedCount' => $totalValidatedPages]);
-            
+            $this->logDebug('Pages summary', [
+                'totalCount' => $totalPagesAnalyzed,
+                'validatedCount' => $totalValidatedPages,
+                'pagesByLanguage' => $languageStatistics
+            ]);
+
             $data = [];
             foreach ($siteLanguages as $language) {
                 $languageUid = $language->getLanguageId();
@@ -201,16 +209,8 @@ class SemanticBackendController extends ActionController
                     $languagePages = array_filter($validatedPages, function($page) use ($languageUid) {
                         return $page['sys_language_uid'] == $languageUid || isset($page['translations'][$languageUid]);
                     });
-                    $this->logDebug('Filtered pages for language', [
-                        'languageUid' => $languageUid,
-                        'pageCount' => count($languagePages),
-                        'pageUids' => array_keys($languagePages)
-                    ]);
+
                     $analysisData = $this->pageAnalysisService->analyzePages($languagePages, $languageUid);
-                    $this->logDebug('Pages analysées pour la langue ' . $languageUid, [
-                        'count' => count($analysisData['results']),
-                        'pages' => array_keys($analysisData['results'])
-                    ]);
                     $languageData = $this->processAnalysisData($analysisData, $proximityThreshold, $excludePages, $maxSuggestions);
                     $this->getCache()->set($cacheIdentifier, $languageData, ['semantic_suggestion'], 3600);
                 }
@@ -219,13 +219,16 @@ class SemanticBackendController extends ActionController
             }
             
             $mergedData = $this->mergeLanguageData($data);
-            $this->logDebug('Merged data', [
+            $executionTime = microtime(true) - $startTime;
+
+
+            $this->logDebug('Analysis summary', [
                 'totalPagesAnalyzed' => $totalPagesAnalyzed,
                 'totalValidatedPages' => $totalValidatedPages,
-                'languageStatistics' => $languageStatistics
+                'executionTime' => $executionTime,
+                'fromCache' => $allFromCache
             ]);
     
-            $executionTime = microtime(true) - $startTime;
     
             $performanceMetrics = [
                 'executionTime' => $executionTime,
@@ -426,33 +429,43 @@ class SemanticBackendController extends ActionController
         ] : [];
         $pagesSimilarityCount = [];
     
+        $processedPairs = [];
+    
         foreach ($analysisResults as $pageId => $pageData) {
-            $pagesSimilarityCount[$pageId] = 0;
             $pageLanguage = $pageData['sys_language_uid'] ?? 0;
             foreach ($pageData['similarities'] as $similarPageId => $similarity) {
-                $similarPageLanguage = $analysisResults[$similarPageId]['sys_language_uid'] ?? 0;
-                if ($pageId < $similarPageId && $pageLanguage === $similarPageLanguage) {
-                    $totalSimilarityScore += $similarity['score'];
-                    if ($calculateTopSimilarPairs) {
-                        $similarityPairs[] = [
-                            'page1' => $pageId,
-                            'page2' => $similarPageId,
-                            'score' => $similarity['score'],
-                            'language' => $pageLanguage
-                        ];
-                    }
+                // Créer une clé unique pour chaque paire, indépendamment de l'ordre
+                $pairKey = min($pageId, $similarPageId) . '-' . max($pageId, $similarPageId);
     
-                    if ($similarity['score'] >= $proximityThreshold) {
-                        $pagesSimilarityCount[$pageId]++;
-                        $pagesSimilarityCount[$similarPageId] = ($pagesSimilarityCount[$similarPageId] ?? 0) + 1;
-                    }
+                // Ne traiter la paire que si elle n'a pas déjà été traitée
+                if (!isset($processedPairs[$pairKey])) {
+                    $processedPairs[$pairKey] = true;
     
-                    if ($calculateDistribution) {
-                        if ($similarity['score'] < 0.2) $distributionScores['0.0-0.2']++;
-                        elseif ($similarity['score'] < 0.4) $distributionScores['0.2-0.4']++;
-                        elseif ($similarity['score'] < 0.6) $distributionScores['0.4-0.6']++;
-                        elseif ($similarity['score'] < 0.8) $distributionScores['0.6-0.8']++;
-                        else $distributionScores['0.8-1.0']++;
+                    $similarPageLanguage = $analysisResults[$similarPageId]['sys_language_uid'] ?? 0;
+                    if ($pageLanguage === $similarPageLanguage) {
+                        $totalSimilarityScore += $similarity['score'];
+                        
+                        if ($calculateTopSimilarPairs) {
+                            $similarityPairs[] = [
+                                'page1' => min($pageId, $similarPageId),
+                                'page2' => max($pageId, $similarPageId),
+                                'score' => $similarity['score'],
+                                'language' => $pageLanguage
+                            ];
+                        }
+    
+                        if ($similarity['score'] >= $proximityThreshold) {
+                            $pagesSimilarityCount[$pageId] = ($pagesSimilarityCount[$pageId] ?? 0) + 1;
+                            $pagesSimilarityCount[$similarPageId] = ($pagesSimilarityCount[$similarPageId] ?? 0) + 1;
+                        }
+    
+                        if ($calculateDistribution) {
+                            if ($similarity['score'] < 0.2) $distributionScores['0.0-0.2']++;
+                            elseif ($similarity['score'] < 0.4) $distributionScores['0.2-0.4']++;
+                            elseif ($similarity['score'] < 0.6) $distributionScores['0.4-0.6']++;
+                            elseif ($similarity['score'] < 0.8) $distributionScores['0.6-0.8']++;
+                            else $distributionScores['0.8-1.0']++;
+                        }
                     }
                 }
             }
@@ -460,14 +473,13 @@ class SemanticBackendController extends ActionController
     
         $result = [
             'totalPages' => $totalPages,
-            'averageSimilarity' => $totalPages > 1 ? $totalSimilarityScore / (($totalPages * ($totalPages - 1)) / 2) : 0,
+            'averageSimilarity' => $totalPages > 1 ? $totalSimilarityScore / count($processedPairs) : 0,
         ];
     
         if ($calculateTopSimilarPairs) {
             usort($similarityPairs, function($a, $b) {
                 return $b['score'] <=> $a['score'];
             });
-            $similarityPairs = array_unique($similarityPairs, SORT_REGULAR);
             $result['topSimilarPairs'] = array_slice($similarityPairs, 0, 5);
         }
     
@@ -475,12 +487,11 @@ class SemanticBackendController extends ActionController
             $result['distributionScores'] = $distributionScores;
         }
     
-        // Ajout du calcul des Top 5 Pages with Most Similarities
         arsort($pagesSimilarityCount);
         $result['topSimilarPages'] = array_slice($pagesSimilarityCount, 0, 5, true);
     
         return $result;
-   }
+    }
    
 
     private function getAllLanguages(): array

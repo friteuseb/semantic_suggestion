@@ -3,11 +3,17 @@
 namespace TalanHdf\SemanticSuggestion\Service;
 
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
+use Psr\Log\LoggerInterface;
 
-class StopWordsService
+class StopWordsService implements LoggerAwareInterface
 {
+    use LoggerAwareTrait;
+
     protected $stopWords = [];
     protected $stopWordsFilePath;
+    protected bool $debugMode = false;
 
     public function __construct(string $stopWordsFilePath = null)
     {
@@ -35,7 +41,11 @@ class StopWordsService
     public function removeStopWords(string $text, string $language): string
     {
         if (!isset($this->stopWords[$language])) {
-            return $text; // Retourne le texte original si la langue n'est pas supportée
+            return $text;
+        }
+
+        if ($this->debugMode && $this->logger instanceof LoggerInterface) {
+            $this->logger->debug('Text before stop words removal', ['text' => $text, 'language' => $language]);
         }
 
         $words = preg_split('/\s+/', $text);
@@ -43,7 +53,23 @@ class StopWordsService
             return !in_array(mb_strtolower($word), $this->stopWords[$language]);
         });
 
-        return implode(' ', $filteredWords);
+        $result = implode(' ', $filteredWords);
+
+        if ($this->debugMode && $this->logger instanceof LoggerInterface) {
+            $this->logger->debug('Text after stop words removal', ['text' => $result, 'language' => $language]);
+        }
+
+        return $result;
+    }
+
+    public function getStopWordsForLanguage(string $language): array
+    {
+        return $this->stopWords[$language] ?? [];
+    }
+
+    public function setDebugMode(bool $debugMode): void
+    {
+        $this->debugMode = $debugMode;
     }
 
     public function getAvailableLanguages(): array

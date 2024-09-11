@@ -15,6 +15,7 @@ use TYPO3\CMS\Core\Log\LogManager;
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Pagination\ArrayPaginator;
 use TYPO3\CMS\Core\Pagination\SimplePagination;
+use Psr\Log\LoggerInterface;
 
 
 class SuggestionsController extends ActionController implements LoggerAwareInterface
@@ -26,6 +27,7 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
     protected PageAnalysisService $pageAnalysisService;
     protected FileRepository $fileRepository;
     protected ?PageRepository $pageRepository = null;
+    protected array $debugLogs = [];
 
     public function __construct(
         PageAnalysisService $pageAnalysisService, 
@@ -48,7 +50,8 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
 {
     $debugMode = $this->pageAnalysisService->getSettings()['debugMode'] ?? false;
     if ($debugMode && $this->logger instanceof LoggerInterface) {
-        $this->logDebug($message, $context);
+        $this->logger->debug($message, $context);
+        $this->debugLogs[] = ['message' => $message, 'context' => $context];
     }
 }
 
@@ -79,6 +82,7 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
                 }
             }
     
+            $viewData['debugLogs'] = $this->debugLogs;
             $this->view->assignMultiple($viewData);
     
         } catch (\Exception $e) {
@@ -152,6 +156,7 @@ class SuggestionsController extends ActionController implements LoggerAwareInter
             'analysisResults' => $analysisResults,
             'proximityThreshold' => $proximityThreshold,
             'maxSuggestions' => $maxSuggestions,
+            'debugLogs' => $this->debugLogs,
         ];
     }
 

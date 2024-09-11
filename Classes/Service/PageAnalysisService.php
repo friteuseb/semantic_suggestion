@@ -67,11 +67,14 @@ class PageAnalysisService implements LoggerAwareInterface
 
     private function logDebug(string $message, array $context = []): void
     {
-        if ($this->settings['debugMode']) {
-            $this->logger->debug($message, $context);
-        }
+        // Forcer le log pour le débogage
+        $this->logger->debug($message, $context);
+        
+        // Ancien code commenté pour référence
+        // if ($this->settings['debugMode']) {
+        //     $this->logger->debug($message, $context);
+        // }
     }
-    
 
     private function logInfo(string $message, array $context = []): void
     {
@@ -93,8 +96,7 @@ class PageAnalysisService implements LoggerAwareInterface
         // Initialiser debugMode en premier
         $this->settings['debugMode'] = (bool)($this->settings['debugMode'] ?? false);
     
-        // Utiliser logDebug au lieu de $this->logger->debug directement
-        $this->logDebug('Initializing settings', ['current_settings' => $this->settings]);
+        $this->logDebug('Debug mode initialized', ['debugMode' => $this->settings['debugMode']]);
     
         $this->settings['recencyWeight'] = max(0, min(1, (float)($this->settings['recencyWeight'] ?? 0.2)));
     
@@ -203,16 +205,19 @@ class PageAnalysisService implements LoggerAwareInterface
             $currentSite = $this->siteFinder->getSiteByPageId($currentPageId);
             $siteLanguage = $currentSite->getLanguageById($languageId);
             if ($siteLanguage) {
-                return strtolower(substr($siteLanguage->getHreflang(), 0, 2));
+                $language = strtolower(substr($siteLanguage->getHreflang(), 0, 2));
+                $this->logDebug('Language detected', ['language' => $language, 'languageId' => $languageId]);
+                return $language;
             }
         } catch (\Exception $e) {
             $this->logger?->warning('Failed to detect language automatically', ['exception' => $e->getMessage()]);
         }
     
         // Fallback to default language
-        return $this->settings['defaultLanguage'] ?? 'en';
+        $defaultLanguage = $this->settings['defaultLanguage'] ?? 'en';
+        $this->logDebug('Using fallback language', ['language' => $defaultLanguage]);
+        return $defaultLanguage;
     }
-
 
     protected function detectLanguageAutomatically(int $languageId): ?string
     {
@@ -277,7 +282,7 @@ class PageAnalysisService implements LoggerAwareInterface
     public function analyzePages(array $pages, int $currentLanguageUid): array
     {
         $startTime = microtime(true);
-
+    
         if (empty($pages)) {
             $this->logger?->warning('No pages provided for analysis');
             return [
@@ -290,7 +295,25 @@ class PageAnalysisService implements LoggerAwareInterface
                 ],
             ];
         }
-
+    
+        $language = $this->getCurrentLanguage();
+        $stopwords = $this->stopWordsService->getStopWordsForLanguage($language);
+    
+        $this->logDebug('Starting page analysis', [
+            'pageCount' => count($pages),
+            'languageUid' => $currentLanguageUid,
+            'language' => $language,
+            'stopwordsCount' => count($stopwords)
+        ]);
+    
+    
+        $pagesByLanguage = [];
+        foreach ($pages as $page) {
+            $lang = $page['sys_language_uid'] ?? 0;
+            $pagesByLanguage[$lang] = ($pagesByLanguage[$lang] ?? 0) + 1;
+        }
+    
+    
         $firstPage = null;
         foreach ($pages as $page) {
             if ($page !== null) {
@@ -298,7 +321,7 @@ class PageAnalysisService implements LoggerAwareInterface
                 break;
             }
         }
-
+    
         if ($firstPage === null) {
             $this->logger?->warning('No valid pages found in the provided array');
             return [
@@ -311,24 +334,23 @@ class PageAnalysisService implements LoggerAwareInterface
                 ],
             ];
         }
-
+    
         $parentPageId = $firstPage['pid'] ?? 0;
         $depth = $this->calculateDepth($pages);
-        $language = $this->getCurrentLanguage();
         $cacheIdentifier = "semantic_analysis_{$parentPageId}_{$depth}_{$language}";
-
+    
         if ($this->cache->has($cacheIdentifier)) {
             $cachedResult = $this->cache->get($cacheIdentifier);
             $cachedResult['metrics']['fromCache'] = true;
             $cachedResult['metrics']['executionTime'] = microtime(true) - $startTime;
             return $cachedResult;
         }
-
+    
         try {
-          $this->logDebug('Analyzing pages', ['pageCount' => count($pages), 'languageUid' => $currentLanguageUid]);
+            $this->logDebug('Analyzing pages', ['pageCount' => count($pages), 'languageUid' => $currentLanguageUid]);
             $totalPages = count($pages);
             $analysisResults = [];
-
+    
             foreach ($pages as $page) {
                 if (isset($page['uid'])) {
                     $analysisResults[$page['uid']] = $this->preparePageData($page, $currentLanguageUid);
@@ -336,7 +358,7 @@ class PageAnalysisService implements LoggerAwareInterface
                     $this->logger?->warning('Page without UID encountered', ['page' => $page]);
                 }
             }
-
+    
             $similarityCalculations = 0;
             foreach ($analysisResults as $pageId => &$pageData) {
                 foreach ($analysisResults as $comparisonPageId => $comparisonPageData) {
@@ -355,7 +377,7 @@ class PageAnalysisService implements LoggerAwareInterface
                     }
                 }
             }
-
+    
             $result = [
                 'results' => $analysisResults,
                 'metrics' => [
@@ -365,16 +387,22 @@ class PageAnalysisService implements LoggerAwareInterface
                     'fromCache' => false,
                 ],
             ];
-
+    
             $this->cache->set(
                 $cacheIdentifier,
                 $result,
                 ['tx_semanticsuggestion', "pages_{$parentPageId}"],
                 86400
             );
-
+    
+            $this->logDebug('Analysis complete', [
+                'executionTime' => microtime(true) - $startTime,
+                'totalPages' => $totalPages,
+                'similarityCalculations' => $similarityCalculations
+            ]);
+    
             return $result;
-
+    
         } catch (\Exception $e) {
             $this->logger?->error('Error during page analysis', ['exception' => $e->getMessage()]);
             return [
@@ -389,7 +417,7 @@ class PageAnalysisService implements LoggerAwareInterface
             ];
         }
     }
-
+    
 
 
     private function calculateDepth(array $pages): int
@@ -446,21 +474,10 @@ class PageAnalysisService implements LoggerAwareInterface
             }
     
             if (!empty($originalContent) && is_string($originalContent)) {
-                if ($this->settings['debugMode']) {
-                    $this->logDebug('Original content before stop words removal', [
-                        'field' => $field,
-                        'content' => $originalContent
-                    ]);
-                }
+
                 
                 $processedContent = $this->stopWordsService->removeStopWords($originalContent, $language);
-                
-                if ($this->settings['debugMode']) {
-                    $this->logDebug('Content after stop words removal', [
-                        'field' => $field,
-                        'content' => $processedContent
-                    ]);
-                }
+
                 
                 $preparedData[$field] = [
                     'content' => $processedContent,
@@ -475,7 +492,13 @@ class PageAnalysisService implements LoggerAwareInterface
         }
     
         $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
-    
+
+        $this->logDebug('Page data prepared', [
+            'pageUid' => $page['uid'],
+            'language' => $currentLanguageUid,
+            'fieldsProcessed' => array_keys($this->settings['analyzedFields']),
+            'contentLength' => strlen($preparedData['content']['content'] ?? '')
+        ]);
         return $preparedData;
     }
     
@@ -620,21 +643,10 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
 
     private function calculateSimilarity(array $page1, array $page2): array
     {
-      $this->logDebug('Starting similarity calculation', [
-            'page1' => $page1['uid'] ?? 'unknown',
-            'page2' => $page2['uid'] ?? 'unknown',
-            'page1_fields' => array_keys($page1),
-            'page2_fields' => array_keys($page2)
-        ]);
+
     
         $words1 = $this->getWeightedWords($page1);
         $words2 = $this->getWeightedWords($page2);
-    
-        $this->logDebug('Weighted words', ['words1' => $words1, 'words2' => $words2]);
-        $this->logDebug('Word counts', [
-            'page1' => count($words1),
-            'page2' => count($words2)
-        ]);
     
         if (empty($words1) || empty($words2)) {
             $this->logger?->warning('One or both pages have no weighted words', [
@@ -649,7 +661,6 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
         }
     
         $allWords = array_unique(array_merge(array_keys($words1), array_keys($words2)));
-        $this->logDebug('Unique words', ['count' => count($allWords), 'words' => $allWords]);
     
         $dotProduct = 0;
         $magnitude1 = 0;
@@ -663,11 +674,7 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
             $magnitude2 += $weight2 * $weight2;
         }
     
-      $this->logDebug('Calculation intermediates', [
-            'dotProduct' => $dotProduct,
-            'magnitude1' => $magnitude1,
-            'magnitude2' => $magnitude2
-        ]);
+
     
         $magnitude1 = sqrt($magnitude1);
         $magnitude2 = sqrt($magnitude2);
@@ -687,10 +694,8 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
         $semanticSimilarity = $dotProduct / ($magnitude1 * $magnitude2);
     
         $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
-        $this->logDebug('Recency boost', ['recencyBoost' => $recencyBoost]);
     
         $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
-        $this->logDebug('Recency weight', ['recencyWeight' => $recencyWeight]);
     
         $finalSimilarity = ($semanticSimilarity * (1 - $recencyWeight)) + ($recencyBoost * $recencyWeight);
     
@@ -700,24 +705,15 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
             'keywords' => $this->calculateFieldSimilarity($page1['keywords'] ?? [], $page2['keywords'] ?? []),
             'content' => $this->calculateFieldSimilarity($page1['content'] ?? [], $page2['content'] ?? []),
         ];
-    
-         $this->logDebug('Similarity calculation complete', [
-            'page1' => $page1['uid'] ?? 'unknown',
-            'page2' => $page2['uid'] ?? 'unknown',
-            'semanticSimilarity' => $semanticSimilarity, 
-            'recencyBoost' => $recencyBoost,
-            'finalSimilarity' => $finalSimilarity,
-            'fieldScores' => $fieldScores
-        ]);
-    
-        $this->logDebug('Final similarity calculation', [
+  
+        $this->logDebug('Similarity calculated', [
+            'page1' => $page1['uid'],
+            'page2' => $page2['uid'],
             'semanticSimilarity' => $semanticSimilarity,
             'recencyBoost' => $recencyBoost,
-            'finalSimilarity' => $finalSimilarity,
-            'words1' => $words1,
-            'words2' => $words2
+            'finalSimilarity' => $finalSimilarity
         ]);
-    
+
         return [
             'semanticSimilarity' => $semanticSimilarity,
             'recencyBoost' => $recencyBoost,
@@ -770,10 +766,20 @@ private function calculateFieldSimilarity($field1, $field2): float
 
 private function findCommonKeywords(array $page1, array $page2): array
 {
-    $keywords1 = isset($page1['keywords']['content']) ? array_flip(array_map('trim', explode(',', strtolower($page1['keywords']['content'])))) : [];
-    $keywords2 = isset($page2['keywords']['content']) ? array_flip(array_map('trim', explode(',', strtolower($page2['keywords']['content'])))) : [];
+    $keywords1 = isset($page1['keywords']['content']) ? array_map('trim', explode(',', strtolower($page1['keywords']['content']))) : [];
+    $keywords2 = isset($page2['keywords']['content']) ? array_map('trim', explode(',', strtolower($page2['keywords']['content']))) : [];
 
-    return array_keys(array_intersect_key($keywords1, $keywords2));
+    $commonKeywords = array_intersect($keywords1, $keywords2);
+
+    $this->logDebug('Common keywords found', [
+        'page1' => $page1['uid'] ?? 'unknown',
+        'page2' => $page2['uid'] ?? 'unknown',
+        'keywords1' => $keywords1,
+        'keywords2' => $keywords2,
+        'commonKeywords' => $commonKeywords
+    ]);
+
+    return $commonKeywords;
 }
 
         private function determineRelevance($similarity): string
