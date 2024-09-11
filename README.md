@@ -42,6 +42,39 @@ By leveraging the power of semantic analysis, this extension provides a superior
 
 ---
 
+## New in Version 1.4.0
+
+### Stopwords Support
+The extension now includes stopwords functionality, significantly improving the accuracy of content analysis. Stopwords are common words (such as "the", "is", "at") that are filtered out before processing the content. This feature enhances the relevance of semantic suggestions by focusing on meaningful content.
+
+### Debug Mode
+A new debug mode has been introduced, which can be activated via TypoScript:
+
+```typoscript
+plugin.tx_semanticsuggestion_suggestions.settings.debugMode = 1
+
+When enabled, this mode provides:
+
+Detailed debug information in the backend interface
+Comprehensive logs in public/typo3temp/logs/semantic_suggestion.log
+
+This feature is invaluable for developers and administrators looking to fine-tune the extension's performance or troubleshoot issues.
+
+### Backend Module Enhancements
+
+The backend module has been significantly improved:
+
+Optimized "Top 5 Most Similar Page Pairs" display, eliminating duplicate entries
+Enhanced statistics and visualizations for better content insights
+Improved performance for large-scale page analyses
+
+### For Developers
+
+New API methods are available to access stopwords statistics
+The similarity calculation algorithm has been optimized, providing more accurate results
+
+
+
 ## 📚 Table of Contents
 
 - [Introduction](#-introduction)
