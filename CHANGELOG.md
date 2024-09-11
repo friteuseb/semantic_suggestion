@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog for Semantic Suggestion Extension
 
+# Changelog Version 1.4.0
+
+## Added
+- Implemented stopwords functionality to improve content analysis
+- Introduced a debug mode, activatable via TypoScript
+- Added backend debug display for enhanced troubleshooting
+- Integrated logging system with output to public/typo3temp/logs/semantic_suggestion.log
+
+## Changed
+- Optimized similarity calculation algorithm to prevent duplicate pairs
+- Enhanced backend module with improved statistics and visualizations
+
+## Fixed
+- Resolved issues with duplicate entries in "Top 5 Most Similar Page Pairs" display
+- Various performance improvements and code optimizations
+
+## Developer Notes
+- Added new configuration options in TypoScript for fine-tuning the analysis process
+- Expanded API to include stopwords statistics for more detailed content insights
+
 
 # Changelog Version 1.3.2
 
