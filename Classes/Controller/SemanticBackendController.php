@@ -238,6 +238,18 @@ class SemanticBackendController extends ActionController
                 'fromCache' => $allFromCache,
             ];
     
+            if (isset($mergedData['statistics']['topSimilarPairs'])) {
+                $uniquePairs = [];
+                foreach ($mergedData['statistics']['topSimilarPairs'] as $pair) {
+                    $key = min($pair['page1'], $pair['page2']) . '-' . max($pair['page1'], $pair['page2']);
+                    if (!isset($uniquePairs[$key])) {
+                        $uniquePairs[$key] = $pair;
+                    }
+                }
+                $mergedData['statistics']['topSimilarPairs'] = array_values($uniquePairs);
+                $this->logDebug('Top Similar Pairs after deduplication', ['pairs' => $mergedData['statistics']['topSimilarPairs']]);
+            }
+
             $moduleTemplate->assignMultiple([
                 'parentPageId' => $parentPageId,
                 'depth' => $depth,
@@ -419,7 +431,7 @@ class SemanticBackendController extends ActionController
 
 
 
-    private function calculateStatistics(array $analysisResults, float $proximityThreshold, bool $calculateDistribution, bool $calculateTopSimilarPairs): array
+   private function calculateStatistics(array $analysisResults, float $proximityThreshold, bool $calculateDistribution, bool $calculateTopSimilarPairs): array
     {
         $totalPages = count($analysisResults);
         $totalSimilarityScore = 0;
@@ -428,23 +440,17 @@ class SemanticBackendController extends ActionController
             '0.0-0.2' => 0, '0.2-0.4' => 0, '0.4-0.6' => 0, '0.6-0.8' => 0, '0.8-1.0' => 0
         ] : [];
         $pagesSimilarityCount = [];
-    
         $processedPairs = [];
-    
+
         foreach ($analysisResults as $pageId => $pageData) {
             $pageLanguage = $pageData['sys_language_uid'] ?? 0;
             foreach ($pageData['similarities'] as $similarPageId => $similarity) {
-                // Créer une clé unique pour chaque paire, indépendamment de l'ordre
                 $pairKey = min($pageId, $similarPageId) . '-' . max($pageId, $similarPageId);
-    
-                // Ne traiter la paire que si elle n'a pas déjà été traitée
                 if (!isset($processedPairs[$pairKey])) {
                     $processedPairs[$pairKey] = true;
-    
                     $similarPageLanguage = $analysisResults[$similarPageId]['sys_language_uid'] ?? 0;
                     if ($pageLanguage === $similarPageLanguage) {
                         $totalSimilarityScore += $similarity['score'];
-                        
                         if ($calculateTopSimilarPairs) {
                             $similarityPairs[] = [
                                 'page1' => min($pageId, $similarPageId),
@@ -453,12 +459,10 @@ class SemanticBackendController extends ActionController
                                 'language' => $pageLanguage
                             ];
                         }
-    
                         if ($similarity['score'] >= $proximityThreshold) {
                             $pagesSimilarityCount[$pageId] = ($pagesSimilarityCount[$pageId] ?? 0) + 1;
                             $pagesSimilarityCount[$similarPageId] = ($pagesSimilarityCount[$similarPageId] ?? 0) + 1;
                         }
-    
                         if ($calculateDistribution) {
                             if ($similarity['score'] < 0.2) $distributionScores['0.0-0.2']++;
                             elseif ($similarity['score'] < 0.4) $distributionScores['0.2-0.4']++;
@@ -470,26 +474,26 @@ class SemanticBackendController extends ActionController
                 }
             }
         }
-    
+
         $result = [
             'totalPages' => $totalPages,
             'averageSimilarity' => $totalPages > 1 ? $totalSimilarityScore / count($processedPairs) : 0,
         ];
-    
+
         if ($calculateTopSimilarPairs) {
             usort($similarityPairs, function($a, $b) {
                 return $b['score'] <=> $a['score'];
             });
             $result['topSimilarPairs'] = array_slice($similarityPairs, 0, 5);
         }
-    
+
         if ($calculateDistribution) {
             $result['distributionScores'] = $distributionScores;
         }
-    
+
         arsort($pagesSimilarityCount);
         $result['topSimilarPages'] = array_slice($pagesSimilarityCount, 0, 5, true);
-    
+
         return $result;
     }
    
