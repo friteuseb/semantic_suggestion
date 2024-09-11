@@ -6,14 +6,20 @@ services:
 
   TalanHdf\SemanticSuggestion\:
     resource: '../Classes/*'
+      
+  TalanHdf\SemanticSuggestion\Service\StopWordsService:
+      public: true
 
   TalanHdf\SemanticSuggestion\Service\PageAnalysisService:
     arguments:
       $context: '@TYPO3\CMS\Core\Context\Context'
       $configurationManager: '@TYPO3\CMS\Extbase\Configuration\ConfigurationManager'
+      $siteFinder: '@TYPO3\CMS\Core\Site\SiteFinder'
       $cacheManager: '@TYPO3\CMS\Core\Cache\CacheManager'
-      $dbConnection: '@TYPO3\CMS\Core\Database\ConnectionPool'
+      $stopWordsService: '@TalanHdf\SemanticSuggestion\Service\StopWordsService'
+      $connectionPool: '@TYPO3\CMS\Core\Database\ConnectionPool'
     public: true
+
 
   TalanHdf\SemanticSuggestion\Controller\SuggestionsController:
     public: true

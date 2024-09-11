@@ -1,14 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.5/phpunit.xsd"
-         bootstrap="Tests/UnitTestsBootstrap.php"
+         bootstrap="Tests/Bootstrap.php"
          colors="true"
          cacheDirectory=".phpunit.cache"
          executionOrder="depends,defects"
          beStrictAboutTestsThatDoNotTestAnything="false"
          failOnRisky="true"
          failOnWarning="true"
-         cacheResult="false"
          displayDetailsOnTestsThatTriggerDeprecations="true"
          displayDetailsOnTestsThatTriggerErrors="true"
          displayDetailsOnTestsThatTriggerNotices="true"
@@ -32,4 +31,5 @@
         <ini name="display_errors" value="1"/>
         <env name="TYPO3_CONTEXT" value="Testing"/>
     </php>
+
 </phpunit>

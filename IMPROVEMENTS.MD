@@ -41,3 +41,10 @@
 
 ## 8. Créate unit and functionnal tests
 
+Sertvice queue pour v12 queue externe possible  symfony queue pour faire des actions asynchrones 
+
+Base de donnée pour résilience des données ? Redis, duck db avec fonction math ?
+
+Visualisation sur la rétention des visiteurs, autour des thématiques ?
+Analyse de commentaires ? 
+Des votes ?

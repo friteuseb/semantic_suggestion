@@ -42,6 +42,39 @@ By leveraging the power of semantic analysis, this extension provides a superior
 
 ---
 
+## New in Version 1.4.0
+
+### Stopwords Support
+The extension now includes stopwords functionality, significantly improving the accuracy of content analysis. Stopwords are common words (such as "the", "is", "at") that are filtered out before processing the content. This feature enhances the relevance of semantic suggestions by focusing on meaningful content.
+
+### Debug Mode
+A new debug mode has been introduced, which can be activated via TypoScript:
+
+```typoscript
+plugin.tx_semanticsuggestion_suggestions.settings.debugMode = 1
+
+When enabled, this mode provides:
+
+Detailed debug information in the backend interface
+Comprehensive logs in public/typo3temp/logs/semantic_suggestion.log
+
+This feature is invaluable for developers and administrators looking to fine-tune the extension's performance or troubleshoot issues.
+
+### Backend Module Enhancements
+
+The backend module has been significantly improved:
+
+Optimized "Top 5 Most Similar Page Pairs" display, eliminating duplicate entries
+Enhanced statistics and visualizations for better content insights
+Improved performance for large-scale page analyses
+
+### For Developers
+
+New API methods are available to access stopwords statistics
+The similarity calculation algorithm has been optimized, providing more accurate results
+
+
+
 ## 📚 Table of Contents
 
 - [Introduction](#-introduction)
@@ -452,22 +485,23 @@ semantic_suggestion/
 ├── ext_tables.php
 └── phpunit.xml.dist
 ```
-
 ## 🧪 Unit Tests
 
-The Semantic Suggestion extension includes a comprehensive suite of unit tests to ensure reliability and correctness of core functionalities.
+The Semantic Suggestion extension includes a comprehensive suite of unit tests to ensure reliability and correctness of core functionalities, with a focus on the similarity calculation algorithm.
 
 ### Test Coverage
 
-1. **Page Data Preparation**: Validates correct data preparation and weighting
-2. **Page Analysis**: Verifies overall analysis process and caching mechanisms
-3. **Similarity Calculation**: Ensures accuracy of page similarity calculations
-4. **Common Keywords Detection**: Tests functionality for finding shared keywords
-5. **Relevance Determination**: Validates logic for determining relevance based on similarity scores
-6. **Performance Testing**: Evaluates handling of large datasets
-7. **Cache Handling**: Verifies proper use of caching for improved performance
-8. **Edge Case Handling**: Tests behavior with empty pages and extremely large content
-9. **Content Size Limits**: Checks application of appropriate size limits to different fields
+1. **Weighted Word Calculation**: Verifies the correct weighting of words based on field importance and word frequency.
+2. **Similarity Calculation**: Ensures accuracy of page similarity calculations using cosine similarity.
+3. **Field-Specific Similarity**: Tests the calculation of similarity scores for individual fields (title, content, keywords, etc.).
+4. **Recency Boost Integration**: Validates the integration of recency factors in the final similarity score.
+5. **Page Data Preparation**: Checks correct data preparation and preprocessing for similarity analysis.
+6. **Common Keywords Detection**: Tests functionality for finding shared keywords between pages.
+7. **Relevance Determination**: Validates logic for determining relevance based on calculated similarity scores.
+8. **Edge Case Handling**: Tests behavior with empty pages, single-word content, and extremely large content.
+9. **Multilingual Content Handling**: Verifies correct similarity calculation for content in different languages.
+10. **Performance Testing**: Evaluates the efficiency of similarity calculations with large datasets.
+11. **Cache Handling**: Ensures proper use of caching mechanisms for improved performance.
 
 ### Running Tests
 
@@ -486,6 +520,50 @@ For specific tests, add the `--filter` option:
 ```bash
 ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist --filter testMethodName
 ```
+
+
+## Commandes de test pour PageAnalysisService
+
+### Test de tous les tests dans PageAnalysisServiceTest
+
+Pour exécuter tous les tests dans la classe PageAnalysisServiceTest :
+
+```bash
+ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist --testdox --colors=always --filter PageAnalysisServiceTest
+```
+
+### Test d'une méthode spécifique
+
+Pour tester une méthode spécifique, par exemple `testGetWeightedWordsReturnsCorrectWeights` :
+
+```bash
+ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist --testdox --colors=always --filter "PageAnalysisServiceTest::testGetWeightedWordsReturnsCorrectWeights"
+```
+
+### Test avec un motif de nom
+
+Pour exécuter tous les tests contenant "Similarity" dans leur nom :
+
+```bash
+ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist --testdox --colors=always --filter "/::test.*Similarity/"
+```
+
+### Exécution avec couverture de code
+
+Pour exécuter les tests avec un rapport de couverture de code :
+
+```bash
+ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist --testdox --colors=always --filter PageAnalysisServiceTest --coverage-text
+```
+
+### Test en mode verbeux
+
+Pour obtenir plus de détails sur l'exécution des tests :
+
+```bash
+ddev exec vendor/bin/phpunit -c packages/semantic_suggestion/phpunit.xml.dist --testdox --colors=always --filter PageAnalysisServiceTest -v
+```
+
 
 ### Interpreting Results
 

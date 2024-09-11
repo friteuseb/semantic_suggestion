@@ -57,6 +57,9 @@ plugin.tx_semanticsuggestion_suggestions {
         showDistributionScores = {$plugin.tx_semanticsuggestion_suggestions.settings.showDistributionScores}
         # Enable or disable the display of top similar pages
         showTopSimilarPages = {$plugin.tx_semanticsuggestion_suggestions.settings.showTopSimilarPages}
+        # Enable or disable the debug mode to log more events in public/typo3temp/logs/semantic_suggestion_debug.log
+        debugMode = 0
+
 
         # Weights for different page fields in similarity calculation
         analyzedFields {
@@ -68,6 +71,20 @@ plugin.tx_semanticsuggestion_suggestions {
         }
     }
 }
+
+
+plugin.tx_semanticsuggestion_suggestions {
+    settings {
+        languageMapping {
+            0 = en
+            1 = fr
+            2 = de
+            # Ajoutez d'autres mappings selon vos besoins
+        }
+        defaultLanguage = en
+    }
+}
+
 
 # Configuration to include the plugin in content elements
 # This allows you to include the semantic suggestion functionality

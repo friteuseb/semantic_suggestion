@@ -1,49 +1,59 @@
 <?php
+
+declare(strict_types=1);
+
 namespace TalanHdf\SemanticSuggestion\Service;
 
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Cache\CacheManager;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
+use TYPO3\CMS\Core\Site\SiteFinder;
+use TYPO3\CMS\Core\Routing\PageArguments;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+use Psr\Http\Message\ServerRequestInterface;
+use TYPO3\CMS\Core\Context\LanguageAspect;
+use Psr\Log\NullLogger;
 
 class PageAnalysisService implements LoggerAwareInterface
 {
     use LoggerAwareTrait;
 
-    protected $context;
-    protected $configurationManager;
-    protected $settings;
-    protected $cache;
-    protected $connectionPool;
-    protected $queryBuilder;
+    protected Context $context;
+    protected ConfigurationManagerInterface $configurationManager;
+    protected array $settings;
+    protected ?CacheManager $cacheManager;
+    protected ConnectionPool $connectionPool;
+    protected ?QueryBuilder $queryBuilder = null;
+    protected StopWordsService $stopWordsService;
+    protected SiteFinder $siteFinder;
+    protected FrontendInterface $cache;
 
     public function __construct(
         Context $context,
         ConfigurationManagerInterface $configurationManager,
+        StopWordsService $stopWordsService,
+        SiteFinder $siteFinder,
         ?CacheManager $cacheManager = null,
-        $dbConnection = null,
+        ?ConnectionPool $connectionPool = null,
         ?LoggerInterface $logger = null
     ) {
         $this->context = $context;
         $this->configurationManager = $configurationManager;
+        $this->stopWordsService = $stopWordsService;
+        $this->siteFinder = $siteFinder;
+        $this->cacheManager = $cacheManager;
+        $this->connectionPool = $connectionPool ?? GeneralUtility::makeInstance(ConnectionPool::class);
+        $this->logger = $logger ?? new NullLogger();
 
-        if ($logger) {
+
+        if ($logger !== null) {
             $this->setLogger($logger);
-        }
-
-        if ($dbConnection instanceof ConnectionPool) {
-            $this->connectionPool = $dbConnection;
-        } elseif ($dbConnection instanceof QueryBuilder) {
-            $this->queryBuilder = $dbConnection;
-        } else {
-            $this->connectionPool = GeneralUtility::makeInstance(ConnectionPool::class);
         }
 
         $this->settings = $this->configurationManager->getConfiguration(
@@ -51,90 +61,114 @@ class PageAnalysisService implements LoggerAwareInterface
             'semanticsuggestion_suggestions'
         );
 
-        if (!isset($this->settings['recencyWeight'])) {
-            $this->settings['recencyWeight'] = 0.2;
-        }
-        $this->settings['recencyWeight'] = max(0, min(1, (float)$this->settings['recencyWeight']));
+        $this->initializeSettings();
+        $this->initializeCache();
+    }
 
-        if ($cacheManager) {
+    private function logDebug(string $message, array $context = []): void
+    {
+        // Forcer le log pour le débogage
+        $this->logger->debug($message, $context);
+        
+        // Ancien code commenté pour référence
+        // if ($this->settings['debugMode']) {
+        //     $this->logger->debug($message, $context);
+        // }
+    }
+
+    private function logInfo(string $message, array $context = []): void
+    {
+        $this->logger->info($message, $context);
+    }
+
+    private function logWarning(string $message, array $context = []): void
+    {
+        $this->logger->warning($message, $context);
+    }
+
+    private function logError(string $message, array $context = []): void
+    {
+        $this->logger->error($message, $context);
+    }
+
+    protected function initializeSettings(): void
+    {
+        // Initialiser debugMode en premier
+        $this->settings['debugMode'] = (bool)($this->settings['debugMode'] ?? false);
+    
+        $this->logDebug('Debug mode initialized', ['debugMode' => $this->settings['debugMode']]);
+    
+        $this->settings['recencyWeight'] = max(0, min(1, (float)($this->settings['recencyWeight'] ?? 0.2)));
+    
+        $this->settings['analyzedFields'] = $this->settings['analyzedFields'] ?? [
+            'title' => 1.5,
+            'description' => 1.0,
+            'keywords' => 2.0,
+            'abstract' => 1.2,
+            'content' => 1.0
+        ];
+    
+        $this->logDebug('Settings initialized', ['final_settings' => $this->settings]);
+    }
+
+    protected function initializeCache(): void
+    {
+        if ($this->cacheManager !== null) {
             try {
-                $this->cache = $cacheManager->getCache('semantic_suggestion');
+                $this->cache = $this->cacheManager->getCache('semantic_suggestion');
             } catch (\TYPO3\CMS\Core\Cache\Exception\NoSuchCacheException $e) {
-                $this->cache = $cacheManager->getCache('null');
+                $this->cache = $this->cacheManager->getCache('null');
             }
         } else {
             $this->cache = new class implements FrontendInterface {
-                private $data = [];
-                public function set($entryIdentifier, $data, array $tags = [], $lifetime = null) {
+                private array $data = [];
+                public function set($entryIdentifier, $data, array $tags = [], $lifetime = null): void {
                     $this->data[$entryIdentifier] = $data;
                 }
                 public function get($entryIdentifier) {
                     return $this->data[$entryIdentifier] ?? false;
                 }
-                public function has($entryIdentifier) {
+                public function has($entryIdentifier): bool {
                     return isset($this->data[$entryIdentifier]);
                 }
-                public function remove($entryIdentifier) {
+                public function remove($entryIdentifier): void {
                     unset($this->data[$entryIdentifier]);
                 }
-                public function flush() {
+                public function flush(): void {
                     $this->data = [];
                 }
-                public function flushByTag($tag) {}
-                public function flushByTags(array $tags) {}
-                public function collectGarbage() {}
-                public function isValidEntryIdentifier($identifier) {
+                public function flushByTag($tag): void {}
+                public function flushByTags(array $tags): void {}
+                public function collectGarbage(): void {}
+                public function isValidEntryIdentifier($identifier): bool {
                     return is_string($identifier);
                 }
-                public function isValidTag($tag) {
+                public function isValidTag($tag): bool {
                     return is_string($tag);
                 }
-                public function getIdentifier() {
+                public function getIdentifier(): string {
                     return 'fallback_cache';
                 }
                 public function getBackend() {
                     return null;
                 }
-                public function getSettings(): array {
-                    return $this->settings;
-                }
-                public function setSettings(array $settings): void {
-                    $this->settings = $settings;
-                }
             };
         }
-
-        if (!isset($this->settings['analyzedFields']) || !is_array($this->settings['analyzedFields'])) {
-            $this->settings['analyzedFields'] = [
-                'title' => 1.5,
-                'description' => 1.0,
-                'keywords' => 2.0,
-                'abstract' => 1.2,
-                'content' => 1.0
-            ];
-        }
-
-        
     }
-    public function setSettings(array $settings): void                                                                                        
-      {                                                                                                                                         
-          $this->settings = array_merge($this->settings, $settings);                                                                            
-          if (!isset($this->settings['recencyWeight'])) {                                                                                       
-              $this->settings['recencyWeight'] = 0.2; // Valeur par défaut                                                                      
-          }                                                                                                                                     
-          $this->settings['recencyWeight'] = max(0, min(1, (float)$this->settings['recencyWeight'])); // Assurez-vous que la valeur est entre 0 et 1                                                                                                                                      
-      }     
+
+
+    public function setSettings(array $settings): void
+    {
+        $this->settings = array_merge($this->settings, $settings);
+        $this->initializeSettings();
+    }
 
     protected function getQueryBuilder(string $table = 'pages'): QueryBuilder
     {
-        if ($this->queryBuilder) {
-            return $this->queryBuilder;
-        }
-        if ($this->connectionPool === null) {
-            $this->connectionPool = GeneralUtility::makeInstance(ConnectionPool::class);
-        }
         return $this->connectionPool->getQueryBuilderForTable($table);
     }
+
+
 
     public function getContext(): Context
     {
@@ -156,23 +190,130 @@ class PageAnalysisService implements LoggerAwareInterface
         return $this->connectionPool;
     }
 
+    
+    protected function getCurrentLanguage(): string
+    {
+        $languageAspect = $this->context->getAspect('language');
+        $languageId = $languageAspect->getId();
+        
+        try {
+            $currentPageId = $this->getCurrentPageId();
+            if ($currentPageId === null) {
+                throw new \RuntimeException('Unable to determine current page ID');
+            }
+    
+            $currentSite = $this->siteFinder->getSiteByPageId($currentPageId);
+            $siteLanguage = $currentSite->getLanguageById($languageId);
+            if ($siteLanguage) {
+                $language = strtolower(substr($siteLanguage->getHreflang(), 0, 2));
+                $this->logDebug('Language detected', ['language' => $language, 'languageId' => $languageId]);
+                return $language;
+            }
+        } catch (\Exception $e) {
+            $this->logger?->warning('Failed to detect language automatically', ['exception' => $e->getMessage()]);
+        }
+    
+        // Fallback to default language
+        $defaultLanguage = $this->settings['defaultLanguage'] ?? 'en';
+        $this->logDebug('Using fallback language', ['language' => $defaultLanguage]);
+        return $defaultLanguage;
+    }
+
+    protected function detectLanguageAutomatically(int $languageId): ?string
+    {
+        try {
+            $currentPageId = $this->getCurrentPageId();
+            if ($currentPageId === null) {
+                $this->logger?->warning('Unable to determine current page ID for language detection');
+                return null;
+            }
+    
+            $currentSite = $this->siteFinder->getSiteByPageId($currentPageId);
+            $siteLanguage = $currentSite->getLanguageById($languageId);
+            if ($siteLanguage) {
+                return strtolower(substr($siteLanguage->getHreflang(), 0, 2));
+            }
+        } catch (\Exception $e) {
+            $this->logger?->warning('Failed to detect language automatically', ['exception' => $e->getMessage()]);
+        }
+        return null;
+    }
+
+    protected function getCurrentPageId(): ?int
+    {
+        $request = $GLOBALS['TYPO3_REQUEST'] ?? null;
+        if ($request instanceof ServerRequestInterface) {
+            $pageArguments = $request->getAttribute('routing');
+            if ($pageArguments instanceof PageArguments) {
+                return $pageArguments->getPageId();
+            }
+            
+            // Fallback pour le contexte backend
+            $pageId = $request->getQueryParams()['id'] ?? null;
+            if ($pageId !== null) {
+                return (int)$pageId;
+            }
+        }
+        
+        // Fallback pour d'autres contextes
+        if (isset($GLOBALS['TSFE']) && $GLOBALS['TSFE']->id) {
+            return (int)$GLOBALS['TSFE']->id;
+        }
+        
+        $this->logger?->warning('Unable to determine current page ID');
+        return null;
+    }
+
+
+    protected function getLanguageFromTypoScript(int $languageId): ?string
+    {
+        $typoscriptMapping = $this->settings['languageMapping'] ?? [];
+        return $typoscriptMapping[$languageId] ?? null;
+    }
+
+
+    protected function getCurrentLanguageUid(): int
+    {
+        return GeneralUtility::makeInstance(Context::class)->getAspect('language')->getId();
+    }
+
+
+
     public function analyzePages(array $pages, int $currentLanguageUid): array
     {
         $startTime = microtime(true);
-
+    
         if (empty($pages)) {
-            $this->logger->warning('No pages provided for analysis');
+            $this->logger?->warning('No pages provided for analysis');
             return [
                 'results' => [],
                 'metrics' => [
-                    'executionTime' => 0,
+                    'executionTime' => microtime(true) - $startTime,
                     'totalPages' => 0,
                     'similarityCalculations' => 0,
                     'fromCache' => false,
                 ],
             ];
         }
-
+    
+        $language = $this->getCurrentLanguage();
+        $stopwords = $this->stopWordsService->getStopWordsForLanguage($language);
+    
+        $this->logDebug('Starting page analysis', [
+            'pageCount' => count($pages),
+            'languageUid' => $currentLanguageUid,
+            'language' => $language,
+            'stopwordsCount' => count($stopwords)
+        ]);
+    
+    
+        $pagesByLanguage = [];
+        foreach ($pages as $page) {
+            $lang = $page['sys_language_uid'] ?? 0;
+            $pagesByLanguage[$lang] = ($pagesByLanguage[$lang] ?? 0) + 1;
+        }
+    
+    
         $firstPage = null;
         foreach ($pages as $page) {
             if ($page !== null) {
@@ -180,44 +321,44 @@ class PageAnalysisService implements LoggerAwareInterface
                 break;
             }
         }
-
+    
         if ($firstPage === null) {
-            $this->logger->warning('No valid pages found in the provided array');
+            $this->logger?->warning('No valid pages found in the provided array');
             return [
                 'results' => [],
                 'metrics' => [
-                    'executionTime' => 0,
+                    'executionTime' => microtime(true) - $startTime,
                     'totalPages' => 0,
                     'similarityCalculations' => 0,
                     'fromCache' => false,
                 ],
             ];
         }
-
+    
         $parentPageId = $firstPage['pid'] ?? 0;
         $depth = $this->calculateDepth($pages);
-        $cacheIdentifier = 'semantic_analysis_' . $parentPageId . '_' . $depth . '_' . $currentLanguageUid;
-
+        $cacheIdentifier = "semantic_analysis_{$parentPageId}_{$depth}_{$language}";
+    
         if ($this->cache->has($cacheIdentifier)) {
             $cachedResult = $this->cache->get($cacheIdentifier);
             $cachedResult['metrics']['fromCache'] = true;
             $cachedResult['metrics']['executionTime'] = microtime(true) - $startTime;
             return $cachedResult;
         }
-
+    
         try {
-            $this->logger->debug('Analyzing pages', ['pageCount' => count($pages), 'languageUid' => $currentLanguageUid]);
+            $this->logDebug('Analyzing pages', ['pageCount' => count($pages), 'languageUid' => $currentLanguageUid]);
             $totalPages = count($pages);
             $analysisResults = [];
-
+    
             foreach ($pages as $page) {
                 if (isset($page['uid'])) {
                     $analysisResults[$page['uid']] = $this->preparePageData($page, $currentLanguageUid);
                 } else {
-                    $this->logger->warning('Page without UID encountered', ['page' => $page]);
+                    $this->logger?->warning('Page without UID encountered', ['page' => $page]);
                 }
             }
-
+    
             $similarityCalculations = 0;
             foreach ($analysisResults as $pageId => &$pageData) {
                 foreach ($analysisResults as $comparisonPageId => $comparisonPageData) {
@@ -229,16 +370,41 @@ class PageAnalysisService implements LoggerAwareInterface
                             'recencyBoost' => $similarity['recencyBoost'],
                             'commonKeywords' => $this->findCommonKeywords($pageData, $comparisonPageData),
                             'relevance' => $this->determineRelevance($similarity['finalSimilarity']),
-                            'ageInDays' => round((time() - $comparisonPageData['content_modified_at']) / (24 * 3600), 1),
+                            'ageInDays' => round((time() - ($comparisonPageData['content_modified_at'] ?? time())) / (24 * 3600), 1),
                         ];
                         
                         $similarityCalculations++;
                     }
                 }
             }
-
+    
+            $result = [
+                'results' => $analysisResults,
+                'metrics' => [
+                    'executionTime' => microtime(true) - $startTime,
+                    'totalPages' => $totalPages,
+                    'similarityCalculations' => $similarityCalculations,
+                    'fromCache' => false,
+                ],
+            ];
+    
+            $this->cache->set(
+                $cacheIdentifier,
+                $result,
+                ['tx_semanticsuggestion', "pages_{$parentPageId}"],
+                86400
+            );
+    
+            $this->logDebug('Analysis complete', [
+                'executionTime' => microtime(true) - $startTime,
+                'totalPages' => $totalPages,
+                'similarityCalculations' => $similarityCalculations
+            ]);
+    
+            return $result;
+    
         } catch (\Exception $e) {
-            $this->logger->error('Error during page analysis', ['exception' => $e->getMessage()]);
+            $this->logger?->error('Error during page analysis', ['exception' => $e->getMessage()]);
             return [
                 'results' => [],
                 'metrics' => [
@@ -250,30 +416,8 @@ class PageAnalysisService implements LoggerAwareInterface
                 ],
             ];
         }
-
-        $endTime = microtime(true);
-        $executionTime = $endTime - $startTime;
-
-        $result = [
-            'results' => $analysisResults,
-            'metrics' => [
-                'executionTime' => $executionTime,
-                'totalPages' => $totalPages,
-                'similarityCalculations' => $similarityCalculations,
-                'fromCache' => false,
-            ],
-        ];
-
-        $this->cache->set(
-            $cacheIdentifier,
-            $result,
-            ['tx_semanticsuggestion', 'pages_' . $parentPageId],
-            86400
-        );
-
-        return $result;
     }
-
+    
 
 
     private function calculateDepth(array $pages): int
@@ -310,29 +454,33 @@ class PageAnalysisService implements LoggerAwareInterface
             'sys_language_uid' => $page['sys_language_uid'] ?? 0,
             'isTranslation' => isset($page['_PAGES_OVERLAY']),
         ];
-
-        if (!is_array($this->settings['analyzedFields'])) {
-            $this->logger?->warning('analyzedFields is not an array', ['settings' => $this->settings]);
-            return $preparedData;
-        }
-
+    
+        $language = $this->getCurrentLanguage();
+    
         foreach ($this->settings['analyzedFields'] as $field => $weight) {
-            if ($field === 'content') {
+            $originalContent = $page[$field] ?? '';
+    
+            if ($field === 'content' && empty($originalContent)) {
                 try {
-                    $preparedData['content'] = [
-                        'content' => $this->getPageContent($page['uid'], $currentLanguageUid),
-                        'weight' => (float)$weight
-                    ];
+                    $originalContent = $this->getPageContent($page['uid'], $currentLanguageUid);
                 } catch (\Exception $e) {
-                    $this->logger?->error('Error fetching page content', ['pageId' => $page['uid'], 'language' => $currentLanguageUid, 'exception' => $e->getMessage()]);
-                    $preparedData['content'] = [
-                        'content' => '',
-                        'weight' => (float)$weight
-                    ];
+                    $this->logger->error('Error fetching page content', [
+                        'pageId' => $page['uid'], 
+                        'language' => $currentLanguageUid, 
+                        'exception' => $e->getMessage()
+                    ]);
+                    $originalContent = '';
                 }
-            } elseif (isset($page[$field])) {
+            }
+    
+            if (!empty($originalContent) && is_string($originalContent)) {
+
+                
+                $processedContent = $this->stopWordsService->removeStopWords($originalContent, $language);
+
+                
                 $preparedData[$field] = [
-                    'content' => $page[$field],
+                    'content' => $processedContent,
                     'weight' => (float)$weight
                 ];
             } else {
@@ -342,17 +490,18 @@ class PageAnalysisService implements LoggerAwareInterface
                 ];
             }
         }
-
+    
         $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
 
+        $this->logDebug('Page data prepared', [
+            'pageUid' => $page['uid'],
+            'language' => $currentLanguageUid,
+            'fieldsProcessed' => array_keys($this->settings['analyzedFields']),
+            'contentLength' => strlen($preparedData['content']['content'] ?? '')
+        ]);
         return $preparedData;
     }
-
-    protected function getCurrentLanguageUid(): int
-    {
-        return GeneralUtility::makeInstance(Context::class)->getAspect('language')->getId();
-    }
-
+    
 
 
 private function getAllSubpages(int $parentId, int $depth = 0): array
@@ -378,55 +527,57 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
     return $allPages;
 }
 
-protected function getSubpages(int $parentId, int $languageUid): array
-{
-    $this->logger?->info('Fetching subpages', ['parentId' => $parentId, 'languageUid' => $languageUid]);
+    protected function getSubpages(int $parentId, string $languageCode): array
+    {
+        $this->logger?->info('Fetching subpages', ['parentId' => $parentId, 'languageCode' => $languageCode]);
 
-    try {
-        $queryBuilder = $this->getQueryBuilder();
+        try {
+            $queryBuilder = $this->getQueryBuilder();
 
-        $fieldsToSelect = ['uid', 'title', 'description', 'keywords', 'abstract', 'crdate', 'sys_language_uid'];
-        $tableColumns = $queryBuilder->getConnection()->getSchemaManager()->listTableColumns('pages');
-        $existingColumns = array_keys($tableColumns);
-        $fieldsToSelect = array_intersect($fieldsToSelect, $existingColumns);
+            $languageAspect = $this->context->getAspect('language');
+            $languageId = $languageAspect->getId();
 
-        $this->logger?->debug('Fields to select', ['fields' => $fieldsToSelect]);
+            $fieldsToSelect = ['uid', 'title', 'description', 'keywords', 'abstract', 'crdate', 'sys_language_uid'];
+            $tableColumns = $queryBuilder->getConnection()->getSchemaManager()->listTableColumns('pages');
+            $existingColumns = array_keys($tableColumns);
+            $fieldsToSelect = array_intersect($fieldsToSelect, $existingColumns);
 
-        $result = $queryBuilder
-            ->select(...$fieldsToSelect)
-            ->addSelectLiteral(
-                '(SELECT MAX(tstamp) FROM tt_content WHERE tt_content.pid = pages.uid AND tt_content.deleted = 0 AND tt_content.hidden = 0)'
-            )
-            ->from('pages')
-            ->where(
-                $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($parentId, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->eq('hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
-                $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)), 
+          $this->logDebug('Fields to select', ['fields' => $fieldsToSelect]);
 
-                $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter($languageUid,\PDO::PARAM_INT)) 
-            )
-            ->executeQuery()
-            ->fetchAllAssociative();
+            $result = $queryBuilder
+                ->select(...$fieldsToSelect)
+                ->addSelectLiteral(
+                    '(SELECT MAX(tstamp) FROM tt_content WHERE tt_content.pid = pages.uid AND tt_content.deleted = 0 AND tt_content.hidden = 0)'
+                )
+                ->from('pages')
+                ->where(
+                    $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($parentId, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->eq('hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)), 
+                    $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter($languageId, \PDO::PARAM_INT))
+                )
+                ->executeQuery()
+                ->fetchAllAssociative();
 
-        foreach ($result as &$page) {
-            $page['content_modified_at'] = $page['MAX(tstamp)'] ?? $page['crdate'] ?? time();
-            unset($page['MAX(tstamp)']);
+            foreach ($result as &$page) {
+                $page['content_modified_at'] = $page['MAX(tstamp)'] ?? $page['crdate'] ?? time();
+                unset($page['MAX(tstamp)']);
+            }
+
+            $this->logger?->info('Subpages fetched successfully', ['count' => count($result), 'languageCode' => $languageCode]);
+          $this->logDebug('Fetched subpages', ['subpages' => $result]);
+
+            return $result;
+        } catch (\Exception $e) {
+            $this->logger?->error('Error fetching subpages', ['exception' => $e->getMessage(), 'parentId' => $parentId, 'languageCode' => $languageCode]);
+            throw $e; 
         }
-
-        $this->logger?->info('Subpages fetched successfully', ['count' => count($result), 'languageUid' => $languageUid]);
-        $this->logger?->debug('Fetched subpages', ['subpages' => $result]);
-
-        return $result;
-    } catch (\Exception $e) {
-        $this->logger?->error('Error fetching subpages', ['exception' => $e->getMessage(), 'parentId' => $parentId, 'languageUid' => $languageUid]);
-        throw $e; 
     }
-}
 
     protected function getPageContent(int $pageId, int $languageUid = 0): string
     {
         try {
-            $queryBuilder = $this->getQueryBuilder();
+            $queryBuilder = $this->getQueryBuilder('tt_content');
     
             $content = $queryBuilder
                 ->select('bodytext')
@@ -447,84 +598,128 @@ protected function getSubpages(int $parentId, int $languageUid): array
         }
     }
 
-private function getWeightedWords(array $pageData): array
-{
-    $weightedWords = [];
-
-    foreach ($pageData as $field => $data) {
-        if (!isset($data['content']) || !is_string($data['content'])) {
-            continue;
+    protected function getWeightedWords(array $pageData): array
+    {
+        $weightedWords = [];
+        $language = $this->getCurrentLanguage();
+    
+        if ($this->settings['debugMode']) {
+            $this->logDebug('Starting getWeightedWords', ['pageData' => $pageData, 'language' => $language]);
         }
-
-        $words = array_count_values(str_word_count(strtolower($data['content']), 1));
-        $weight = $data['weight'] ?? 1.0;
-
-        foreach ($words as $word => $count) {
-            $weightedWords[$word] = ($weightedWords[$word] ?? 0) + ($count * $weight);
+    
+        foreach ($this->settings['analyzedFields'] as $field => $weight) {
+            if (!isset($pageData[$field]['content']) || !is_string($pageData[$field]['content'])) {
+                if ($this->settings['debugMode']) {
+                    $this->logger->warning('Invalid or missing field data', ['field' => $field]);
+                }
+                continue;
+            }
+    
+            $content = $pageData[$field]['content'];
+            
+            if ($this->settings['debugMode']) {
+                $this->logDebug('Content for field', ['field' => $field, 'content' => $content]);
+            }
+    
+            $words = array_count_values(str_word_count(strtolower($content), 1));
+            
+            if ($this->settings['debugMode']) {
+                $this->logDebug('Word count', ['field' => $field, 'words' => $words]);
+            }
+    
+            foreach ($words as $word => $count) {
+                $weightedWords[$word] = ($weightedWords[$word] ?? 0) + ($count * $weight);
+            }
         }
+    
+        if ($this->settings['debugMode']) {
+            $this->logDebug('Final weighted words result', ['weightedWords' => $weightedWords]);
+        }
+    
+        return $weightedWords;
     }
 
-    return $weightedWords;
-}
 
 
+    private function calculateSimilarity(array $page1, array $page2): array
+    {
 
-private function calculateSimilarity(array $page1, array $page2): array
-{
-    $words1 = $this->getWeightedWords($page1);
-    $words2 = $this->getWeightedWords($page2);
+    
+        $words1 = $this->getWeightedWords($page1);
+        $words2 = $this->getWeightedWords($page2);
+    
+        if (empty($words1) || empty($words2)) {
+            $this->logger?->warning('One or both pages have no weighted words', [
+                'page1' => $page1['uid'] ?? 'unknown',
+                'page2' => $page2['uid'] ?? 'unknown'
+            ]);
+            return [
+                'semanticSimilarity' => 0.0,
+                'recencyBoost' => 0.0,
+                'finalSimilarity' => 0.0
+            ];
+        }
+    
+        $allWords = array_unique(array_merge(array_keys($words1), array_keys($words2)));
+    
+        $dotProduct = 0;
+        $magnitude1 = 0;
+        $magnitude2 = 0;
+    
+        foreach ($allWords as $word) {
+            $weight1 = $words1[$word] ?? 0;
+            $weight2 = $words2[$word] ?? 0;
+            $dotProduct += $weight1 * $weight2;
+            $magnitude1 += $weight1 * $weight1;
+            $magnitude2 += $weight2 * $weight2;
+        }
+    
 
-    $allWords = array_unique(array_merge(array_keys($words1), array_keys($words2)));
-    $dotProduct = 0;
-    $magnitude1 = 0;
-    $magnitude2 = 0;
-
-    foreach ($allWords as $word) {
-        $weight1 = $words1[$word] ?? 0;
-        $weight2 = $words2[$word] ?? 0;
-        $dotProduct += $weight1 * $weight2;
-        $magnitude1 += $weight1 * $weight1;
-        $magnitude2 += $weight2 * $weight2;
-    }
-
-    $magnitude1 = sqrt($magnitude1);
-    $magnitude2 = sqrt($magnitude2);
-
-    if ($magnitude1 === 0 || $magnitude2 === 0) {
-        return [
-            'semanticSimilarity' => 0.0,
-            'recencyBoost' => 0.0,
-            'finalSimilarity' => 0.0
-        ];
-    }
-
-    $semanticSimilarity = $dotProduct / ($magnitude1 * $magnitude2);
-
-    $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
-
-    $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
-    $finalSimilarity = ($semanticSimilarity * (1 - $recencyWeight)) + ($recencyBoost * $recencyWeight);
-
-    $this->logger?->info('Similarity calculation', [
-        'page1' => $page1['uid'] ?? 'unknown',
-        'page2' => $page2['uid'] ?? 'unknown',
-        'semanticSimilarity' => $semanticSimilarity, 
-        'recencyBoost' => $recencyBoost,
-        'finalSimilarity' => $finalSimilarity,
-        'fieldScores' => [
+    
+        $magnitude1 = sqrt($magnitude1);
+        $magnitude2 = sqrt($magnitude2);
+    
+        if ($magnitude1 === 0 || $magnitude2 === 0) {
+            $this->logger?->warning('Zero magnitude detected', [
+                'magnitude1' => $magnitude1,
+                'magnitude2' => $magnitude2
+            ]);
+            return [
+                'semanticSimilarity' => 0.0,
+                'recencyBoost' => 0.0,
+                'finalSimilarity' => 0.0
+            ];
+        }
+    
+        $semanticSimilarity = $dotProduct / ($magnitude1 * $magnitude2);
+    
+        $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
+    
+        $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
+    
+        $finalSimilarity = ($semanticSimilarity * (1 - $recencyWeight)) + ($recencyBoost * $recencyWeight);
+    
+        $fieldScores = [
             'title' => $this->calculateFieldSimilarity($page1['title'] ?? [], $page2['title'] ?? []),
             'description' => $this->calculateFieldSimilarity($page1['description'] ?? [], $page2['description'] ?? []),
             'keywords' => $this->calculateFieldSimilarity($page1['keywords'] ?? [], $page2['keywords'] ?? []),
             'content' => $this->calculateFieldSimilarity($page1['content'] ?? [], $page2['content'] ?? []),
-        ]
-    ]);
+        ];
+  
+        $this->logDebug('Similarity calculated', [
+            'page1' => $page1['uid'],
+            'page2' => $page2['uid'],
+            'semanticSimilarity' => $semanticSimilarity,
+            'recencyBoost' => $recencyBoost,
+            'finalSimilarity' => $finalSimilarity
+        ]);
 
-    return [
-        'semanticSimilarity' => $semanticSimilarity,
-        'recencyBoost' => $recencyBoost,
-        'finalSimilarity' => min($finalSimilarity, 1.0)
-    ];
-}
+        return [
+            'semanticSimilarity' => $semanticSimilarity,
+            'recencyBoost' => $recencyBoost,
+            'finalSimilarity' => min($finalSimilarity, 1.0)
+        ];
+    }
 
 private function calculateRecencyBoost(array $page1, array $page2): float
 {
@@ -571,10 +766,20 @@ private function calculateFieldSimilarity($field1, $field2): float
 
 private function findCommonKeywords(array $page1, array $page2): array
 {
-    $keywords1 = isset($page1['keywords']['content']) ? array_flip(array_map('trim', explode(',', strtolower($page1['keywords']['content'])))) : [];
-    $keywords2 = isset($page2['keywords']['content']) ? array_flip(array_map('trim', explode(',', strtolower($page2['keywords']['content'])))) : [];
+    $keywords1 = isset($page1['keywords']['content']) ? array_map('trim', explode(',', strtolower($page1['keywords']['content']))) : [];
+    $keywords2 = isset($page2['keywords']['content']) ? array_map('trim', explode(',', strtolower($page2['keywords']['content']))) : [];
 
-    return array_keys(array_intersect_key($keywords1, $keywords2));
+    $commonKeywords = array_intersect($keywords1, $keywords2);
+
+    $this->logDebug('Common keywords found', [
+        'page1' => $page1['uid'] ?? 'unknown',
+        'page2' => $page2['uid'] ?? 'unknown',
+        'keywords1' => $keywords1,
+        'keywords2' => $keywords2,
+        'commonKeywords' => $commonKeywords
+    ]);
+
+    return $commonKeywords;
 }
 
         private function determineRelevance($similarity): string
