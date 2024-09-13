@@ -6,34 +6,13 @@ services:
 
   TalanHdf\SemanticSuggestion\:
     resource: '../Classes/*'
-      
-  TalanHdf\SemanticSuggestion\Service\StopWordsService:
-      public: true
+    exclude: '../Classes/Domain/Model/*'
 
-  TalanHdf\SemanticSuggestion\Service\PageAnalysisService:
-    arguments:
-      $context: '@TYPO3\CMS\Core\Context\Context'
-      $configurationManager: '@TYPO3\CMS\Extbase\Configuration\ConfigurationManager'
-      $siteFinder: '@TYPO3\CMS\Core\Site\SiteFinder'
-      $cacheManager: '@TYPO3\CMS\Core\Cache\CacheManager'
-      $stopWordsService: '@TalanHdf\SemanticSuggestion\Service\StopWordsService'
-      $connectionPool: '@TYPO3\CMS\Core\Database\ConnectionPool'
-    public: true
+  TalanHdf\SemanticSuggestion\Loader\LoaderInterface:
+    class: TalanHdf\SemanticSuggestion\Loader\PageLoader
 
+  TalanHdf\SemanticSuggestion\Analyzer\AnalyzerInterface:
+    class: TalanHdf\SemanticSuggestion\Analyzer\ContentAnalyzer
 
-  TalanHdf\SemanticSuggestion\Controller\SuggestionsController:
-    public: true
-    arguments:
-      $pageAnalysisService: '@TalanHdf\SemanticSuggestion\Service\PageAnalysisService'
-      $fileRepository: '@TYPO3\CMS\Core\Resource\FileRepository'
-
-  TalanHdf\SemanticSuggestion\Controller\SemanticBackendController:
-    public: true
-    autowire: true
-    autoconfigure: true
-    tags: ['controller.backend_controller']
-    arguments:
-      $logManager: '@TYPO3\CMS\Core\Log\LogManager' 
-
-  TYPO3\CMS\Core\Log\LogManager:
+  TalanHdf\SemanticSuggestion\Service\SemanticSuggestionService:
     public: true
