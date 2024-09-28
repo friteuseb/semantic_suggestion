@@ -9,3 +9,12 @@ settings.maxSuggestions = 5
 
 # cat=basic//40; type=int+; label=Excerpt Length: The maximum length of the page excerpt in characters
 settings.excerptLength = 100
+
+# cat=nlp//10; type=boolean; label=Use NLP API: Enable the use of external NLP API for similarity calculation
+settings.useNlpApi = 0
+
+# cat=nlp//20; type=string; label=NLP API URL: The URL of the NLP API for similarity calculation
+settings.nlpApiUrl = https://nlpservice.semantic-suggestion.com/api/similarity
+
+# cat=nlp//30; type=options[Cosine=cosine,Euclidean=euclidean,Manhattan=manhattan,Jaccard=jaccard,BLEU=bleu]; label=Similarity Method: The method to use for similarity calculation when using the NLP API
+settings.similarityMethod = cosine

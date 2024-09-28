@@ -18,6 +18,7 @@ use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Context\LanguageAspect;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use Psr\Log\NullLogger;
 
 class PageAnalysisService implements LoggerAwareInterface
@@ -33,12 +34,15 @@ class PageAnalysisService implements LoggerAwareInterface
     protected StopWordsService $stopWordsService;
     protected SiteFinder $siteFinder;
     protected FrontendInterface $cache;
+    protected ?NlpApiService $nlpApiService = null;
+    protected bool $useNlpApi = false;
 
     public function __construct(
         Context $context,
         ConfigurationManagerInterface $configurationManager,
         StopWordsService $stopWordsService,
         SiteFinder $siteFinder,
+        ExtensionConfiguration $extensionConfiguration,
         ?CacheManager $cacheManager = null,
         ?ConnectionPool $connectionPool = null,
         ?LoggerInterface $logger = null
@@ -50,6 +54,7 @@ class PageAnalysisService implements LoggerAwareInterface
         $this->cacheManager = $cacheManager;
         $this->connectionPool = $connectionPool ?? GeneralUtility::makeInstance(ConnectionPool::class);
         $this->logger = $logger ?? new NullLogger();
+        $this->loadExtensionConfiguration($extensionConfiguration);
 
 
         if ($logger !== null) {
@@ -154,6 +159,35 @@ class PageAnalysisService implements LoggerAwareInterface
                 }
             };
         }
+    }
+
+    protected function loadExtensionConfiguration(ExtensionConfiguration $extensionConfiguration): void
+    {
+        try {
+            $config = $extensionConfiguration->get('semantic_suggestion');
+            $this->useNlpApi = (bool)($config['settings']['useNlpApi'] ?? false);
+            // Chargez d'autres configurations si nécessaire
+            $this->logDebug('Extension configuration loaded', ['useNlpApi' => $this->useNlpApi]);
+        } catch (\Exception $e) {
+            $this->logger->error('Error loading extension configuration', ['exception' => $e->getMessage()]);
+            $this->useNlpApi = false;
+        }
+    }
+    public function setNlpApiService(NlpApiService $nlpApiService): void
+    {
+        $this->nlpApiService = $nlpApiService;
+    }
+
+    public function setUseNlpApi($useNlpApi): void
+    {
+        // Vérifie si la valeur est une chaîne et la convertit en booléen
+        if (is_string($useNlpApi)) {
+            $useNlpApi = filter_var($useNlpApi, FILTER_VALIDATE_BOOLEAN);
+        }
+        
+        $this->useNlpApi = (bool)$useNlpApi;
+        
+        $this->logger->info('NLP API usage set', ['useNlpApi' => $this->useNlpApi]);
     }
 
 
@@ -643,8 +677,10 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
 
     private function calculateSimilarity(array $page1, array $page2): array
     {
+        if ($this->useNlpApi && $this->nlpApiService !== null) {
+            return $this->calculateSimilarityWithApi($page1, $page2);
+        }
 
-    
         $words1 = $this->getWeightedWords($page1);
         $words2 = $this->getWeightedWords($page2);
     
@@ -720,6 +756,46 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
             'finalSimilarity' => min($finalSimilarity, 1.0)
         ];
     }
+
+
+    private function calculateSimilarityWithApi(array $page1, array $page2): array
+    {
+        $text1 = $this->prepareTextForApi($page1);
+        $text2 = $this->prepareTextForApi($page2);
+
+        $similarity = $this->nlpApiService->getSimilarity($text1, $text2);
+
+        $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
+        $finalSimilarity = ($similarity * (1 - $this->settings['recencyWeight'])) + ($recencyBoost * $this->settings['recencyWeight']);
+
+        $this->logDebug('API Similarity calculated', [
+            'page1' => $page1['uid'],
+            'page2' => $page2['uid'],
+            'similarity' => $similarity,
+            'recencyBoost' => $recencyBoost,
+            'finalSimilarity' => $finalSimilarity
+        ]);
+
+        return [
+            'semanticSimilarity' => $similarity,
+            'recencyBoost' => $recencyBoost,
+            'finalSimilarity' => min($finalSimilarity, 1.0)
+        ];
+    }
+
+    private function prepareTextForApi(array $page): string
+    {
+        $content = '';
+        foreach ($this->settings['analyzedFields'] as $field => $weight) {
+            if (isset($page[$field]['content'])) {
+                $content .= $page[$field]['content'] . ' ';
+            }
+        }
+        return trim($content);
+    }
+
+
+
 
 private function calculateRecencyBoost(array $page1, array $page2): float
 {

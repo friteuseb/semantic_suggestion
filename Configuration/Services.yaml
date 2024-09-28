@@ -10,15 +10,23 @@ services:
   TalanHdf\SemanticSuggestion\Service\StopWordsService:
       public: true
 
+  TalanHdf\SemanticSuggestion\Service\NlpApiService:
+    public: true
+
   TalanHdf\SemanticSuggestion\Service\PageAnalysisService:
     arguments:
       $context: '@TYPO3\CMS\Core\Context\Context'
       $configurationManager: '@TYPO3\CMS\Extbase\Configuration\ConfigurationManager'
-      $siteFinder: '@TYPO3\CMS\Core\Site\SiteFinder'
-      $cacheManager: '@TYPO3\CMS\Core\Cache\CacheManager'
       $stopWordsService: '@TalanHdf\SemanticSuggestion\Service\StopWordsService'
+      $siteFinder: '@TYPO3\CMS\Core\Site\SiteFinder'
+      $extensionConfiguration: '@TYPO3\CMS\Core\Configuration\ExtensionConfiguration'
+      $cacheManager: '@TYPO3\CMS\Core\Cache\CacheManager'
       $connectionPool: '@TYPO3\CMS\Core\Database\ConnectionPool'
-    public: true
+    calls:
+      - method: setNlpApiService
+        arguments: ['@TalanHdf\SemanticSuggestion\Service\NlpApiService']
+
+
 
 
   TalanHdf\SemanticSuggestion\Controller\SuggestionsController:
