@@ -340,13 +340,11 @@ class PageAnalysisService implements LoggerAwareInterface
             'stopwordsCount' => count($stopwords)
         ]);
     
-    
         $pagesByLanguage = [];
         foreach ($pages as $page) {
             $lang = $page['sys_language_uid'] ?? 0;
             $pagesByLanguage[$lang] = ($pagesByLanguage[$lang] ?? 0) + 1;
         }
-    
     
         $firstPage = null;
         foreach ($pages as $page) {
@@ -394,22 +392,26 @@ class PageAnalysisService implements LoggerAwareInterface
             }
     
             $similarityCalculations = 0;
+            $textPairs = [];
+    
             foreach ($analysisResults as $pageId => &$pageData) {
                 foreach ($analysisResults as $comparisonPageId => $comparisonPageData) {
                     if ($pageId !== $comparisonPageId) {
-                        $similarity = $this->calculateSimilarity($pageData, $comparisonPageData);
-                        $pageData['similarities'][$comparisonPageId] = [
-                            'score' => $similarity['finalSimilarity'],
-                            'semanticSimilarity' => $similarity['semanticSimilarity'],
-                            'recencyBoost' => $similarity['recencyBoost'],
-                            'commonKeywords' => $this->findCommonKeywords($pageData, $comparisonPageData),
-                            'relevance' => $this->determineRelevance($similarity['finalSimilarity']),
-                            'ageInDays' => round((time() - ($comparisonPageData['content_modified_at'] ?? time())) / (24 * 3600), 1),
+                        $textPairs[] = [
+                            'text1' => $this->prepareTextForApi($pageData),
+                            'text2' => $this->prepareTextForApi($comparisonPageData),
+                            'pageId1' => $pageId,
+                            'pageId2' => $comparisonPageId
                         ];
-                        
                         $similarityCalculations++;
                     }
                 }
+            }
+    
+            if ($this->useNlpApi && $this->nlpApiService !== null) {
+                $this->processBatchSimilarity($textPairs, $analysisResults);
+            } else {
+                $this->processLocalSimilarity($textPairs, $analysisResults);
             }
     
             $result = [
@@ -449,6 +451,40 @@ class PageAnalysisService implements LoggerAwareInterface
                     'error' => $e->getMessage(),
                 ],
             ];
+        }
+    }
+    
+    private function processBatchSimilarity(array $textPairs, array &$analysisResults): void
+    {
+        $batchSize = 100; // Ajustez cette valeur selon vos besoins
+        $batches = array_chunk($textPairs, $batchSize);
+    
+        foreach ($batches as $batch) {
+            $batchResults = $this->nlpApiService->getBatchSimilarity($batch);
+            foreach ($batchResults as $index => $result) {
+                $pageId = $batch[$index]['pageId1'];
+                $comparisonPageId = $batch[$index]['pageId2'];
+                $similarity = $result['similarity'] ?? 0;
+                $recencyBoost = $this->calculateRecencyBoost($analysisResults[$pageId], $analysisResults[$comparisonPageId]);
+                $finalSimilarity = ($similarity * (1 - $this->settings['recencyWeight'])) + ($recencyBoost * $this->settings['recencyWeight']);
+    
+                $analysisResults[$pageId]['similarities'][$comparisonPageId] = [
+                    'score' => $finalSimilarity,
+                    'semanticSimilarity' => $similarity,
+                    'recencyBoost' => $recencyBoost,
+                    'commonKeywords' => $this->findCommonKeywords($analysisResults[$pageId], $analysisResults[$comparisonPageId]),
+                    'relevance' => $this->determineRelevance($finalSimilarity),
+                    'ageInDays' => round((time() - ($analysisResults[$comparisonPageId]['content_modified_at'] ?? time())) / (24 * 3600), 1),
+                ];
+            }
+        }
+    }
+    
+    private function processLocalSimilarity(array $textPairs, array &$analysisResults): void
+    {
+        foreach ($textPairs as $pair) {
+            $similarity = $this->calculateSimilarity($analysisResults[$pair['pageId1']], $analysisResults[$pair['pageId2']]);
+            $analysisResults[$pair['pageId1']]['similarities'][$pair['pageId2']] = $similarity;
         }
     }
     
