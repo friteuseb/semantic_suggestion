@@ -147,16 +147,15 @@ class SemanticBackendController extends ActionController
 
     public function indexAction(): ResponseInterface
     {
-
         $this->logDebug('Début de indexAction');
         $mergedData = [];
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-    
+
         try {
             $fullTypoScript = $this->configurationManager->getConfiguration(
                 ConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
             );
-    
+
             $extensionConfig = $fullTypoScript['plugin.']['tx_semanticsuggestion_suggestions.']['settings.'] ?? [];
             $this->pageAnalysisService->setSettings($extensionConfig);
             $this->logDebug('Debug mode in controller', ['debugMode' => $this->pageAnalysisService->getSettings()['debugMode']]);
@@ -172,23 +171,23 @@ class SemanticBackendController extends ActionController
             $showLanguageStatistics = (bool)($extensionConfig['showLanguageStatistics'] ?? true);
             $calculateDistribution = (bool)($extensionConfig['calculateDistribution'] ?? true);
             $calculateTopSimilarPairs = (bool)($extensionConfig['calculateTopSimilarPairs'] ?? true);
-    
+
             $startTime = microtime(true);
             
             $allFromCache = true;
-    
+
             // Récupérer toutes les langues disponibles pour le site
             $siteLanguages = $this->getSiteLanguages($parentPageId);
-    
+
             $allPages = $this->getPages($parentPageId, $depth);
             $totalPagesAnalyzed = count($allPages);
-    
+
             // Appliquer les exclusions
             $validatedPages = array_filter($allPages, function($page) use ($excludePages) {
                 return !in_array($page['uid'], $excludePages);
             });
             $totalValidatedPages = count($validatedPages);
-    
+
             $languageStatistics = $this->calculateLanguageStatistics($validatedPages, $siteLanguages);
             
             $this->logDebug('Pages summary', [
@@ -198,12 +197,14 @@ class SemanticBackendController extends ActionController
             ]);
 
             $data = [];
+            $textPairs = [];
+
             foreach ($siteLanguages as $language) {
                 $languageUid = $language->getLanguageId();
                 $cacheIdentifier = $this->generateValidCacheIdentifier($parentPageId, $depth, $proximityThreshold, $maxSuggestions, $languageUid);
-     
+
                 if ($this->getCache()->has($cacheIdentifier)) {
-                    $languageData = $this->getCache()->get($cacheIdentifier);
+                    $data[$languageUid] = $this->getCache()->get($cacheIdentifier);
                 } else {
                     $allFromCache = false;
                     $languagePages = array_filter($validatedPages, function($page) use ($languageUid) {
@@ -211,16 +212,22 @@ class SemanticBackendController extends ActionController
                     });
 
                     $analysisData = $this->pageAnalysisService->analyzePages($languagePages, $languageUid);
-                    $languageData = $this->processAnalysisData($analysisData, $proximityThreshold, $excludePages, $maxSuggestions);
-                    $this->getCache()->set($cacheIdentifier, $languageData, ['semantic_suggestion'], 3600);
+                    $data[$languageUid] = $this->processAnalysisData($analysisData, $proximityThreshold, $excludePages, $maxSuggestions);
+                    $this->getCache()->set($cacheIdentifier, $data[$languageUid], ['semantic_suggestion'], 3600);
+
+                    // Préparer les paires de textes pour l'analyse de similarité
+                    $textPairs = $this->pageAnalysisService->prepareTextPairsForAnalysis($analysisData['results'], $languageUid);
                 }
-                
-                $data[$languageUid] = $languageData;
             }
             
             $mergedData = $this->mergeLanguageData($data);
-            $executionTime = microtime(true) - $startTime;
 
+            // Traitement par lots des similarités si nécessaire
+            if (!$allFromCache && !empty($textPairs)) {
+                $this->processBatchSimilarity($textPairs, $mergedData['results']);
+            }
+
+            $executionTime = microtime(true) - $startTime;
 
             $this->logDebug('Analysis summary', [
                 'totalPagesAnalyzed' => $totalPagesAnalyzed,
@@ -228,8 +235,7 @@ class SemanticBackendController extends ActionController
                 'executionTime' => $executionTime,
                 'fromCache' => $allFromCache
             ]);
-    
-    
+
             $performanceMetrics = [
                 'executionTime' => $executionTime,
                 'totalPagesAnalyzed' => $totalPagesAnalyzed,
@@ -237,7 +243,7 @@ class SemanticBackendController extends ActionController
                 'similarityCalculations' => $totalValidatedPages * ($totalValidatedPages - 1) / 2,
                 'fromCache' => $allFromCache,
             ];
-    
+
             if (isset($mergedData['statistics']['topSimilarPairs'])) {
                 $uniquePairs = [];
                 foreach ($mergedData['statistics']['topSimilarPairs'] as $pair) {
@@ -265,12 +271,12 @@ class SemanticBackendController extends ActionController
                 'showDistributionScores' => (bool)($extensionConfig['showDistributionScores'] ?? true),
                 'showTopSimilarPages' => (bool)($extensionConfig['showTopSimilarPages'] ?? true),
                 'statistics' => $showStatistics ? ($mergedData['statistics'] ?? null) : null,
-                'analysisResults' => $mergedData['analysisResults'] ?? [],
+                'analysisResults' => $mergedData['results'] ?? [],
                 'totalPagesAnalyzed' => $totalPagesAnalyzed,
                 'totalValidatedPages' => $totalValidatedPages,
                 'languageStatistics' => $languageStatistics['statistics'],
             ]);
-    
+
         } catch (\Exception $e) {
             $this->logger->error('Error in indexAction', ['exception' => $e->getMessage()]);
             $this->addFlashMessage(
@@ -279,7 +285,7 @@ class SemanticBackendController extends ActionController
                 \TYPO3\CMS\Core\Messaging\AbstractMessage::ERROR
             );
         }
-    
+
         try {
             $content = $this->view->render();
             $moduleTemplate->setContent($content);
@@ -292,9 +298,32 @@ class SemanticBackendController extends ActionController
             );
             $moduleTemplate->setContent('An error occurred while rendering the view.');
         }
-    
+
         $this->logDebug('Fin de indexAction');
         return $moduleTemplate->renderResponse();
+    }
+
+    private function processBatchSimilarity(array $textPairs, array &$analysisResults): void
+    {
+        $batchSize = 100; // Ajustez selon vos besoins
+        $batches = array_chunk($textPairs, $batchSize);
+
+        foreach ($batches as $batch) {
+            $batchResults = $this->pageAnalysisService->processBatchSimilarity($batch);
+            foreach ($batchResults as $result) {
+                $pageId = $result['pageId1'];
+                $comparisonPageId = $result['pageId2'];
+                $similarity = $result['similarity'];
+
+                if (!isset($analysisResults[$pageId]['similarities'][$comparisonPageId])) {
+                    $analysisResults[$pageId]['similarities'][$comparisonPageId] = [
+                        'score' => $similarity,
+                        'semanticSimilarity' => $similarity,
+                        // Ajoutez d'autres propriétés si nécessaire
+                    ];
+                }
+            }
+        }
     }
 
 

@@ -316,7 +316,7 @@ class PageAnalysisService implements LoggerAwareInterface
     public function analyzePages(array $pages, int $currentLanguageUid): array
     {
         $startTime = microtime(true);
-    
+
         if (empty($pages)) {
             $this->logger?->warning('No pages provided for analysis');
             return [
@@ -329,32 +329,25 @@ class PageAnalysisService implements LoggerAwareInterface
                 ],
             ];
         }
-    
+
         $language = $this->getCurrentLanguage();
         $stopwords = $this->stopWordsService->getStopWordsForLanguage($language);
-    
+
         $this->logDebug('Starting page analysis', [
             'pageCount' => count($pages),
             'languageUid' => $currentLanguageUid,
             'language' => $language,
             'stopwordsCount' => count($stopwords)
         ]);
-    
+
         $pagesByLanguage = [];
         foreach ($pages as $page) {
             $lang = $page['sys_language_uid'] ?? 0;
             $pagesByLanguage[$lang] = ($pagesByLanguage[$lang] ?? 0) + 1;
         }
-    
-        $firstPage = null;
-        foreach ($pages as $page) {
-            if ($page !== null) {
-                $firstPage = $page;
-                break;
-            }
-        }
-    
-        if ($firstPage === null) {
+
+        $firstPage = reset($pages);
+        if ($firstPage === false) {
             $this->logger?->warning('No valid pages found in the provided array');
             return [
                 'results' => [],
@@ -366,23 +359,23 @@ class PageAnalysisService implements LoggerAwareInterface
                 ],
             ];
         }
-    
+
         $parentPageId = $firstPage['pid'] ?? 0;
         $depth = $this->calculateDepth($pages);
         $cacheIdentifier = "semantic_analysis_{$parentPageId}_{$depth}_{$language}";
-    
+
         if ($this->cache->has($cacheIdentifier)) {
             $cachedResult = $this->cache->get($cacheIdentifier);
             $cachedResult['metrics']['fromCache'] = true;
             $cachedResult['metrics']['executionTime'] = microtime(true) - $startTime;
             return $cachedResult;
         }
-    
+
         try {
             $this->logDebug('Analyzing pages', ['pageCount' => count($pages), 'languageUid' => $currentLanguageUid]);
             $totalPages = count($pages);
             $analysisResults = [];
-    
+
             foreach ($pages as $page) {
                 if (isset($page['uid'])) {
                     $analysisResults[$page['uid']] = $this->preparePageData($page, $currentLanguageUid);
@@ -390,10 +383,10 @@ class PageAnalysisService implements LoggerAwareInterface
                     $this->logger?->warning('Page without UID encountered', ['page' => $page]);
                 }
             }
-    
+
             $similarityCalculations = 0;
             $textPairs = [];
-    
+
             foreach ($analysisResults as $pageId => &$pageData) {
                 foreach ($analysisResults as $comparisonPageId => $comparisonPageData) {
                     if ($pageId !== $comparisonPageId) {
@@ -407,13 +400,13 @@ class PageAnalysisService implements LoggerAwareInterface
                     }
                 }
             }
-    
+
             if ($this->useNlpApi && $this->nlpApiService !== null) {
                 $this->processBatchSimilarity($textPairs, $analysisResults);
             } else {
                 $this->processLocalSimilarity($textPairs, $analysisResults);
             }
-    
+
             $result = [
                 'results' => $analysisResults,
                 'metrics' => [
@@ -423,22 +416,22 @@ class PageAnalysisService implements LoggerAwareInterface
                     'fromCache' => false,
                 ],
             ];
-    
+
             $this->cache->set(
                 $cacheIdentifier,
                 $result,
                 ['tx_semanticsuggestion', "pages_{$parentPageId}"],
                 86400
             );
-    
+
             $this->logDebug('Analysis complete', [
                 'executionTime' => microtime(true) - $startTime,
                 'totalPages' => $totalPages,
                 'similarityCalculations' => $similarityCalculations
             ]);
-    
+
             return $result;
-    
+
         } catch (\Exception $e) {
             $this->logger?->error('Error during page analysis', ['exception' => $e->getMessage()]);
             return [
@@ -458,7 +451,7 @@ class PageAnalysisService implements LoggerAwareInterface
     {
         $batchSize = 100; // Ajustez cette valeur selon vos besoins
         $batches = array_chunk($textPairs, $batchSize);
-    
+
         foreach ($batches as $batch) {
             $batchResults = $this->nlpApiService->getBatchSimilarity($batch);
             foreach ($batchResults as $index => $result) {
@@ -467,7 +460,7 @@ class PageAnalysisService implements LoggerAwareInterface
                 $similarity = $result['similarity'] ?? 0;
                 $recencyBoost = $this->calculateRecencyBoost($analysisResults[$pageId], $analysisResults[$comparisonPageId]);
                 $finalSimilarity = ($similarity * (1 - $this->settings['recencyWeight'])) + ($recencyBoost * $this->settings['recencyWeight']);
-    
+
                 $analysisResults[$pageId]['similarities'][$comparisonPageId] = [
                     'score' => $finalSimilarity,
                     'semanticSimilarity' => $similarity,
@@ -819,17 +812,35 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
         ];
     }
 
-    private function prepareTextForApi(array $page): string
+    public function prepareTextPairsForAnalysis(array $analysisData, int $languageUid): array
+    {
+        $textPairs = [];
+        foreach ($analysisData['results'] as $pageId => $pageData) {
+            foreach ($analysisData['results'] as $comparisonPageId => $comparisonPageData) {
+                if ($pageId !== $comparisonPageId) {
+                    $textPairs[] = [
+                        'text1' => $this->prepareTextForApi($pageData),
+                        'text2' => $this->prepareTextForApi($comparisonPageData),
+                        'pageId1' => $pageId,
+                        'pageId2' => $comparisonPageId,
+                        'languageUid' => $languageUid
+                    ];
+                }
+            }
+        }
+        return $textPairs;
+    }
+    
+    private function prepareTextForApi(array $pageData): string
     {
         $content = '';
         foreach ($this->settings['analyzedFields'] as $field => $weight) {
-            if (isset($page[$field]['content'])) {
-                $content .= $page[$field]['content'] . ' ';
+            if (isset($pageData[$field]['content'])) {
+                $content .= $pageData[$field]['content'] . ' ';
             }
         }
         return trim($content);
     }
-
 
 
 

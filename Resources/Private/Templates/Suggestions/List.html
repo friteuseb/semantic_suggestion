@@ -53,7 +53,11 @@
                                                     <f:format.number decimals="4">{suggestion.similarity}</f:format.number>
                                                 </small>
                                             </p>                                       
-                                       
+                                            <f:if condition="{settings.usedFallback}">
+                                                <div class="alert alert-info">
+                                                    Les suggestions ont été calculées localement en raison d'une indisponibilité temporaire du service externe.
+                                                </div>
+                                            </f:if>
                                         </div>
 
                                         <div class="card-footer">
