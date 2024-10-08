@@ -19,6 +19,7 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Context\LanguageAspect;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
+use TalanHdf\SemanticSuggestion\Service\SimilarityCalculatorFactory;
 use Psr\Log\NullLogger;
 
 class PageAnalysisService implements LoggerAwareInterface
@@ -34,6 +35,7 @@ class PageAnalysisService implements LoggerAwareInterface
     protected StopWordsService $stopWordsService;
     protected SiteFinder $siteFinder;
     protected FrontendInterface $cache;
+    protected SimilarityCalculatorFactory $similarityCalculatorFactory;
     protected ?NlpApiService $nlpApiService = null;
     protected bool $useNlpApi = false;
 
@@ -41,8 +43,11 @@ class PageAnalysisService implements LoggerAwareInterface
         Context $context,
         ConfigurationManagerInterface $configurationManager,
         StopWordsService $stopWordsService,
+        SimilarityCalculatorFactory $similarityCalculatorFactory,
         SiteFinder $siteFinder,
+        NlpApiService $nlpApiService,
         ExtensionConfiguration $extensionConfiguration,
+        FrontendInterface $cache,  // Ajoutez cette ligne
         ?CacheManager $cacheManager = null,
         ?ConnectionPool $connectionPool = null,
         ?LoggerInterface $logger = null
@@ -51,6 +56,9 @@ class PageAnalysisService implements LoggerAwareInterface
         $this->configurationManager = $configurationManager;
         $this->stopWordsService = $stopWordsService;
         $this->siteFinder = $siteFinder;
+        $this->similarityCalculatorFactory = $similarityCalculatorFactory;
+        $this->nlpApiService = $nlpApiService;
+        $this->cache = $cache;  // Ajoutez cette ligne
         $this->cacheManager = $cacheManager;
         $this->connectionPool = $connectionPool ?? GeneralUtility::makeInstance(ConnectionPool::class);
         $this->logger = $logger ?? new NullLogger();
@@ -190,6 +198,23 @@ class PageAnalysisService implements LoggerAwareInterface
         $this->logger->info('NLP API usage set', ['useNlpApi' => $this->useNlpApi]);
     }
 
+        public function isNlpApiEnabled(): bool
+    {
+        return $this->useNlpApi;
+    }
+
+    public function testNlpApiConnection(): bool
+    {
+        try {
+            // Effectuez un appel de test simple à l'API NLP
+            $testResult = $this->nlpApiService->testConnection();
+            return $testResult;
+        } catch (\Exception $e) {
+            $this->logger->error('Error testing NLP API connection', ['exception' => $e->getMessage()]);
+            return false;
+        }
+    }
+
 
     public function setSettings(array $settings): void
     {
@@ -316,171 +341,108 @@ class PageAnalysisService implements LoggerAwareInterface
     public function analyzePages(array $pages, int $currentLanguageUid): array
     {
         $startTime = microtime(true);
-
+    
         if (empty($pages)) {
             $this->logger?->warning('No pages provided for analysis');
-            return [
-                'results' => [],
-                'metrics' => [
-                    'executionTime' => microtime(true) - $startTime,
-                    'totalPages' => 0,
-                    'similarityCalculations' => 0,
-                    'fromCache' => false,
-                ],
-            ];
+            return $this->getEmptyResult($startTime);
         }
-
+    
         $language = $this->getCurrentLanguage();
-        $stopwords = $this->stopWordsService->getStopWordsForLanguage($language);
-
-        $this->logDebug('Starting page analysis', [
-            'pageCount' => count($pages),
-            'languageUid' => $currentLanguageUid,
-            'language' => $language,
-            'stopwordsCount' => count($stopwords)
-        ]);
-
-        $pagesByLanguage = [];
-        foreach ($pages as $page) {
-            $lang = $page['sys_language_uid'] ?? 0;
-            $pagesByLanguage[$lang] = ($pagesByLanguage[$lang] ?? 0) + 1;
-        }
-
-        $firstPage = reset($pages);
-        if ($firstPage === false) {
-            $this->logger?->warning('No valid pages found in the provided array');
-            return [
-                'results' => [],
-                'metrics' => [
-                    'executionTime' => microtime(true) - $startTime,
-                    'totalPages' => 0,
-                    'similarityCalculations' => 0,
-                    'fromCache' => false,
-                ],
-            ];
-        }
-
-        $parentPageId = $firstPage['pid'] ?? 0;
+        $parentPageId = $pages[0]['pid'] ?? 0;
         $depth = $this->calculateDepth($pages);
         $cacheIdentifier = "semantic_analysis_{$parentPageId}_{$depth}_{$language}";
-
+    
         if ($this->cache->has($cacheIdentifier)) {
-            $cachedResult = $this->cache->get($cacheIdentifier);
-            $cachedResult['metrics']['fromCache'] = true;
-            $cachedResult['metrics']['executionTime'] = microtime(true) - $startTime;
-            return $cachedResult;
+            return $this->getCachedResult($cacheIdentifier, $startTime);
         }
-
+    
         try {
-            $this->logDebug('Analyzing pages', ['pageCount' => count($pages), 'languageUid' => $currentLanguageUid]);
             $totalPages = count($pages);
             $analysisResults = [];
-
+    
             foreach ($pages as $page) {
                 if (isset($page['uid'])) {
                     $analysisResults[$page['uid']] = $this->preparePageData($page, $currentLanguageUid);
-                } else {
-                    $this->logger?->warning('Page without UID encountered', ['page' => $page]);
                 }
             }
-
-            $similarityCalculations = 0;
-            $textPairs = [];
-
-            foreach ($analysisResults as $pageId => &$pageData) {
-                foreach ($analysisResults as $comparisonPageId => $comparisonPageData) {
-                    if ($pageId !== $comparisonPageId) {
-                        $textPairs[] = [
-                            'text1' => $this->prepareTextForApi($pageData),
-                            'text2' => $this->prepareTextForApi($comparisonPageData),
-                            'pageId1' => $pageId,
-                            'pageId2' => $comparisonPageId
-                        ];
-                        $similarityCalculations++;
-                    }
-                }
-            }
-
+    
             if ($this->useNlpApi && $this->nlpApiService !== null) {
-                $this->processBatchSimilarity($textPairs, $analysisResults);
+                $this->processFaissSimilarity($analysisResults);
             } else {
-                $this->processLocalSimilarity($textPairs, $analysisResults);
+                $this->processLocalSimilarity($analysisResults);
             }
-
+    
             $result = [
                 'results' => $analysisResults,
                 'metrics' => [
                     'executionTime' => microtime(true) - $startTime,
                     'totalPages' => $totalPages,
-                    'similarityCalculations' => $similarityCalculations,
+                    'similarityCalculations' => $totalPages * ($totalPages - 1) / 2,
                     'fromCache' => false,
                 ],
             ];
-
-            $this->cache->set(
-                $cacheIdentifier,
-                $result,
-                ['tx_semanticsuggestion', "pages_{$parentPageId}"],
-                86400
-            );
-
-            $this->logDebug('Analysis complete', [
-                'executionTime' => microtime(true) - $startTime,
-                'totalPages' => $totalPages,
-                'similarityCalculations' => $similarityCalculations
-            ]);
-
+    
+            $this->cache->set($cacheIdentifier, $result, ['tx_semanticsuggestion', "pages_{$parentPageId}"], 86400);
+    
             return $result;
-
+    
         } catch (\Exception $e) {
             $this->logger?->error('Error during page analysis', ['exception' => $e->getMessage()]);
-            return [
-                'results' => [],
-                'metrics' => [
-                    'executionTime' => microtime(true) - $startTime,
-                    'totalPages' => 0,
-                    'similarityCalculations' => 0,
-                    'fromCache' => false,
-                    'error' => $e->getMessage(),
-                ],
-            ];
+            return $this->getEmptyResult($startTime, $e->getMessage());
         }
     }
-    
-    private function processBatchSimilarity(array $textPairs, array &$analysisResults): void
+
+    private function processFaissSimilarity(array &$analysisResults): void
     {
-        $batchSize = 100; // Ajustez cette valeur selon vos besoins
-        $batches = array_chunk($textPairs, $batchSize);
-
-        foreach ($batches as $batch) {
-            $batchResults = $this->nlpApiService->getBatchSimilarity($batch);
-            foreach ($batchResults as $index => $result) {
-                $pageId = $batch[$index]['pageId1'];
-                $comparisonPageId = $batch[$index]['pageId2'];
-                $similarity = $result['similarity'] ?? 0;
-                $recencyBoost = $this->calculateRecencyBoost($analysisResults[$pageId], $analysisResults[$comparisonPageId]);
-                $finalSimilarity = ($similarity * (1 - $this->settings['recencyWeight'])) + ($recencyBoost * $this->settings['recencyWeight']);
-
-                $analysisResults[$pageId]['similarities'][$comparisonPageId] = [
-                    'score' => $finalSimilarity,
-                    'semanticSimilarity' => $similarity,
-                    'recencyBoost' => $recencyBoost,
-                    'commonKeywords' => $this->findCommonKeywords($analysisResults[$pageId], $analysisResults[$comparisonPageId]),
-                    'relevance' => $this->determineRelevance($finalSimilarity),
-                    'ageInDays' => round((time() - ($analysisResults[$comparisonPageId]['content_modified_at'] ?? time())) / (24 * 3600), 1),
+        try {
+            $items = [];
+            foreach ($analysisResults as $pageId => $pageData) {
+                $items[] = [
+                    'id' => (string)$pageId,
+                    'text' => $this->prepareTextForApi($pageData)
                 ];
+            }
+            
+            // Ajouter les textes à l'index FAISS
+            $addResult = $this->nlpApiService->addTexts($items);
+            $this->logger->debug('Texts added to FAISS', ['result' => $addResult]);
+    
+            $maxSuggestions = (int)($this->settings['maxSuggestions'] ?? 5);
+    
+            foreach ($analysisResults as $pageId => &$pageData) {
+                // Trouver les textes similaires
+                $similarPages = $this->nlpApiService->findSimilar((string)$pageId, $maxSuggestions);
+                $pageData['similarities'] = [];
+                
+                foreach ($similarPages as $similarPage) {
+                    if ($similarPage['id'] != $pageId) {
+                        $pageData['similarities'][$similarPage['id']] = [
+                            'score' => $similarPage['similarity'],
+                            'semanticSimilarity' => $similarPage['similarity'],
+                            'commonKeywords' => $this->findCommonKeywords($pageData, $analysisResults[$similarPage['id']]),
+                            'relevance' => $this->determineRelevance($similarPage['similarity']),
+                        ];
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            $this->logger->error('FAISS API failed', ['exception' => $e->getMessage()]);
+            $this->processLocalSimilarity($analysisResults);
+        }
+    }
+      
+private function processLocalSimilarity(array &$analysisResults): void
+{
+    foreach ($analysisResults as $pageId => &$pageData) {
+        $pageData['similarities'] = [];
+        foreach ($analysisResults as $comparisonPageId => $comparisonPageData) {
+            if ($pageId !== $comparisonPageId) {
+                $similarity = $this->calculateSimilarity($pageData, $comparisonPageData);
+                $pageData['similarities'][$comparisonPageId] = $similarity;
             }
         }
     }
-    
-    private function processLocalSimilarity(array $textPairs, array &$analysisResults): void
-    {
-        foreach ($textPairs as $pair) {
-            $similarity = $this->calculateSimilarity($analysisResults[$pair['pageId1']], $analysisResults[$pair['pageId2']]);
-            $analysisResults[$pair['pageId1']]['similarities'][$pair['pageId2']] = $similarity;
-        }
-    }
-    
+}
 
 
     private function calculateDepth(array $pages): int
@@ -811,6 +773,15 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
             'finalSimilarity' => min($finalSimilarity, 1.0)
         ];
     }
+
+
+    private function handleFaissError(\Exception $e): void
+{
+    $this->logger?->error('FAISS API error', ['exception' => $e->getMessage()]);
+    $this->useNlpApi = false; // Désactive temporairement l'API FAISS
+    // Vous pouvez ajouter ici une logique pour notifier les administrateurs ou réessayer plus tard
+}
+
 
     public function prepareTextPairsForAnalysis(array $analysisData, int $languageUid): array
     {

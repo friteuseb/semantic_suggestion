@@ -15,11 +15,30 @@
     <div class="semantic-analysis-container">
         <h1>Semantic Suggestion Analysis</h1>
 
-        <f:if condition="{nlpEnabled}">
-            <div class="alert alert-info">
-                <strong>NLP Analysis Enabled:</strong> The results include Natural Language Processing analysis.
+        <f:if condition="{nlpServiceStatus.enabled}">
+            <div class="alert alert-{f:if(condition: nlpServiceStatus.working, then: 'success', else: 'danger')}">
+                <f:if condition="{nlpServiceStatus.working}">
+                    <f:then>
+                        Le service NLP est activé et fonctionne correctement.
+                    </f:then>
+                    <f:else>
+                        Le service NLP est activé mais ne répond pas. Les calculs seront effectués localement.
+                    </f:else>
+                </f:if>
             </div>
         </f:if>
+        <f:if condition="{nlpServiceStatus.enabled} == false">
+            <div class="alert alert-warning">
+                Le service NLP est désactivé. Tous les calculs sont effectués localement.
+            </div>
+        </f:if>
+        <f:if condition="{usedFallback}">
+            <div class="alert alert-info">
+                Le calcul le plus récent a été effectué localement en raison d'une indisponibilité du service NLP.
+            </div>
+        </f:if>
+
+
         <f:if condition="{showStatistics}">
             <div class="panel panel-default bg-light p-3">
                 <h3>Configuration &amp; General Statistics</h3>

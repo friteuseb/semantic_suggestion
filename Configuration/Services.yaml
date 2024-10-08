@@ -14,21 +14,28 @@ services:
     public: true
 
   TalanHdf\SemanticSuggestion\Service\PageAnalysisService:
+    public: true
     arguments:
       $context: '@TYPO3\CMS\Core\Context\Context'
-      $configurationManager: '@TYPO3\CMS\Extbase\Configuration\ConfigurationManager'
+      $configurationManager: '@TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface'
       $stopWordsService: '@TalanHdf\SemanticSuggestion\Service\StopWordsService'
+      $similarityCalculatorFactory: '@TalanHdf\SemanticSuggestion\Service\SimilarityCalculatorFactory'
       $siteFinder: '@TYPO3\CMS\Core\Site\SiteFinder'
+      $nlpApiService: '@TalanHdf\SemanticSuggestion\Service\NlpApiService'
       $extensionConfiguration: '@TYPO3\CMS\Core\Configuration\ExtensionConfiguration'
+      $cache: '@cache.semantic_suggestion'
       $cacheManager: '@TYPO3\CMS\Core\Cache\CacheManager'
       $connectionPool: '@TYPO3\CMS\Core\Database\ConnectionPool'
-    calls:
-      - method: setNlpApiService
-        arguments: ['@TalanHdf\SemanticSuggestion\Service\NlpApiService']
 
+  TalanHdf\SemanticSuggestion\Service\SimilarityCalculatorFactory:
+    public: true
 
+  cache.semantic_suggestion:
+    class: TYPO3\CMS\Core\Cache\Frontend\FrontendInterface
+    factory: ['@TYPO3\CMS\Core\Cache\CacheManager', 'getCache']
+    arguments: ['semantic_suggestion']
 
-
+    
   TalanHdf\SemanticSuggestion\Controller\SuggestionsController:
     public: true
     arguments:

@@ -1,0 +1,333 @@
+<?php
+
+namespace TalanHdf\SemanticSuggestion\Service;
+
+use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
+use TYPO3\CMS\Core\Context\Context;
+use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
+use TYPO3\CMS\Core\Site\SiteFinder;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
+use TalanHdf\SemanticSuggestion\Service\SimilarityCalculatorFactory;
+use TalanHdf\SemanticSuggestion\Service\StopWordsService;
+
+class PageAnalysisService implements LoggerAwareInterface
+{
+    use LoggerAwareTrait;
+
+    protected Context $context;
+    protected ConfigurationManagerInterface $configurationManager;
+    protected array $settings;
+    protected FrontendInterface $cache;
+    protected ConnectionPool $connectionPool;
+    protected SiteFinder $siteFinder;
+    protected StopWordsService $stopWordsService;
+    protected SimilarityCalculatorFactory $similarityCalculatorFactory;
+    protected NlpApiService $nlpApiService;
+
+    
+    public function __construct(
+        Context $context,
+        ConfigurationManagerInterface $configurationManager,
+        StopWordsService $stopWordsService,
+        SimilarityCalculatorFactory $similarityCalculatorFactory,
+        SiteFinder $siteFinder,
+        NlpApiService $nlpApiService,
+        FrontendInterface $cache,
+        ConnectionPool $connectionPool 
+    ) {
+        $this->context = $context;
+        $this->configurationManager = $configurationManager;
+        $this->stopWordsService = $stopWordsService;
+        $this->similarityCalculatorFactory = $similarityCalculatorFactory;
+        $this->nlpApiService = $nlpApiService;
+        $this->cache = $cache;
+        $this->siteFinder = $siteFinder;
+        $this->connectionPool = $connectionPool;
+
+        $this->settings = $this->configurationManager->getConfiguration(
+            ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
+            'semanticsuggestion_suggestions'
+        );
+    }
+
+    private function logDebug(string $message, array $context = []): void
+    {
+        // Forcer le log pour le débogage
+        $this->logger->debug($message, $context);
+        
+        // Ancien code commenté pour référence
+        // if ($this->settings['debugMode']) {
+        //     $this->logger->debug($message, $context);
+        // }
+    }
+
+
+    public function setSettings(array $settings): void
+    {
+        $this->settings = array_merge($this->settings, $settings);
+        $this->initializeSettings();
+    }
+
+    protected function getQueryBuilder(string $table = 'pages'): QueryBuilder
+    {
+        return $this->connectionPool->getQueryBuilderForTable($table);
+    }
+
+
+
+    public function getContext(): Context
+    {
+        return $this->context;
+    }
+
+    public function getCacheManager(): ?CacheManager
+    {
+        return $this->cacheManager;
+    }
+
+    public function getSettings(): array
+    {
+        return $this->settings;
+    }
+
+    public function getConnectionPool(): ?ConnectionPool
+    {
+        return $this->connectionPool;
+    }
+
+    protected function getCurrentPageId(): ?int
+    {
+        $request = $GLOBALS['TYPO3_REQUEST'] ?? null;
+        if ($request instanceof ServerRequestInterface) {
+            $pageArguments = $request->getAttribute('routing');
+            if ($pageArguments instanceof PageArguments) {
+                return $pageArguments->getPageId();
+            }
+            
+            // Fallback pour le contexte backend
+            $pageId = $request->getQueryParams()['id'] ?? null;
+            if ($pageId !== null) {
+                return (int)$pageId;
+            }
+        }
+        
+        // Fallback pour d'autres contextes
+        if (isset($GLOBALS['TSFE']) && $GLOBALS['TSFE']->id) {
+            return (int)$GLOBALS['TSFE']->id;
+        }
+        
+        $this->logger?->warning('Unable to determine current page ID');
+        return null;
+    }
+
+
+    protected function getCurrentLanguage(): string
+    {
+        $languageAspect = $this->context->getAspect('language');
+        $languageId = $languageAspect->getId();
+        
+        try {
+            $currentPageId = $this->getCurrentPageId();
+            if ($currentPageId === null) {
+                throw new \RuntimeException('Unable to determine current page ID');
+            }
+    
+            $currentSite = $this->siteFinder->getSiteByPageId($currentPageId);
+            $siteLanguage = $currentSite->getLanguageById($languageId);
+            if ($siteLanguage) {
+                $language = strtolower(substr($siteLanguage->getHreflang(), 0, 2));
+                $this->logDebug('Language detected', ['language' => $language, 'languageId' => $languageId]);
+                return $language;
+            }
+        } catch (\Exception $e) {
+            $this->logger?->warning('Failed to detect language automatically', ['exception' => $e->getMessage()]);
+        }
+    
+        // Fallback to default language
+        $defaultLanguage = $this->settings['defaultLanguage'] ?? 'en';
+        $this->logDebug('Using fallback language', ['language' => $defaultLanguage]);
+        return $defaultLanguage;
+    }
+
+
+
+    public function analyzePages(array $pages, int $currentLanguageUid): array
+    {
+        $startTime = microtime(true);
+
+        if (empty($pages)) {
+            $this->logger?->warning('No pages provided for analysis');
+            return $this->getEmptyResult($startTime);
+        }
+
+        $cacheIdentifier = $this->generateCacheIdentifier($pages, $currentLanguageUid);
+
+        if ($this->cache->has($cacheIdentifier)) {
+            return $this->getCachedResult($cacheIdentifier, $startTime);
+        }
+
+        $preparedPages = $this->preparePages($pages, $currentLanguageUid);
+
+        $calculatorType = $this->settings['similarityCalculator'] ?? 'php';
+        $similarityCalculator = $this->similarityCalculatorFactory->create(
+            $calculatorType,
+            ['nlpApiService' => $this->nlpApiService]
+        );
+
+        $similarities = $similarityCalculator->calculateSimilarity($preparedPages);
+
+        $result = $this->prepareResult($similarities, $preparedPages, $startTime);
+
+        $this->cache->set(
+            $cacheIdentifier,
+            $result,
+            ['tx_semanticsuggestion'],
+            86400
+        );
+
+        return $result;
+    }
+
+    protected function preparePages(array $pages, int $currentLanguageUid): array
+    {
+        $preparedPages = [];
+        $language = $this->getCurrentLanguage();
+
+        foreach ($pages as $page) {
+            if (isset($page['uid'])) {
+                $preparedPages[$page['uid']] = $this->preparePageData($page, $currentLanguageUid, $language);
+            }
+        }
+
+        return $preparedPages;
+    }
+
+    protected function preparePageData(array $page, int $currentLanguageUid, string $language): array
+    {
+        $preparedData = [
+            'uid' => $page['uid'],
+            'sys_language_uid' => $page['sys_language_uid'] ?? 0,
+            'content_modified_at' => $page['content_modified_at'] ?? $page['crdate'] ?? time(),
+        ];
+
+        foreach ($this->settings['analyzedFields'] as $field => $weight) {
+            $content = $page[$field] ?? '';
+            if ($field === 'content' && empty($content)) {
+                $content = $this->getPageContent($page['uid'], $currentLanguageUid);
+            }
+
+            $preparedData[$field] = [
+                'content' => $this->stopWordsService->removeStopWords($content, $language),
+                'weight' => (float)$weight
+            ];
+        }
+
+        return $preparedData;
+    }
+
+    protected function getPageContent(int $pageId, int $languageUid = 0): string
+    {
+        try {
+            $queryBuilder = $this->getQueryBuilder('tt_content');
+    
+            $content = $queryBuilder
+                ->select('bodytext')
+                ->from('tt_content')
+                ->where(
+                    $queryBuilder->expr()->eq('tt_content.pid', $queryBuilder->createNamedParameter($pageId, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->eq('tt_content.hidden', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->eq('tt_content.deleted', $queryBuilder->createNamedParameter(0, \PDO::PARAM_INT)),
+                    $queryBuilder->expr()->eq('tt_content.sys_language_uid', $queryBuilder->createNamedParameter($languageUid, \PDO::PARAM_INT))
+                )
+                ->executeQuery()
+                ->fetchAllAssociative();
+    
+            return implode(' ', array_column($content, 'bodytext'));
+        } catch (\Exception $e) {
+            $this->logger?->error('Error fetching page content', ['pageId' => $pageId, 'languageUid' => $languageUid, 'exception' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
+    protected function prepareResult(array $similarities, array $preparedPages, float $startTime): array
+    {
+        return [
+            'results' => $this->combineResults($similarities, $preparedPages),
+            'metrics' => [
+                'executionTime' => microtime(true) - $startTime,
+                'totalPages' => count($preparedPages),
+                'similarityCalculations' => count($preparedPages) * (count($preparedPages) - 1) / 2,
+                'fromCache' => false,
+            ],
+        ];
+    }
+
+    protected function combineResults(array $similarities, array $preparedPages): array
+    {
+        $results = [];
+        foreach ($similarities as $pageId => $pageSimilarities) {
+            $results[$pageId] = $preparedPages[$pageId];
+            $results[$pageId]['similarities'] = $pageSimilarities;
+        }
+        return $results;
+    }
+
+
+
+    protected function generateCacheIdentifier(array $pages, int $currentLanguageUid): string
+    {
+        $firstPage = reset($pages);
+        $parentPageId = $firstPage['pid'] ?? 0;
+        $depth = $this->calculateDepth($pages);
+        return "semantic_analysis_{$parentPageId}_{$depth}_{$currentLanguageUid}";
+    }
+
+    private function calculateDepth(array $pages): int
+    {
+        $maxDepth = 0;
+        $pagesByUid = [];
+    
+        // Première passe : indexer les pages par leur UID
+        foreach ($pages as $page) {
+            if (isset($page['uid'])) {
+                $pagesByUid[$page['uid']] = $page;
+            }
+        }
+    
+        // Deuxième passe : calculer la profondeur
+        foreach ($pages as $page) {
+            $depth = 1;
+            $currentPage = $page;
+            while (isset($currentPage['pid']) && $currentPage['pid'] !== 0 && isset($pagesByUid[$currentPage['pid']])) {
+                $depth++;
+                $currentPage = $pagesByUid[$currentPage['pid']];
+            }
+            $maxDepth = max($maxDepth, $depth);
+        }
+    
+        return $maxDepth;
+    }
+
+
+    protected function getEmptyResult(float $startTime): array
+    {
+        return [
+            'results' => [],
+            'metrics' => [
+                'executionTime' => microtime(true) - $startTime,
+                'totalPages' => 0,
+                'similarityCalculations' => 0,
+                'fromCache' => false,
+            ],
+        ];
+    }
+
+    protected function getCachedResult(string $cacheIdentifier, float $startTime): array
+    {
+        $result = $this->cache->get($cacheIdentifier);
+        $result['metrics']['fromCache'] = true;
+        $result['metrics']['executionTime'] = microtime(true) - $startTime;
+        return $result;
+    }
+}

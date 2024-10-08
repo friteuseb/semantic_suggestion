@@ -59,6 +59,8 @@ plugin.tx_semanticsuggestion_suggestions {
         showTopSimilarPages = {$plugin.tx_semanticsuggestion_suggestions.settings.showTopSimilarPages}
         # Enable or disable the debug mode to log more events in public/typo3temp/logs/semantic_suggestion_debug.log
         debugMode = 0
+        # Choose your calculatetor  (php,faiss)
+        similarityCalculator = php
 
 
         # Weights for different page fields in similarity calculation
