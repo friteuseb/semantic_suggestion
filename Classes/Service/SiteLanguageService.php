@@ -37,7 +37,7 @@ class SiteLanguageService implements LoggerAwareInterface
     /**
      * Get language code from TYPO3 site configuration for a specific language UID
      */
-    public function getLanguageCodeByUid(int $languageUid, int $rootPageId = null): ?string
+    public function getLanguageCodeByUid(int $languageUid, ?int $rootPageId = null): ?string
     {
         $cacheKey = "{$languageUid}_{$rootPageId}";
         
@@ -98,7 +98,7 @@ class SiteLanguageService implements LoggerAwareInterface
     /**
      * Get all available languages from TYPO3 site configuration
      */
-    public function getAllSiteLanguages(int $rootPageId = null): array
+    public function getAllSiteLanguages(?int $rootPageId = null): array
     {
         try {
             $site = null;

@@ -37,7 +37,7 @@ class SemanticBackendController extends ActionController
         LanguageService $languageService,
         FlashMessageService $flashMessageService,
         PageRepository $pageRepository,
-        ConnectionPool $connectionPool = null
+        ?ConnectionPool $connectionPool = null
     ) {
         $this->moduleTemplateFactory = $moduleTemplateFactory;
         $this->pageAnalysisService = $pageAnalysisService;
@@ -53,7 +53,7 @@ class SemanticBackendController extends ActionController
         $this->pageRepository = $pageRepository;
     }
 
-    public function indexAction(int $rootPageId = null): ResponseInterface
+    public function indexAction(?int $rootPageId = null): ResponseInterface
     {
         $startTime = microtime(true);
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);

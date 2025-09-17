@@ -15,7 +15,7 @@ class StopWordsService implements LoggerAwareInterface
     protected $stopWordsFilePath;
     protected bool $debugMode = false;
 
-    public function __construct(string $stopWordsFilePath = null)
+    public function __construct(?string $stopWordsFilePath = null)
     {
         $this->stopWordsFilePath = $stopWordsFilePath ?? $this->getDefaultStopWordsFilePath();
         $this->loadStopWords();
