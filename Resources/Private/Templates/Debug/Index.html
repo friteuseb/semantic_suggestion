@@ -1,0 +1,131 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+
+<f:layout name="Default" />
+
+<f:section name="Content">
+    <h1>Semantic Similarity - Debug & Test</h1>
+
+    <div class="alert alert-info">
+        <h4>System Information</h4>
+        <ul>
+            <li><strong>PHP Version:</strong> {systemInfo.phpVersion}</li>
+            <li><strong>Memory Limit:</strong> {systemInfo.memoryLimit}</li>
+            <li><strong>Max Execution Time:</strong> {systemInfo.maxExecutionTime}</li>
+        </ul>
+
+        <h5>PHP Extensions:</h5>
+        <ul>
+            <f:for each="{systemInfo.extensions}" as="loaded" key="extension">
+                <li>
+                    <f:if condition="{loaded}">
+                        <f:then><span class="text-success">✓</span></f:then>
+                        <f:else><span class="text-danger">✗</span></f:else>
+                    </f:if>
+                    {extension}
+                </li>
+            </f:for>
+        </ul>
+    </div>
+
+    <div class="alert alert-secondary">
+        <h4>Database Statistics</h4>
+        <p><strong>Total Similarities:</strong> {totalSimilarities}</p>
+
+        <f:if condition="{similaritiesByLanguage}">
+            <h5>By Language:</h5>
+            <ul>
+                <f:for each="{similaritiesByLanguage}" as="stat">
+                    <li>Language ID {stat.sys_language_uid}: {stat.count} similarities</li>
+                </f:for>
+            </ul>
+        </f:if>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>Execute Analysis</h2>
+        </div>
+        <div class="card-body">
+            <f:form action="execute" method="post" class="form-horizontal">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="startPageId" class="form-label">Root Page</label>
+                            <select name="startPageId" id="startPageId" class="form-select" required>
+                                <f:for each="{rootPages}" as="page">
+                                    <option value="{page.uid}">{page.title} (ID: {page.uid})</option>
+                                </f:for>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="qualityLevel" class="form-label">Quality Level (0.0-1.0)</label>
+                            <input type="number" step="0.1" min="0" max="1" name="qualityLevel"
+                                   id="qualityLevel" value="0.3" class="form-control" required />
+                            <small class="form-text text-muted">Threshold for saving similarities</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="languageId" class="form-label">Language</label>
+                            <select name="languageId" id="languageId" class="form-select">
+                                <option value="-1">All Languages</option>
+                                <option value="0">Default (0)</option>
+                                <option value="1">Language 1</option>
+                                <option value="2">Language 2</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label">Options</label>
+                            <div class="form-check">
+                                <input type="checkbox" name="testMode" id="testMode" value="1" class="form-check-input" />
+                                <label for="testMode" class="form-check-label">
+                                    Test Mode (only 10 pages)
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input type="checkbox" name="dryRun" id="dryRun" value="1" class="form-check-input" />
+                                <label for="dryRun" class="form-check-label">
+                                    Dry Run (don't save to database)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <button type="submit" class="btn btn-primary">
+                            <span class="t3js-icon icon icon-size-small icon-state-default icon-actions-play">
+                                <span class="icon-markup">▶</span>
+                            </span>
+                            Run Analysis
+                        </button>
+                    </div>
+                </div>
+            </f:form>
+        </div>
+    </div>
+
+    <div class="alert alert-warning mt-4">
+        <h4>⚠️ Important Notes</h4>
+        <ul>
+            <li><strong>Test Mode:</strong> Analyzes only 10 pages for quick testing</li>
+            <li><strong>Dry Run:</strong> Performs analysis but doesn't save results to database</li>
+            <li><strong>Execution Time:</strong> Full analysis may take several minutes depending on the number of pages</li>
+            <li><strong>Memory Usage:</strong> Ensure sufficient PHP memory limit for large sites</li>
+        </ul>
+    </div>
+</f:section>
+
+</html>

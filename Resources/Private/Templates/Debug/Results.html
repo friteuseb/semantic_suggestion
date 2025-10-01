@@ -1,0 +1,148 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+
+<f:layout name="Default" />
+
+<f:section name="Content">
+    <h1>Analysis Results</h1>
+
+    <f:if condition="{error}">
+        <f:then>
+            <div class="alert alert-danger">
+                <h4>Error</h4>
+                <p>{error}</p>
+            </div>
+        </f:then>
+        <f:else>
+            <div class="alert alert-success">
+                <h4>✓ Analysis Completed Successfully!</h4>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2>Statistics</h2>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="stat-box">
+                                <h3>{executionTime}s</h3>
+                                <p>Execution Time</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-box">
+                                <h3><f:format.number decimals="0">{pagesProcessed}</f:format.number></h3>
+                                <p>Pages Processed</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-box">
+                                <h3><f:format.number decimals="0">{comparisons}</f:format.number></h3>
+                                <p>Comparisons</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-box">
+                                <h3><f:format.number decimals="0">{similaritiesSaved}</f:format.number></h3>
+                                <p>Similarities Saved</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <f:if condition="{logs}">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Execution Logs</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="logs-container" style="max-height: 400px; overflow-y: auto;">
+                            <f:for each="{logs}" as="log">
+                                <div class="log-entry log-{log.level}">
+                                    <f:switch expression="{log.level}">
+                                        <f:case value="error">
+                                            <span class="badge bg-danger">ERROR</span>
+                                        </f:case>
+                                        <f:case value="warning">
+                                            <span class="badge bg-warning">WARNING</span>
+                                        </f:case>
+                                        <f:case value="success">
+                                            <span class="badge bg-success">SUCCESS</span>
+                                        </f:case>
+                                        <f:defaultCase>
+                                            <span class="badge bg-info">INFO</span>
+                                        </f:defaultCase>
+                                    </f:switch>
+                                    <span class="log-message">{log.message}</span>
+                                </div>
+                            </f:for>
+                        </div>
+                    </div>
+                </div>
+            </f:if>
+        </f:else>
+    </f:if>
+
+    <div class="mt-4">
+        <f:link.action action="index" class="btn btn-secondary">
+            ← Back to Debug Dashboard
+        </f:link.action>
+    </div>
+
+    <style>
+        .stat-box {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .stat-box h3 {
+            font-size: 2em;
+            margin: 0 0 10px 0;
+            color: #198754;
+        }
+
+        .stat-box p {
+            margin: 0;
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .log-entry {
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            border-left: 3px solid #dee2e6;
+            background: #f8f9fa;
+        }
+
+        .log-entry.log-error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+
+        .log-entry.log-warning {
+            border-left-color: #ffc107;
+            background: #fff3cd;
+        }
+
+        .log-entry.log-success {
+            border-left-color: #198754;
+            background: #d1e7dd;
+        }
+
+        .log-entry .badge {
+            margin-right: 10px;
+        }
+
+        .log-message {
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+    </style>
+</f:section>
+
+</html>

@@ -29,6 +29,9 @@ return function (ContainerConfigurator $configurator, ContainerBuilder $containe
     $services->set(TalanHdf\SemanticSuggestion\Command\DiagnosticCommand::class)
         ->tag('console.command', ['command' => 'semantic:diagnostic']);
 
+    $services->set(TalanHdf\SemanticSuggestion\Command\DebugSchedulerCommand::class)
+        ->tag('console.command', ['command' => 'semantic:debug-scheduler']);
+
     $services->set(TalanHdf\SemanticSuggestion\Service\PageAnalysisService::class)->public(true);
     $services->set(TalanHdf\SemanticSuggestion\Service\SuggestionService::class)->public(true);
     $services->set(TalanHdf\SemanticSuggestion\Service\UtilityService::class)->public(true);
@@ -89,6 +92,17 @@ return function (ContainerConfigurator $configurator, ContainerBuilder $containe
             service(TYPO3\CMS\Core\Database\ConnectionPool::class)
         ]);
     }
+
+    // Debug Controller (available for all versions)
+    $services->set(TalanHdf\SemanticSuggestion\Controller\DebugController::class)
+        ->public(true)
+        ->tag('controller.backend_controller')
+        ->args([
+            service(TYPO3\CMS\Backend\Template\ModuleTemplateFactory::class),
+            service(TYPO3\CMS\Core\Database\ConnectionPool::class),
+            service(TYPO3\CMS\Core\Site\SiteFinder::class),
+            service(TYPO3\CMS\Core\Cache\CacheManager::class)
+        ]);
 
     // --- SUPPRIMER la configuration du logger Monolog personnalisé ---
     /*

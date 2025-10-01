@@ -150,6 +150,7 @@ class GenerateSimilaritiesTask extends AbstractTask
 
             foreach ($languagesToProcess as $language) {
                 $languageId = $language->getLanguageId();
+                $languageStartTime = microtime(true);
 
                 $this->logger->info('Processing language', [
                     'startPageId' => $this->startPageId,
@@ -167,11 +168,40 @@ class GenerateSimilaritiesTask extends AbstractTask
                     continue; // Continue to next language
                 }
 
+                $pageCount = count($pages);
+                $expectedComparisons = $pageCount * ($pageCount - 1);
+
+                $this->logger->info('Starting analysis for language', [
+                    'languageId' => $languageId,
+                    'pageCount' => $pageCount,
+                    'expectedComparisons' => $expectedComparisons
+                ]);
+
                 // Analyze similarities
                 $analysisData = $this->pageAnalysisService->analyzePages($pages, $languageId);
 
+                $analysisDuration = microtime(true) - $languageStartTime;
+                $this->logger->info('Analysis completed for language', [
+                    'languageId' => $languageId,
+                    'duration' => round($analysisDuration, 2) . 's',
+                    'pagesAnalyzed' => $pageCount,
+                    'comparisonsCalculated' => $analysisData['metrics']['similarityCalculations'] ?? 0
+                ]);
+
                 // Save results
+                $saveStartTime = microtime(true);
                 $this->saveResults($analysisData, $this->startPageId, $languageId, $this->minimumSimilarity);
+
+                $saveDuration = microtime(true) - $saveStartTime;
+                $totalDuration = microtime(true) - $languageStartTime;
+
+                $this->logger->info('Language processing completed', [
+                    'languageId' => $languageId,
+                    'totalDuration' => round($totalDuration, 2) . 's',
+                    'analysisDuration' => round($analysisDuration, 2) . 's',
+                    'saveDuration' => round($saveDuration, 2) . 's',
+                    'avgTimePerPage' => round($totalDuration / $pageCount, 3) . 's'
+                ]);
             }
 
             $this->logger->info('Similarity generation task completed successfully');

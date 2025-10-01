@@ -23,6 +23,7 @@ use Cywolf\NlpTools\Service\LanguageDetectionService;
 use Cywolf\NlpTools\Service\TextAnalysisService;
 use Cywolf\NlpTools\Service\TextVectorizerService;
 use TalanHdf\SemanticSuggestion\Service\SiteLanguageService;
+use TYPO3\CMS\Core\TypoScript\TypoScriptService;
 
 class PageAnalysisService implements LoggerAwareInterface
 {
@@ -40,6 +41,7 @@ class PageAnalysisService implements LoggerAwareInterface
     protected $textAnalyzer;
     protected $textVectorizer;
     protected ?SiteLanguageService $siteLanguageService;
+    protected $progressCallback = null;
 
     public function __construct(
         Context $context,
@@ -60,19 +62,28 @@ class PageAnalysisService implements LoggerAwareInterface
         $this->cacheManager = $cacheManager;
         $this->connectionPool = $connectionPool ?? GeneralUtility::makeInstance(ConnectionPool::class);
         $this->logger = $logger ?? new NullLogger();
-        
+
         if ($logger !== null) {
             $this->setLogger($logger);
         }
 
-        $this->settings = $this->configurationManager->getConfiguration(
-            ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
-            'semanticsuggestion_suggestions'
-        );
+        // Try to get configuration, but handle CLI context gracefully
+        try {
+            $this->settings = $this->configurationManager->getConfiguration(
+                ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
+                'semanticsuggestion_suggestions'
+            ) ?? [];
+        } catch (\Exception $e) {
+            // In CLI/scheduler context without proper request, load from TypoScript directly
+            $this->logger->debug('ConfigurationManager not available (CLI context), loading from TypoScript', [
+                'exception' => $e->getMessage()
+            ]);
+            $this->settings = $this->loadSettingsFromTypoScript();
+        }
 
         $this->initializeSettings();
         $this->initializeCache();
-        
+
         // Initialize nlp_tools services AFTER settings are initialized
         $this->initializeNlpServices($languageDetector, $textAnalyzer, $textVectorizer);
     }
@@ -164,15 +175,63 @@ class PageAnalysisService implements LoggerAwareInterface
         $this->logger->error($message, $context);
     }
 
+    /**
+     * Load settings directly from TypoScript (CLI context fallback)
+     */
+    protected function loadSettingsFromTypoScript(): array
+    {
+        try {
+            // Load TypoScript setup for the first available site
+            $sites = $this->siteFinder->getAllSites();
+            if (empty($sites)) {
+                $this->logger->warning('No sites found, using default settings');
+                return [];
+            }
+
+            // Use the first site to get TypoScript configuration
+            $site = reset($sites);
+            $rootPageId = $site->getRootPageId();
+
+            // Get TypoScript configuration
+            $typoScriptService = GeneralUtility::makeInstance(TypoScriptService::class);
+
+            // Try to get full setup from ConfigurationManager's internal TypoScript
+            $setup = $this->configurationManager->getConfiguration(
+                ConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
+            );
+
+            if (isset($setup['plugin.']['tx_semanticsuggestion_suggestions.']['settings.'])) {
+                $rawSettings = $setup['plugin.']['tx_semanticsuggestion_suggestions.']['settings.'];
+                // Convert TypoScript array notation to plain array
+                $settings = $typoScriptService->convertTypoScriptArrayToPlainArray($rawSettings);
+
+                $this->logger->info('Settings loaded from TypoScript', [
+                    'settingsCount' => count($settings)
+                ]);
+
+                return $settings;
+            }
+
+            $this->logger->warning('TypoScript settings not found, using defaults');
+            return [];
+
+        } catch (\Exception $e) {
+            $this->logger->warning('Failed to load settings from TypoScript', [
+                'exception' => $e->getMessage()
+            ]);
+            return [];
+        }
+    }
+
     protected function initializeSettings(): void
     {
         // Initialiser debugMode en premier
         $this->settings['debugMode'] = (bool)($this->settings['debugMode'] ?? false);
-    
+
         $this->logDebug('Debug mode initialized', ['debugMode' => $this->settings['debugMode']]);
-    
+
         $this->settings['recencyWeight'] = max(0, min(1, (float)($this->settings['recencyWeight'] ?? 0.2)));
-    
+
         $this->settings['analyzedFields'] = $this->settings['analyzedFields'] ?? [
             'title' => 1.5,
             'description' => 1.0,
@@ -180,7 +239,7 @@ class PageAnalysisService implements LoggerAwareInterface
             'abstract' => 1.2,
             'content' => 1.0
         ];
-    
+
         $this->logDebug('Settings initialized', ['final_settings' => $this->settings]);
     }
 
@@ -234,6 +293,15 @@ class PageAnalysisService implements LoggerAwareInterface
     {
         $this->settings = array_merge($this->settings, $settings);
         $this->initializeSettings();
+    }
+
+    /**
+     * Set a callback function to report progress during analysis
+     * Callback signature: function(int $current, int $total, string $message): void
+     */
+    public function setProgressCallback(?callable $callback): void
+    {
+        $this->progressCallback = $callback;
     }
 
     protected function getQueryBuilder(string $table = 'pages'): QueryBuilder
@@ -534,21 +602,33 @@ class PageAnalysisService implements LoggerAwareInterface
             $this->logDebug('Analyzing pages', ['pageCount' => count($pages), 'languageUid' => $currentLanguageUid]);
             $totalPages = count($pages);
             $analysisResults = [];
-    
+
+            // Phase 1: Prepare page data
+            $pageIndex = 0;
             foreach ($pages as $page) {
                 if (isset($page['uid'])) {
                     $analysisResults[$page['uid']] = $this->preparePageData($page, $currentLanguageUid);
+
+                    // Report progress for page preparation
+                    if ($this->progressCallback !== null) {
+                        call_user_func($this->progressCallback, $pageIndex + 1, $totalPages, 'Preparing page data');
+                    }
+                    $pageIndex++;
                 } else {
                     $this->logger?->warning('Page without UID encountered', ['page' => $page]);
                 }
             }
-    
+
+            // Phase 2: Calculate similarities
             $similarityCalculations = 0;
+            $totalComparisons = $totalPages * ($totalPages - 1);
+            $currentComparison = 0;
+
             foreach ($analysisResults as $pageId => &$pageData) {
                 foreach ($analysisResults as $comparisonPageId => $comparisonPageData) {
                     if ($pageId !== $comparisonPageId) {
                         $similarity = $this->calculateSimilarity($pageData, $comparisonPageData);
-                        
+
                         // Ne pas ajouter les similarités à 0 (langues incompatibles)
                         if ($similarity['finalSimilarity'] > 0) {
                             $pageData['similarities'][$comparisonPageId] = [
@@ -560,8 +640,15 @@ class PageAnalysisService implements LoggerAwareInterface
                                 'ageInDays' => round((time() - ($comparisonPageData['content_modified_at'] ?? time())) / (24 * 3600), 1),
                             ];
                         }
-                        
+
                         $similarityCalculations++;
+                        $currentComparison++;
+
+                        // Report progress every 100 comparisons to avoid overhead
+                        if ($this->progressCallback !== null && ($currentComparison % 100 === 0 || $currentComparison === $totalComparisons)) {
+                            $percentage = round(($currentComparison / $totalComparisons) * 100);
+                            call_user_func($this->progressCallback, $currentComparison, $totalComparisons, "Calculating similarities ({$percentage}%)");
+                        }
                     }
                 }
             }
