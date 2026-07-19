@@ -543,12 +543,26 @@ class PageAnalysisService implements LoggerAwareInterface
                 }
             }
     
+            // Issue #15: compute TF-IDF vectors a single time per page (grouped by
+            // language) up front, then reuse them for every pairwise comparison
+            // instead of rebuilding the vectors on each comparison.
+            $vectorData = $this->precomputePageVectors($analysisResults);
+            $pageLanguages = $vectorData['languages'];
+            $pageVectors = $vectorData['vectors'];
+
             $similarityCalculations = 0;
             foreach ($analysisResults as $pageId => &$pageData) {
                 foreach ($analysisResults as $comparisonPageId => $comparisonPageData) {
                     if ($pageId !== $comparisonPageId) {
-                        $similarity = $this->calculateSimilarity($pageData, $comparisonPageData);
-                        
+                        $similarity = $this->calculateSimilarityFromVectors(
+                            $pageData,
+                            $comparisonPageData,
+                            $pageLanguages[$pageId] ?? null,
+                            $pageLanguages[$comparisonPageId] ?? null,
+                            $pageVectors[$pageId] ?? null,
+                            $pageVectors[$comparisonPageId] ?? null
+                        );
+
                         // Ne pas ajouter les similarités à 0 (langues incompatibles)
                         if ($similarity['finalSimilarity'] > 0) {
                             $pageData['similarities'][$comparisonPageId] = [
@@ -560,11 +574,12 @@ class PageAnalysisService implements LoggerAwareInterface
                                 'ageInDays' => round((time() - ($comparisonPageData['content_modified_at'] ?? time())) / (24 * 3600), 1),
                             ];
                         }
-                        
+
                         $similarityCalculations++;
                     }
                 }
             }
+            unset($pageData);
     
             $result = [
                 'results' => $analysisResults,
@@ -955,6 +970,114 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
             // Fallback vers l'ancien calcul en cas d'erreur
             return $this->calculateSimilarityFallback($page1, $page2);
         }
+    }
+
+    /**
+     * Issue #15: Build the TF-IDF vector for every page exactly once. Pages are
+     * grouped by their detected language so each language shares a single
+     * vocabulary/IDF corpus, and the resulting vector for each page id is returned
+     * for reuse across all pairwise comparisons.
+     *
+     * @param array<int|string, array> $analysisResults
+     * @return array{languages: array<int|string, ?string>, vectors: array<int|string, ?array>}
+     */
+    private function precomputePageVectors(array $analysisResults): array
+    {
+        $languages = [];
+        $vectors = [];
+        $textsByLanguage = [];
+        $idsByLanguage = [];
+
+        foreach ($analysisResults as $pageId => $pageData) {
+            $text = $this->prepareTextForAnalysis($pageData);
+
+            if ($text === '') {
+                $languages[$pageId] = null;
+                $vectors[$pageId] = null;
+                continue;
+            }
+
+            if ($this->siteLanguageService !== null) {
+                $language = $this->siteLanguageService->detectLanguageForPage($pageData, $this->languageDetector);
+            } else {
+                $language = $this->languageDetector->detectLanguage($text);
+            }
+
+            $languages[$pageId] = $language;
+            $vectors[$pageId] = null;
+            $textsByLanguage[$language][] = $text;
+            $idsByLanguage[$language][] = $pageId;
+        }
+
+        foreach ($textsByLanguage as $language => $texts) {
+            try {
+                $tfidfResult = $this->textVectorizer->createTfIdfVectors($texts, (string)$language);
+            } catch (\Exception $e) {
+                $this->logError('Error while precomputing TF-IDF vectors', [
+                    'language' => $language,
+                    'exception' => $e->getMessage(),
+                ]);
+                continue;
+            }
+
+            $groupVectors = $tfidfResult['vectors'] ?? [];
+            foreach ($idsByLanguage[$language] as $index => $pageId) {
+                $vectors[$pageId] = $groupVectors[$index] ?? null;
+            }
+        }
+
+        return ['languages' => $languages, 'vectors' => $vectors];
+    }
+
+    /**
+     * Issue #15: Compute similarity from pre-computed TF-IDF vectors. This mirrors
+     * calculateSimilarity() but skips the per-pair TF-IDF construction. It only
+     * falls back to on-demand pairwise TF-IDF for the rare case of compatible pages
+     * whose vectors were built in different language corpora (different vector spaces).
+     */
+    private function calculateSimilarityFromVectors(
+        array $page1,
+        array $page2,
+        ?string $language1,
+        ?string $language2,
+        ?array $vector1,
+        ?array $vector2
+    ): array {
+        $noSimilarity = [
+            'semanticSimilarity' => 0.0,
+            'recencyBoost' => 0.0,
+            'finalSimilarity' => 0.0,
+        ];
+
+        if ($this->siteLanguageService !== null) {
+            if ($language1 === null
+                || $language2 === null
+                || !$this->siteLanguageService->areLanguagesCompatible($language1, $language2)) {
+                return $noSimilarity;
+            }
+        }
+
+        // Empty text on either side -> no vector was produced.
+        if ($vector1 === null || $vector2 === null) {
+            return $noSimilarity;
+        }
+
+        // Compatible pages from different language corpora live in different vector
+        // spaces; recompute their TF-IDF pair on demand to stay correct.
+        if ($language1 !== $language2) {
+            return $this->calculateSimilarity($page1, $page2);
+        }
+
+        $semanticSimilarity = $this->textVectorizer->cosineSimilarity($vector1, $vector2);
+        $recencyBoost = $this->calculateRecencyBoost($page1, $page2);
+        $recencyWeight = $this->settings['recencyWeight'] ?? 0.2;
+        $finalSimilarity = ($semanticSimilarity * (1 - $recencyWeight)) + ($recencyBoost * $recencyWeight);
+
+        return [
+            'semanticSimilarity' => $semanticSimilarity,
+            'recencyBoost' => $recencyBoost,
+            'finalSimilarity' => min($finalSimilarity, 1.0),
+        ];
     }
 
     private function prepareTextForAnalysis(array $pageData): string
