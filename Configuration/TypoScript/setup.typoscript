@@ -112,7 +112,7 @@ lib.semantic_suggestion {
 }
 
 # Integration as content element
-tt_content.list.20.semanticsuggestion_suggestions =< plugin.tx_semanticsuggestion_suggestions
+tt_content.list.20.semanticsuggestion_suggestions =< lib.semantic_suggestion
 
 # Backend module configuration
 module.tx_semanticsuggestion {
