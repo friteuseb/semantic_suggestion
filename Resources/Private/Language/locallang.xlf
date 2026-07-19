@@ -12,6 +12,15 @@
             <trans-unit id="suggestions.noSuggestionsFound">
                 <source>No Suggestions found</source>
             </trans-unit>
+            <trans-unit id="suggestions.lastModified">
+                <source>Last modified:</source>
+            </trans-unit>
+            <trans-unit id="suggestions.similarityScore">
+                <source>Similarity score:</source>
+            </trans-unit>
+            <trans-unit id="suggestions.viewPage">
+                <source>View page</source>
+            </trans-unit>
             <trans-unit id="task.generateSimilarities.title">
                 <source>Generate Semantic Similarities</source>
             </trans-unit>

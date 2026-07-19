@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<xliff version="1.0">
+    <file source-language="en" target-language="fr" datatype="plaintext" original="messages" date="2025-09-30T12:00:00Z" product-name="semantic_suggestion">
+        <header/>
+        <body>
+            <trans-unit id="suggestions.lastModified">
+                <target>Dernière modification :</target>
+            </trans-unit>
+            <trans-unit id="suggestions.similarityScore">
+                <target>Score de similarité :</target>
+            </trans-unit>
+            <trans-unit id="suggestions.viewPage">
+                <target>Voir la page</target>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>

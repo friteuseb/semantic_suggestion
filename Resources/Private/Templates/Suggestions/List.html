@@ -43,21 +43,21 @@
                                             <!-- Ajout des informations de récence et de similarité -->
                                             <p class="card-info">
                                                 <small>
-                                                    Dernière modification : 
+                                                    <f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang.xlf:suggestions.lastModified" />
                                                     <f:format.date format="d/m/Y H:i">{suggestion.data.tstamp}</f:format.date>
                                                 </small>
                                             </p>
                                             <p class="card-info">
                                                 <small>
-                                                    Score de similarité : 
+                                                    <f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang.xlf:suggestions.similarityScore" />
                                                     <f:format.number decimals="4">{suggestion.similarity}</f:format.number>
                                                 </small>
-                                            </p>                                       
+                                            </p>                                
                                        
                                         </div>
 
                                         <div class="card-footer">
-                                            <f:link.page pageUid="{suggestion.data.uid}" class="btn btn-primary">Voir la page</f:link.page>
+                                            <f:link.page pageUid="{suggestion.data.uid}" class="btn btn-primary"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang.xlf:suggestions.viewPage" /></f:link.page>
                                         </div>
                                     </div>
                                 </div>
