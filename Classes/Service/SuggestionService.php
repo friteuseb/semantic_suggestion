@@ -8,6 +8,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Domain\Repository\PageRepository;
 use TYPO3\CMS\Core\Pagination\ArrayPaginator;
 use TYPO3\CMS\Core\Resource\FileRepository;
+use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 use TYPO3\CMS\Frontend\ContentObject\ContentObjectRenderer;
@@ -16,6 +17,13 @@ class SuggestionService
 {
     public const DEFAULT_QUALITY_LEVEL = 0.3;
     public const MAX_RECENCY_DAYS = 30;
+
+    /**
+     * Candidate rows are fetched beyond $maxSuggestions because exclusions and the
+     * language re-check are applied in PHP afterwards.
+     */
+    private const CANDIDATE_POOL_FACTOR = 5;
+    private const MIN_CANDIDATE_POOL = 50;
 
     protected array $settings = [];
 
@@ -307,7 +315,7 @@ class SuggestionService
         $queryBuilder = GeneralUtility::makeInstance(ConnectionPool::class)
             ->getQueryBuilderForTable('tx_semanticsuggestion_similarities');
 
-        $similarities = $queryBuilder
+        $queryBuilder
             ->select('*')
             ->from('tx_semanticsuggestion_similarities')
             ->where(
@@ -315,10 +323,23 @@ class SuggestionService
                 $queryBuilder->expr()->gte('similarity_score', $queryBuilder->createNamedParameter($threshold, \Doctrine\DBAL\ParameterType::STRING)), // MODIFIÉ (PDO::PARAM_STR -> STRING)
                 $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter($currentLanguageUid, \Doctrine\DBAL\ParameterType::INTEGER)) // MODIFIÉ
             )
-            ->orderBy('similarity_score', 'DESC')
-            ->setMaxResults($maxSuggestions)
-            ->executeQuery()
-            ->fetchAllAssociative();
+            ->orderBy('similarity_score', 'DESC');
+
+        // Restrict to the current site. Without this, overlapping scheduler task scopes
+        // (or a task started from page 0) mix rows from several trees together.
+        $rootPageId = $this->resolveRootPageId($currentPageId);
+        if ($rootPageId > 0) {
+            $queryBuilder->andWhere(
+                $queryBuilder->expr()->eq('root_page_id', $queryBuilder->createNamedParameter($rootPageId, \Doctrine\DBAL\ParameterType::INTEGER))
+            );
+        }
+
+        // Over-fetch: excludePages and the language re-check below run in PHP, so a
+        // LIMIT of exactly $maxSuggestions would return fewer results than requested
+        // as soon as one candidate is filtered out.
+        $queryBuilder->setMaxResults(max(self::MIN_CANDIDATE_POOL, $maxSuggestions * self::CANDIDATE_POOL_FACTOR));
+
+        $similarities = $queryBuilder->executeQuery()->fetchAllAssociative();
 
         $this->utility->logDebug('Database query results', [
             'count' => count($similarities),
@@ -358,10 +379,37 @@ class SuggestionService
                 'data' => $pageData,
                 'excerpt' => $excerpt,
             ];
+
+            // The SQL LIMIT is now a candidate pool, so the cap is enforced here.
+            if (count($suggestions) >= $maxSuggestions) {
+                break;
+            }
         }
 
         $this->utility->logDebug('Suggestions prepared', ['count' => count($suggestions)]);
         return $suggestions;
+    }
+
+    /**
+     * Resolve the site root page UID for a page, or 0 when it belongs to no site.
+     */
+    protected function resolveRootPageId(int $pageId): int
+    {
+        if ($pageId <= 0) {
+            return 0;
+        }
+
+        try {
+            return GeneralUtility::makeInstance(SiteFinder::class)
+                ->getSiteByPageId($pageId)
+                ->getRootPageId();
+        } catch (\Exception $e) {
+            $this->utility->logDebug('Could not resolve site root, suggestions not scoped to a site', [
+                'pageId' => $pageId,
+                'exception' => $e->getMessage(),
+            ]);
+            return 0;
+        }
     }
 
     protected function calculateRecencyScore(int $timestamp): float

@@ -130,6 +130,10 @@ class GenerateSimilaritiesTask extends AbstractTask
             $siteFinder = GeneralUtility::makeInstance(SiteFinder::class);
             $site = $siteFinder->getSiteByPageId($this->startPageId);
 
+            // The real site root, shared by every analysis of this site. Not the same
+            // thing as startPageId, which may point at any subtree (see #23).
+            $rootPageId = $site->getRootPageId();
+
             $languagesToProcess = [];
             if ($this->languageId >= 0) {
                 // Process only specified language
@@ -171,7 +175,7 @@ class GenerateSimilaritiesTask extends AbstractTask
                 $analysisData = $this->pageAnalysisService->analyzePages($pages, $languageId);
 
                 // Save results
-                $this->saveResults($analysisData, $this->startPageId, $languageId, $this->minimumSimilarity);
+                $this->saveResults($analysisData, $rootPageId, $this->startPageId, $languageId, $this->minimumSimilarity);
             }
 
             $this->logger->info('Similarity generation task completed successfully');
@@ -249,23 +253,29 @@ class GenerateSimilaritiesTask extends AbstractTask
 
     /**
      * Save analysis results to database
+     *
+     * @param int $rootPageId  Real site root page UID, shared by all analyses of this site
+     * @param int $scopePageId Page UID this task started from, identifying this task's scope
      */
-    protected function saveResults(array $analysisData, int $rootPageId, int $languageId, float $proximityThreshold): void
+    protected function saveResults(array $analysisData, int $rootPageId, int $scopePageId, int $languageId, float $proximityThreshold): void
     {
         $connection = $this->connectionPool->getConnectionForTable('tx_semanticsuggestion_similarities');
-        
+
         try {
             // Begin transaction
             $connection->beginTransaction();
-            
-            // Delete old entries for this site and language
+
+            // Delete the previous run of THIS task only: scoping on root_page_id alone
+            // would let a task erase the rows of another task covering a different
+            // subtree of the same site.
             $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_semanticsuggestion_similarities');
-            
+
             // TYPO3 v12 and v13 compatible version
             $queryBuilder
                 ->delete('tx_semanticsuggestion_similarities')
                 ->where(
                     $queryBuilder->expr()->eq('root_page_id', $queryBuilder->createNamedParameter($rootPageId)),
+                    $queryBuilder->expr()->eq('scope_page_id', $queryBuilder->createNamedParameter($scopePageId)),
                     $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter($languageId))
                 )
                 ->executeStatement();
@@ -290,7 +300,8 @@ class GenerateSimilaritiesTask extends AbstractTask
                             'page_id' => $pageId,
                             'similar_page_id' => $similarPageId,
                             'similarity_score' => $similarity['score'],
-                            'root_page_id' => $rootPageId, // Utiliser l'ID fourni
+                            'root_page_id' => $rootPageId,   // real site root
+                            'scope_page_id' => $scopePageId, // this task's startPageId
                             'sys_language_uid' => $languageId,
                             'crdate' => $now,
                             'tstamp' => $now
@@ -315,21 +326,24 @@ class GenerateSimilaritiesTask extends AbstractTask
             
             $this->logger->info('Similarities saved to database', [
                 'rootPageId' => $rootPageId,
+                'scopePageId' => $scopePageId,
                 'languageId' => $languageId,
                 'similaritiesCount' => count($bulkInserts)
             ]);
-            
-            // Clear cache for this site
+
+            // Clear the analysis cache of this site. PageAnalysisService tags its
+            // entries with site_<rootPageId>, so this now actually matches (see #20).
             $this->cacheManager->getCache('semantic_suggestion')->flushByTag('site_' . $rootPageId);
-            
+
         } catch (\Exception $e) {
             // Rollback transaction on error
             if ($connection->isTransactionActive()) {
                 $connection->rollBack();
             }
-            
+
             $this->logger->error('Failed to save similarities', [
                 'rootPageId' => $rootPageId,
+                'scopePageId' => $scopePageId,
                 'languageId' => $languageId,
                 'exception' => $e->getMessage()
             ]);
@@ -353,7 +367,7 @@ class GenerateSimilaritiesTask extends AbstractTask
         $connection->bulkInsert(
             'tx_semanticsuggestion_similarities',
             $records,
-            ['page_id', 'similar_page_id', 'similarity_score', 'root_page_id', 'sys_language_uid', 'crdate', 'tstamp']
+            ['page_id', 'similar_page_id', 'similarity_score', 'root_page_id', 'scope_page_id', 'sys_language_uid', 'crdate', 'tstamp']
         );
     }
 

@@ -141,7 +141,13 @@ module.tx_semanticsuggestion {
 # Override Bootstrap Package page templates to include semantic suggestions
 # This adds lib.semantic_suggestion to the page template after main content
 #
-# To enable, set in TypoScript Constants:
+# DISABLED BY DEFAULT (see #18). This TypoScript is loaded globally by
+# ext_localconf.php, so this block applies to every site of the instance at once.
+# The templates below are Bootstrap Package templates and depend on
+# lib.dynamicContent / theme.pagelayout; on a site that does not use Bootstrap
+# Package, overriding a template named Default.html renders the page empty.
+#
+# To enable, set this in the TypoScript Constants of the Bootstrap Package site ONLY:
 #   plugin.tx_semanticsuggestion_suggestions.settings.overrideBootstrapTemplates = 1
 #
 # For custom templates, add manually in your Fluid template:

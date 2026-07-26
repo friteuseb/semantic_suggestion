@@ -463,6 +463,34 @@ class PageAnalysisService implements LoggerAwareInterface
         return GeneralUtility::makeInstance(Context::class)->getAspect('language')->getId();
     }
 
+    /**
+     * Resolve the site root page UID a page belongs to.
+     *
+     * Used to scope the analysis cache per site: without it, cache entries carry no
+     * site information and per-site invalidation cannot target them.
+     *
+     * Returns 0 when the page is outside any configured site (page tree not attached
+     * to a site, or a fixture in tests). A 0 root simply means "unscoped" and stays
+     * consistent between the cache identifier and the cache tag.
+     */
+    protected function resolveRootPageId(array $page): int
+    {
+        $pageId = (int)($page['uid'] ?? $page['pid'] ?? 0);
+        if ($pageId <= 0) {
+            return 0;
+        }
+
+        try {
+            return $this->siteFinder->getSiteByPageId($pageId)->getRootPageId();
+        } catch (\Exception $e) {
+            $this->logger?->debug('Could not resolve site root for page', [
+                'pageId' => $pageId,
+                'exception' => $e->getMessage(),
+            ]);
+            return 0;
+        }
+    }
+
 
 
     public function analyzePages(array $pages, int $currentLanguageUid): array
@@ -521,7 +549,8 @@ class PageAnalysisService implements LoggerAwareInterface
     
         $parentPageId = $firstPage['pid'] ?? 0;
         $depth = $this->calculateDepth($pages);
-        $cacheIdentifier = "semantic_analysis_{$parentPageId}_{$depth}_{$language}";
+        $rootPageId = $this->resolveRootPageId($firstPage);
+        $cacheIdentifier = "semantic_analysis_{$rootPageId}_{$parentPageId}_{$depth}_{$language}";
     
         if ($this->cache->has($cacheIdentifier)) {
             $cachedResult = $this->cache->get($cacheIdentifier);
@@ -591,10 +620,12 @@ class PageAnalysisService implements LoggerAwareInterface
                 ],
             ];
     
+            // site_<rootPageId> is what GenerateSimilaritiesTask and the DataHandler
+            // hook flush; without it, per-site invalidation silently matches nothing.
             $this->cache->set(
                 $cacheIdentifier,
                 $result,
-                ['tx_semanticsuggestion', "pages_{$parentPageId}"],
+                ['tx_semanticsuggestion', "pages_{$parentPageId}", "site_{$rootPageId}"],
                 86400
             );
     

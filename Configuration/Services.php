@@ -34,12 +34,16 @@ return function (ContainerConfigurator $configurator, ContainerBuilder $containe
     $services->set(TalanHdf\SemanticSuggestion\Service\LanguageService::class);
     $services->set(TalanHdf\SemanticSuggestion\Service\SiteLanguageService::class);
 
-    // Legacy DataHandler hook for TYPO3 12/13 (SC_OPTIONS)
+    // DataHandler hook (SC_OPTIONS), registered for TYPO3 12, 13 and 14 alike.
+    // The PSR-14 listener that used to sit next to it subscribed to event classes
+    // that do not exist in core and has been removed (see #24).
     $services->set(TalanHdf\SemanticSuggestion\Hooks\DataHandlerHook::class);
 
-    // TYPO3 14+ EventListener (replaces SC_OPTIONS hooks)
-    // Uses PHP 8 attributes for auto-registration via autoconfigure
-    $services->set(TalanHdf\SemanticSuggestion\EventListener\DataHandlerEventListener::class);
+    // Upgrade wizard. TYPO3 13+ discovers wizards through this DI tag only; the tag is
+    // spelled out rather than using the PHP attribute because the attribute moved from
+    // EXT:install to EXT:core in v14. TYPO3 12 registration lives in ext_localconf.php.
+    $services->set(TalanHdf\SemanticSuggestion\Upgrades\MigrateRootPageIdUpgradeWizard::class)
+        ->tag('install.upgradewizard', ['identifier' => 'semanticSuggestionMigrateRootPageId']);
 
     // Optional nlp_tools services (auto-instantiated if available)
     if (class_exists(\Cywolf\NlpTools\Service\LanguageDetectionService::class)) {

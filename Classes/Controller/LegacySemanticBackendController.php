@@ -8,7 +8,10 @@ use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Domain\Repository\PageRepository;
 use TYPO3\CMS\Core\Log\LogManager;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Site\SiteFinder;
 use TalanHdf\SemanticSuggestion\Service\PageAnalysisService;
 use TalanHdf\SemanticSuggestion\Service\LanguageService;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
@@ -122,6 +125,18 @@ class LegacySemanticBackendController extends ActionController
             // Si aucun rootPageId n'est fourni, prendre le premier disponible
             if ($rootPageId === null && !empty($availableAnalyses)) {
                 $rootPageId = (int)$availableAnalyses[0]['root_page_id'];
+            }
+
+            // rootPageId is user-supplied and must stay within what this user may see.
+            if ($rootPageId !== null && $rootPageId > 0) {
+                $permittedRootPageIds = array_map(
+                    static fn(array $analysis): int => (int)$analysis['root_page_id'],
+                    $availableAnalyses
+                );
+
+                if (!in_array($rootPageId, $permittedRootPageIds, true)) {
+                    $rootPageId = $permittedRootPageIds[0] ?? 0;
+                }
             }
 
             // Vérifier si un rootPageId valide a été trouvé
@@ -278,16 +293,31 @@ class LegacySemanticBackendController extends ActionController
     {
         $queryBuilder = GeneralUtility::makeInstance(ConnectionPool::class)
             ->getQueryBuilderForTable('tx_semanticsuggestion_similarities');
-        
-        $analyses = $queryBuilder
+
+        $queryBuilder
             ->select('root_page_id')
             ->addSelectLiteral('COUNT(DISTINCT page_id) as page_count')
             ->addSelectLiteral('COUNT(*) as pair_count')
             ->from('tx_semanticsuggestion_similarities')
             ->groupBy('root_page_id')
-            ->orderBy('root_page_id', 'ASC')
-            ->executeQuery()
-            ->fetchAllAssociative();
+            ->orderBy('root_page_id', 'ASC');
+
+        // Same webmount restriction as the v13 controller (see #22).
+        $allowedRootPageIds = $this->getAllowedRootPageIds();
+        if ($allowedRootPageIds !== null) {
+            if ($allowedRootPageIds === []) {
+                return [];
+            }
+
+            $queryBuilder->andWhere(
+                $queryBuilder->expr()->in(
+                    'root_page_id',
+                    $queryBuilder->createNamedParameter($allowedRootPageIds, Connection::PARAM_INT_ARRAY)
+                )
+            );
+        }
+
+        $analyses = $queryBuilder->executeQuery()->fetchAllAssociative();
 
         // Enrichir avec les informations des pages
         foreach ($analyses as &$analysis) {
@@ -296,6 +326,37 @@ class LegacySemanticBackendController extends ActionController
         }
 
         return $analyses;
+    }
+
+    /**
+     * Site root page UIDs the current backend user may look at.
+     *
+     * @return int[]|null null for admins, meaning "no restriction"
+     */
+    protected function getAllowedRootPageIds(): ?array
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        if (!$backendUser instanceof BackendUserAuthentication || $backendUser->isAdmin()) {
+            return null;
+        }
+
+        $siteFinder = GeneralUtility::makeInstance(SiteFinder::class);
+        $rootPageIds = [];
+
+        foreach ($backendUser->returnWebmounts() as $webmount) {
+            $webmount = (int)$webmount;
+            if ($webmount <= 0) {
+                continue;
+            }
+
+            try {
+                $rootPageIds[] = $siteFinder->getSiteByPageId($webmount)->getRootPageId();
+            } catch (\Exception $e) {
+                continue;
+            }
+        }
+
+        return array_values(array_unique($rootPageIds));
     }
 
     /**

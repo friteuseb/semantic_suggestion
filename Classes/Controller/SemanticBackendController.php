@@ -5,7 +5,10 @@ namespace TalanHdf\SemanticSuggestion\Controller;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Log\LogManager;
+use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Domain\Repository\PageRepository;
@@ -119,6 +122,24 @@ class SemanticBackendController extends ActionController
                 $rootPageId = (int)$availableAnalyses[0]['root_page_id'];
             }
 
+            // rootPageId comes from the query string and can be forged: it must be one
+            // of the analyses this user is actually allowed to see, otherwise the
+            // selector filtering above would be trivially bypassed.
+            if ($rootPageId !== null && $rootPageId > 0) {
+                $permittedRootPageIds = array_map(
+                    static fn(array $analysis): int => (int)$analysis['root_page_id'],
+                    $availableAnalyses
+                );
+
+                if (!in_array($rootPageId, $permittedRootPageIds, true)) {
+                    $this->logger->notice('Requested analysis is not available to this user, falling back', [
+                        'requestedRootPageId' => $rootPageId,
+                        'backendUser' => $GLOBALS['BE_USER']->user['uid'] ?? null,
+                    ]);
+                    $rootPageId = $permittedRootPageIds[0] ?? 0;
+                }
+            }
+
             // Vérifier si un rootPageId valide a été trouvé
             if ($rootPageId <= 0 || empty($availableAnalyses)) {
                 $this->addFlashMessage(
@@ -230,16 +251,33 @@ class SemanticBackendController extends ActionController
     protected function getAvailableAnalyses(): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_semanticsuggestion_similarities');
-        
-        $analyses = $queryBuilder
+
+        $queryBuilder
             ->select('root_page_id')
             ->addSelectLiteral('COUNT(DISTINCT page_id) as page_count')
             ->addSelectLiteral('COUNT(*) as pair_count')
             ->from('tx_semanticsuggestion_similarities')
             ->groupBy('root_page_id')
-            ->orderBy('root_page_id', 'ASC')
-            ->executeQuery()
-            ->fetchAllAssociative();
+            ->orderBy('root_page_id', 'ASC');
+
+        // Non-admins only see the sites they have a webmount on. Without this, an
+        // editor of one site can browse the page titles and scores of every other
+        // site of the instance (see #22).
+        $allowedRootPageIds = $this->getAllowedRootPageIds();
+        if ($allowedRootPageIds !== null) {
+            if ($allowedRootPageIds === []) {
+                return [];
+            }
+
+            $queryBuilder->andWhere(
+                $queryBuilder->expr()->in(
+                    'root_page_id',
+                    $queryBuilder->createNamedParameter($allowedRootPageIds, Connection::PARAM_INT_ARRAY)
+                )
+            );
+        }
+
+        $analyses = $queryBuilder->executeQuery()->fetchAllAssociative();
 
         // Enrichir avec les informations des pages
         foreach ($analyses as &$analysis) {
@@ -248,6 +286,39 @@ class SemanticBackendController extends ActionController
         }
 
         return $analyses;
+    }
+
+    /**
+     * Site root page UIDs the current backend user may look at.
+     *
+     * @return int[]|null null for admins, meaning "no restriction"
+     */
+    protected function getAllowedRootPageIds(): ?array
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        if (!$backendUser instanceof BackendUserAuthentication || $backendUser->isAdmin()) {
+            return null;
+        }
+
+        $siteFinder = GeneralUtility::makeInstance(SiteFinder::class);
+        $rootPageIds = [];
+
+        foreach ($backendUser->returnWebmounts() as $webmount) {
+            $webmount = (int)$webmount;
+            if ($webmount <= 0) {
+                continue;
+            }
+
+            try {
+                $rootPageIds[] = $siteFinder->getSiteByPageId($webmount)->getRootPageId();
+            } catch (\Exception $e) {
+                $this->logger->debug('Webmount outside any configured site, ignored', [
+                    'webmount' => $webmount,
+                ]);
+            }
+        }
+
+        return array_values(array_unique($rootPageIds));
     }
 
     /**

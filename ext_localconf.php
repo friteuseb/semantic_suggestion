@@ -36,13 +36,13 @@ use TYPO3\CMS\Core\Log\Writer\FileWriter;
         );
     }
 
-    // DataHandler cache clearing - TYPO3 14 uses PSR-14 events via Services.php
-    // Legacy SC_OPTIONS hooks kept for TYPO3 12/13 backward compatibility
-    if ($versionInformation->getMajorVersion() < 14) {
-        $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass'][] = \TalanHdf\SemanticSuggestion\Hooks\DataHandlerHook::class;
-        $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processCmdmapClass'][] = \TalanHdf\SemanticSuggestion\Hooks\DataHandlerHook::class;
-    }
-    // For TYPO3 14+, the EventListener is registered via PHP attributes in Classes/EventListener/DataHandlerEventListener.php
+    // DataHandler cache clearing.
+    // Registered unconditionally: DataHandler still consumes these hooks in TYPO3 14.3,
+    // and the AfterDatamapOperationEvent / AfterCommandmapOperationEvent classes the
+    // previous EventListener subscribed to never existed in any core version, which left
+    // cache clearing completely dead on v14 (see #24).
+    $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass'][] = \TalanHdf\SemanticSuggestion\Hooks\DataHandlerHook::class;
+    $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processCmdmapClass'][] = \TalanHdf\SemanticSuggestion\Hooks\DataHandlerHook::class;
 
     // TypoScript setup and constants import (unconditional)
     \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::addTypoScriptSetup('@import "EXT:semantic_suggestion/Configuration/TypoScript/setup.typoscript"');
@@ -54,6 +54,14 @@ use TYPO3\CMS\Core\Log\Writer\FileWriter;
             'frontend' => VariableFrontend::class, 'backend' => FileBackend::class,
             'options' => ['defaultLifetime' => 86400], 'groups' => ['pages']
         ];
+    }
+
+    // Upgrade wizard registration for TYPO3 12, which discovers wizards through
+    // SC_OPTIONS. TYPO3 13+ picks it up from the install.upgradewizard DI tag
+    // declared in Configuration/Services.php.
+    if ($isTypo3Version12OrLower) {
+        $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['ext/install']['update']['semanticSuggestionMigrateRootPageId']
+            = \TalanHdf\SemanticSuggestion\Upgrades\MigrateRootPageIdUpgradeWizard::class;
     }
 
     // Scheduler task registration for background similarity generation

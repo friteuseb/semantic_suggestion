@@ -10,9 +10,19 @@ plugin.tx_semanticsuggestion_suggestions {
         # cat=semantic_suggestion:Template Integration/150/001; type=boolean; label=Override Bootstrap Package Templates
         # Enable automatic integration with Bootstrap Package templates.
         # When enabled, semantic suggestions will automatically appear after the main content.
-        # Set to 0 if you use custom templates or a different template package.
-        # In that case, add manually: <f:cObject typoscriptObjectPath="lib.semantic_suggestion" />
-        overrideBootstrapTemplates = 1
+        #
+        # OPT-IN ONLY. This extension's TypoScript is loaded globally, so enabling this
+        # registers our page templates for EVERY site of the instance. Our templates are
+        # Bootstrap Package templates: they rely on lib.dynamicContent and theme.pagelayout,
+        # which do not exist outside Bootstrap Package. Enabling it instance-wide would blank
+        # out the content of any other site whose page template is also named Default.html.
+        #
+        # Enable it in the TypoScript constants of the Bootstrap Package site only:
+        #   plugin.tx_semanticsuggestion_suggestions.settings.overrideBootstrapTemplates = 1
+        #
+        # With any other template set, add this to your own Fluid page template instead:
+        #   <f:cObject typoscriptObjectPath="lib.semantic_suggestion" />
+        overrideBootstrapTemplates = 0
     }
 
     # Unified Quality Settings
