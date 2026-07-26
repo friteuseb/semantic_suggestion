@@ -33,7 +33,22 @@ Since version 2.0.0, similarity scores are **stored in a dedicated database tabl
 
 ---
 
-## 🆕 What's New in Version 3.0.0
+## 🆕 What's New in Version 4.0.0
+
+### 🏢 Multi-Site Correctness
+-   **Per-site suggestion scoping**: the frontend lookup filters on `root_page_id`, so suggestions can never cross a site boundary
+-   **Real site roots in the database**: `root_page_id` now holds the actual site root, while the scheduler task's starting page moved to the new `scope_page_id` column
+-   **Task isolation within a site**: two tasks covering different subtrees of one site no longer erase each other's results
+-   **Per-site cache invalidation**: editing content on one site no longer invalidates every other site's analysis
+-   **Permission-aware backend module**: non-admin users only see the analyses of sites they hold a webmount on
+-   **Opt-in template integration**: the Bootstrap Package page template override is disabled by default and must be enabled per site
+
+⚠️ **Upgrading from 3.x?** Run the `semanticSuggestionMigrateRootPageId` upgrade wizard — see [Upgrading to 4.0.0](#upgrading-to-400).
+
+### 🧰 TYPO3 14 Support
+-   **Cache clearing fixed on TYPO3 14**: the DataHandler hooks are registered on all supported versions
+
+## What's New in Version 3.0.0
 
 ### 🧠 Advanced NLP Integration
 -   **TF-IDF Vectorization**: Professional-grade similarity calculation replacing basic cosine similarity
@@ -75,11 +90,15 @@ Since version 2.0.0, similarity scores are **stored in a dedicated database tabl
 -   [Usage (Frontend)](#usage-frontend)
 -   [Bootstrap Package Integration](#bootstrap-package-integration)
 -   [Backend Module](#backend-module)
--   [Scheduler Task](#scheduler-task-1)
+    -   [Access Control](#access-control)
+-   [Scheduler Task](#scheduler-task)
+    -   [Database Columns](#database-columns)
+-   [Multi-Site Setup](#multi-site-setup)
 -   [Similarity Logic (TF-IDF Enhanced)](#similarity-logic-tf-idf-enhanced)
 -   [Multilingual Sites Setup](#multilingual-sites-setup)
 -   [Display Customization](#display-customization)
 -   [Debugging & Performance](#debugging--performance)
+-   [Upgrading to 4.0.0](#upgrading-to-400)
 -   [Migration from v2.x](#migration-from-v2x)
 -   [Contributing](#contributing)
 -   [License](#license)
@@ -127,10 +146,15 @@ Since version 2.0.0, similarity scores are **stored in a dedicated database tabl
     ```
 2.  Activate both extensions in the TYPO3 Extension Manager.
 3.  Clear TYPO3 cache: `./vendor/bin/typo3 cache:flush`
-4.  (Optional) Run unit tests to verify installation:
-    ```bash
-    ./vendor/bin/phpunit --configuration phpunit.xml.dist --testsuite unit
-    ```
+4.  Apply the database schema: `./vendor/bin/typo3 extension:setup --extension=semantic_suggestion`
+5.  **Upgrading from 3.x?** Run the migration wizard — see [Upgrading to 4.0.0](#upgrading-to-400).
+
+> **Running the tests**: the extension ships a `phpunit.xml.dist` but declares no `require-dev`
+> dependencies, so PHPUnit is not installed with it. Install it yourself first:
+> ```bash
+> composer require --dev phpunit/phpunit typo3/testing-framework
+> ./vendor/bin/phpunit --configuration phpunit.xml.dist --testsuite unit
+> ```
 
 </details>
 
@@ -280,7 +304,7 @@ if (in_array($language, ['de', 'fr', 'en', 'es'])) {
 
 #### 🇩🇪 German Sites (Maximum Performance)
 ```typoscript
-# Scheduler Configuration: minimumSimilarity = 0.15
+# Scheduler Configuration: qualityLevel = 0.15
 plugin.tx_semanticsuggestion_suggestions.settings {
     enableStemming = 1                # CRITICAL for compound words
     proximityThreshold = 0.25         # Lower threshold (compound matching)
@@ -298,7 +322,7 @@ plugin.tx_semanticsuggestion_suggestions.settings {
 
 #### 🇫🇷🇬🇧🇪🇸 French/English/Spanish Sites
 ```typoscript
-# Scheduler Configuration: minimumSimilarity = 0.2
+# Scheduler Configuration: qualityLevel = 0.2
 plugin.tx_semanticsuggestion_suggestions.settings {
     enableStemming = 1                # Advanced stemming available
     proximityThreshold = 0.3          # Standard TF-IDF threshold
@@ -316,7 +340,7 @@ plugin.tx_semanticsuggestion_suggestions.settings {
 
 #### 🇮🇹🇵🇹🇳🇱 Other Languages (Italian, Portuguese, Dutch, etc.)
 ```typoscript
-# Scheduler Configuration: minimumSimilarity = 0.25
+# Scheduler Configuration: qualityLevel = 0.25
 plugin.tx_semanticsuggestion_suggestions.settings {
     enableStemming = 0                # No advanced stemming, but TF-IDF still helps
     proximityThreshold = 0.35         # Higher threshold (less precise without stemming)
@@ -435,16 +459,22 @@ Understanding the configuration hierarchy is **critical** for proper setup. The 
 
 Create a **"Semantic Suggestion: Generate Similarities"** task in the TYPO3 Scheduler module with these settings:
 
-> **⚠️ WARNING**: Choose your `minimumSimilarity` carefully - it cannot be lowered retroactively without re-running the entire analysis!
+> **⚠️ WARNING**: Choose your `qualityLevel` carefully - it cannot be lowered retroactively without re-running the entire analysis!
 
-- **`startPageId`** (required): The UID of the root page from which the analysis will begin. This defines the scope of the analysis for this task run. Each task execution is linked to a Start Page ID (stored as `root_page_id` in the DB).
-  - Example: `1` (for site root page)
-  
+- **`startPageId`** (required): The UID of the page the analysis starts from. It defines the scope of this task run and may be a site root or any subtree below it.
+  - Example: `1` (whole site) or `42` (the "Blog" section only)
+  - Stored in the DB as **`scope_page_id`**. The site this page belongs to is resolved automatically and stored separately as **`root_page_id`** — see [Database Columns](#database-columns).
+
 - **`excludePages`** (optional): Comma-separated list of page UIDs that will **not be analyzed**, and their similarities will **not be stored**.
   - Example: `42,56,78`
-  
-- **`minimumSimilarity`** (required): Threshold (0.0 to 1.0) below which a pair of similar pages will **not be saved** to the database. This controls storage efficiency.
+
+- **`qualityLevel`** (required): Threshold (0.0 to 1.0) below which a pair of similar pages will **not be saved** to the database. This controls storage efficiency.
   - Example: `0.3` (saves only pairs with similarity ≥ 30%)
+  - Replaces the former `minimumSimilarity`, which is still read for backward compatibility and migrated automatically.
+
+- **`languageId`** (optional, default `-1`): Restricts the run to one language of the site.
+  - `-1` analyses **every language** configured on the site in a single run — this is usually what you want on a multilingual site.
+  - Set an explicit ID (`0`, `1`, …) only when you need different thresholds per language, and create one task per language.
 
 **Recommended scheduling:**
 - Frequency: Daily or weekly
@@ -454,7 +484,7 @@ Create a **"Semantic Suggestion: Generate Similarities"** task in the TYPO3 Sche
 
 > **🎨 DISPLAY FILTER**: These settings control the **frontend display** and the **analysis algorithm details**. They can only filter/limit what was already stored by the Scheduler.
 
-> **❌ CONSTRAINT**: `proximityThreshold` MUST be ≥ Scheduler `minimumSimilarity` (otherwise no suggestions will display)
+> **❌ CONSTRAINT**: the display threshold MUST be ≥ the Scheduler `qualityLevel` (otherwise no suggestions will display)
 
 Define them in your TypoScript Setup file under `plugin.tx_semanticsuggestion_suggestions.settings`.
 
@@ -463,7 +493,7 @@ Define them in your TypoScript Setup file under `plugin.tx_semanticsuggestion_su
 ```typoscript
 plugin.tx_semanticsuggestion_suggestions.settings {
     # --- Frontend Display Settings ---
-    # ⚠️ IMPORTANT: Must be ≥ Scheduler minimumSimilarity
+    # ⚠️ IMPORTANT: Must be ≥ Scheduler qualityLevel
     proximityThreshold = 0.25    # TF-IDF optimized threshold (was 0.5 in v2.x)
     maxSuggestions = 3           # Maximum number of suggestions to display
     excerptLength = 100          # Max length of the text excerpt
@@ -603,21 +633,21 @@ plugin.tx_semanticsuggestion_suggestions.settings {
 }
 
 # IMPORTANT: Create separate Scheduler tasks:
-# Task 1: English content (startPageId = 1, minimumSimilarity = 0.3)
-# Task 2: German content (startPageId = 10, minimumSimilarity = 0.25)
+# Task 1: English content (startPageId = 1, languageId = 0, qualityLevel = 0.3)
+# Task 2: German content  (startPageId = 1, languageId = 1, qualityLevel = 0.25)
 ```
 
 ### Configuration Interaction
 
   - **Analysis Scope**: Defined by the Scheduler task's `startPageId`.
-  - **DB Storage**: Controlled by the Scheduler task's `minimumSimilarity` and `excludePages`.
+  - **DB Storage**: Controlled by the Scheduler task's `qualityLevel` and `excludePages`.
   - **Similarity Calculation**: Performed by the `PageAnalysisService` (called by the Scheduler task), which uses the TypoScript settings `analyzedFields` and `recencyWeight`.
   - **Frontend Display**: Reads from the DB and filters/limits based on the TypoScript settings `proximityThreshold`, `maxSuggestions`, `excludePages`.
   - **Backend Display**: Reads from the DB (based on the selected `root_page_id`) and filters based on the TypoScript `proximityThreshold`.
 
 **Key Points:**
 
-  - The `proximityThreshold` (TypoScript) cannot display suggestions with a score lower than the `minimumSimilarity` (Scheduler) because they were not saved. For the TypoScript setting to be effective, it must be ≥ the Scheduler threshold.
+  - The display threshold (TypoScript) cannot display suggestions with a score lower than the `qualityLevel` (Scheduler) because they were not saved. For the TypoScript setting to be effective, it must be ≥ the Scheduler threshold.
   - A page excluded in the Scheduler will never be analyzed/stored. A page excluded *only* in TypoScript will be analyzed/stored (if not excluded in Scheduler) but not displayed. It's often simpler to keep the `excludePages` lists synchronized.
   - You can create **multiple Scheduler tasks** with different `startPageId` values to analyze different sections of the site.
 
@@ -883,11 +913,27 @@ The plugin will read relevant suggestions for the current page from the database
 
 ## Bootstrap Package Integration
 
-The extension provides **optional automatic integration** with Bootstrap Package templates. When enabled, semantic suggestions will appear automatically after the main content on all pages.
+The extension provides **optional automatic integration** with Bootstrap Package templates. When enabled, semantic suggestions will appear automatically after the main content on all pages of that site.
+
+**It is disabled by default** (`overrideBootstrapTemplates = 0`).
+
+> ### ⚠️ On a multi-site instance, enable this in the site's own constants — never globally
+>
+> This extension's TypoScript is loaded instance-wide by `ext_localconf.php`. Enabling this
+> setting registers our page templates in `page.10.templateRootPaths.100` for **every site that
+> inherits the constant**.
+>
+> The shipped templates are Bootstrap Package templates: they call `lib.dynamicContent` and read
+> `theme.pagelayout`, neither of which exists outside Bootstrap Package. On a site that does not
+> use Bootstrap Package but whose page template happens to be named `Default.html` — a very common
+> name — our template wins and **the page body renders empty**.
+>
+> Set the constant in the **root TypoScript template of the Bootstrap Package site only**. Any other
+> site should use [Manual Integration](#manual-integration-non-bootstrap-package-users) instead.
 
 ### Quick Setup (Bootstrap Package Users)
 
-**Step 1**: Enable the integration in your TypoScript Constants:
+**Step 1**: Enable the integration in the TypoScript Constants **of that site's root template**:
 
 ```typoscript
 plugin.tx_semanticsuggestion_suggestions.settings {
@@ -1021,18 +1067,85 @@ A backend module ("Semantic Suggestion" under "Web") allows visualizing the resu
 
 ### Features
 
-  - **Analysis Selection**: Choose which analysis to view (based on the `startPageId` / `root_page_id` of executed Scheduler tasks).
+  - **Analysis Selection**: Choose which site's analysis to view. Entries are grouped by `root_page_id`, so all the scheduler tasks of one site appear as a single analysis regardless of the subtree each one started from.
   - **Detailed Statistics**: Most similar pairs, score distribution, pages with the most links, language statistics.
   - **Configuration Overview**: Reminder of the main parameters used (display threshold, etc.).
   - **Performance Metrics**: Module load time, number of stored pairs for the selected analysis.
+
+### Access Control
+
+  - **Administrators** see every analysis stored in the instance.
+  - **Non-admin users** only see the analyses of sites they hold a **webmount** on. A webmount pointing at a subpage resolves to that page's site, so an editor mounted on a section still sees their whole site's analysis — and nothing from other sites.
+  - The `rootPageId` URL argument is validated against that same list, so it cannot be used to reach another site's data.
 
 ## Scheduler Task
 
 The **"Semantic Suggestion: Generate Similarities"** task is essential for the extension's operation.
 
-  - **Role**: Calculates similarities between pages (using `PageAnalysisService`) and saves relevant results (above the `minimumSimilarity` threshold) to the `tx_semanticsuggestion_similarities` table.
-  - **Configuration**: Set the `startPageId`, `excludePages`, and `minimumSimilarity` via the Scheduler interface.
+  - **Role**: Calculates similarities between pages (using `PageAnalysisService`) and saves relevant results (above the `qualityLevel` threshold) to the `tx_semanticsuggestion_similarities` table.
+  - **Configuration**: Set the `startPageId`, `excludePages`, `qualityLevel` and `languageId` via the Scheduler interface — see [Scheduler Task Configuration](#scheduler-task-configuration).
   - **Frequency**: Schedule its execution regularly (e.g., daily, weekly) during off-peak hours to keep suggestions up-to-date without impacting site performance.
+  - **Idempotency**: Each run deletes and rewrites only its own rows, identified by the triplet `root_page_id` + `scope_page_id` + `sys_language_uid`. Running a task never disturbs another task's results, even within the same site.
+
+### Database Columns
+
+The `tx_semanticsuggestion_similarities` table stores two distinct page references. Confusing them is the most common source of "my suggestions disappeared" reports:
+
+| Column | Meaning |
+|---|---|
+| `page_id` | The page the suggestions belong to |
+| `similar_page_id` | A page suggested for it |
+| `similarity_score` | Similarity between the two, 0.0 to 1.0 |
+| `root_page_id` | **The site**, i.e. the UID of the site root page (`Site::getRootPageId()`). Resolved automatically; you never set it. The frontend filters on it so suggestions cannot cross site boundaries. |
+| `scope_page_id` | **The task**, i.e. the `startPageId` that produced the row. Several values can share one `root_page_id` when different tasks cover different subtrees of a site. |
+| `sys_language_uid` | Language the pair was computed in |
+
+> **Before 4.0.0**, `root_page_id` held the task's `startPageId` and `scope_page_id` did not exist. A task started on a subtree therefore produced rows that looked like a separate site. See [Upgrading to 4.0.0](#upgrading-to-400).
+
+## Multi-Site Setup
+
+The extension supports several sites in one TYPO3 instance. Three things are scoped per site, and one is not.
+
+### One scheduler task per site
+
+Create one **"Semantic Suggestion: Generate Similarities"** task per site, with `startPageId` set to that site's root page:
+
+```
+Task "Similarities - Main site"    → startPageId: 1   (site A root)
+Task "Similarities - Campaign site" → startPageId: 85  (site B root)
+```
+
+Leave `languageId` at `-1` so each task covers all the languages of its own site in one run. The task resolves the site from `startPageId` and only ever walks that site's page tree, so tasks cannot contaminate each other.
+
+You may also add extra tasks on subtrees of a site — for instance a daily task on a fast-moving news section and a weekly one on the rest. They coexist: each rewrites only its own `scope_page_id`.
+
+### Frontend display is scoped automatically
+
+Suggestions are filtered on the current page's site. No configuration is needed and there is no way for a page of one site to be suggested on another.
+
+### Template integration is per site
+
+The Bootstrap Package override is **opt-in and must be enabled in the individual site's constants** — see the warning in [Bootstrap Package Integration](#bootstrap-package-integration). Sites with their own templates use `<f:cObject typoscriptObjectPath="lib.semantic_suggestion" />` instead.
+
+Plugin templates can be overridden per site the usual TypoScript way. Use index `10` or above; `0` and `1` are taken by the extension:
+
+```typoscript
+plugin.tx_semanticsuggestion_suggestions.view {
+    templateRootPaths.10 = fileadmin/my_site/Templates/
+    partialRootPaths.10  = fileadmin/my_site/Partials/
+    layoutRootPaths.10   = fileadmin/my_site/Layouts/
+}
+```
+
+This applies to both integration paths — `lib.semantic_suggestion` and the content element — because `lib.semantic_suggestion` references the plugin's `view` configuration rather than copying it.
+
+### Backend module is permission-scoped
+
+Non-admin editors only see the analyses of sites they have a webmount on — see [Access Control](#access-control).
+
+### What is *not* per site
+
+The extension's TypoScript is loaded instance-wide by `ext_localconf.php`, so **every constant and setup path is shared by default** and only becomes site-specific when you override it in a site's root template. This is why the Bootstrap Package override needs the warning above.
 
 ## Similarity Logic (TF-IDF Enhanced)
 
@@ -1114,23 +1227,39 @@ languages:
     iso-639-1: 'fr'
 ```
 
-### 🎯 Per-Language Scheduler Tasks
+### 🎯 Scheduler Tasks on a Multilingual Site
 
-For optimal performance, create separate Scheduler tasks for each language:
+**One task is enough.** A multilingual TYPO3 site has a *single* root page and several
+`languages` entries in its site configuration. The task resolves the site from `startPageId`
+and, with the default `languageId = -1`, iterates every configured language in one run:
 
 ```
-Task 1: "Generate Similarities - English"
-- startPageId: 1 (English root)
-- minimumSimilarity: 0.3
-
-Task 2: "Generate Similarities - German" 
-- startPageId: 2 (German root)
-- minimumSimilarity: 0.25  # Lower for German (compound words)
-
-Task 3: "Generate Similarities - French"
-- startPageId: 3 (French root) 
-- minimumSimilarity: 0.3
+Task: "Generate Similarities - Main site"
+- startPageId:  1     # the site root — one per SITE, not per language
+- languageId:   -1    # default: all languages of this site
+- qualityLevel: 0.3
 ```
+
+Do **not** create one task per language pointing at different page UIDs — that pattern belongs
+to multi-site setups, where each site has its own root page (see [Multi-Site Setup](#multi-site-setup)).
+
+**Split by language only when you need different thresholds per language**, typically for German
+compound words. Each task then targets the same root page with an explicit `languageId`:
+
+```
+Task 1: "Similarities - English"
+- startPageId:  1
+- languageId:   0
+- qualityLevel: 0.3
+
+Task 2: "Similarities - German"
+- startPageId:  1     # same root page
+- languageId:   1
+- qualityLevel: 0.25  # lower for German (compound words)
+```
+
+Rows are keyed by `sys_language_uid` in addition to the site and scope, so these two tasks
+rewrite only their own language and never collide.
 
 ### 🔧 Language-Specific Tuning
 
@@ -1222,7 +1351,7 @@ plugin.tx_semanticsuggestion_suggestions.settings {
 
 #### Recommended Settings for Large Sites (>500 pages)
 ```typoscript
-# Scheduler Configuration: minimumSimilarity = 0.3 (storage optimization)
+# Scheduler Configuration: qualityLevel = 0.3 (storage optimization)
 plugin.tx_semanticsuggestion_suggestions.settings {
     # Performance optimizations
     minTextLength = 100               # Skip short content (faster processing)
@@ -1278,7 +1407,7 @@ tail -f var/log/typo3_*.log | grep -i semantic
 
 **Expected Output:**
 ```
-[INFO] Starting similarity generation task, startPageId: 1, minimumSimilarity: 0.3
+[INFO] Starting similarity generation task, startPageId: 1, qualityLevel: 0.3, storageThreshold: 0.3, languageId: -1
 [INFO] Similarity generation task completed successfully
 ```
 
@@ -1471,8 +1600,8 @@ SELECT exclude_pages FROM tx_scheduler_task WHERE classname LIKE '%Similarities%
 
 3. **Increase Threshold**
    ```
-   ❌ Current: minimumSimilarity = 0.05 (stores everything)
-   ✅ Optimized: minimumSimilarity = 0.25 (quality only)
+❌ Current: qualityLevel = 0.05 (stores everything)
+✅ Optimized: qualityLevel = 0.25 (quality only)
    ```
 
 #### **Problem 5: "Mixed language suggestions"**
@@ -1534,7 +1663,7 @@ Before going live, verify:
 
 - [ ] **Scheduler Tasks**: All tasks run successfully without timeouts
 - [ ] **Database Check**: `tx_semanticsuggestion_similarities` contains expected data
-- [ ] **Threshold Validation**: `proximityThreshold` ≥ `minimumSimilarity`
+- [ ] **Threshold Validation**: display threshold ≥ Scheduler `qualityLevel`
 - [ ] **Language Testing**: Each language shows appropriate suggestions
 - [ ] **Performance Test**: Frontend loads suggestions in <200ms
 - [ ] **Content Quality**: Manual review of suggestion relevance
@@ -1546,13 +1675,13 @@ Use this comprehensive checklist to ensure your configuration is optimal:
 
 ### ✅ **Scheduler Configuration Validation**
 - [ ] **startPageId exists** and is accessible: `SELECT title FROM pages WHERE uid = [startPageId];`
-- [ ] **minimumSimilarity appropriate for TF-IDF**: Between 0.1 and 0.4 (not v2.x values like 0.8)
+- [ ] **qualityLevel appropriate for TF-IDF**: Between 0.1 and 0.4 (not v2.x values like 0.8)
 - [ ] **excludePages list verified**: All UIDs exist and are intentionally excluded
 - [ ] **Task execution successful**: Check task history and logs for errors
 - [ ] **Multilingual separation**: Each language has its own task (recommended)
 
 ### ✅ **TypoScript Configuration Validation**
-- [ ] **Threshold hierarchy respected**: `proximityThreshold ≥ minimumSimilarity`
+- [ ] **Threshold hierarchy respected**: display threshold ≥ `qualityLevel`
 - [ ] **TF-IDF thresholds updated**: Not using v2.x legacy values (>0.5)
 - [ ] **Language settings match site**: `languageMapping` corresponds to TYPO3 language UIDs
 - [ ] **Field weights optimized**: Higher weights for title/keywords, lower for content
@@ -1574,6 +1703,18 @@ GROUP BY sys_language_uid;
 SELECT DISTINCT root_page_id, sys_language_uid, COUNT(*) as pairs
 FROM tx_semanticsuggestion_similarities
 GROUP BY root_page_id, sys_language_uid;
+
+-- One row per site and per task scope.
+-- root_page_id  = the site; scope_page_id = the task's startPageId within it.
+-- Several scope_page_id values under one root_page_id is normal: it means several
+-- scheduler tasks cover different subtrees of the same site.
+SELECT root_page_id, scope_page_id, sys_language_uid, COUNT(*) as pairs
+FROM tx_semanticsuggestion_similarities
+GROUP BY root_page_id, scope_page_id, sys_language_uid
+ORDER BY root_page_id, scope_page_id;
+
+-- Rows still waiting for the 4.0.0 migration (should be 0 after running the wizard)
+SELECT COUNT(*) FROM tx_semanticsuggestion_similarities WHERE scope_page_id = 0;
 ```
 
 ### ✅ **Frontend Integration Validation**
@@ -1623,6 +1764,51 @@ Rate your setup (aim for 80%+ before going live):
 
 > **Target**: 80+ for production deployment
 > **Minimum**: 60+ for staging/testing
+
+## Upgrading to 4.0.0
+
+Version 4.0.0 changes what the `root_page_id` column means and adds `scope_page_id`
+(see [Database Columns](#database-columns)). Existing rows must be migrated.
+
+**1. Update the database schema**
+
+```bash
+./vendor/bin/typo3 extension:setup --extension=semantic_suggestion
+```
+
+**2. Run the migration wizard**
+
+```bash
+./vendor/bin/typo3 upgrade:run semanticSuggestionMigrateRootPageId
+```
+
+Or in the backend: **Admin Tools → Upgrade → Upgrade Wizard**, then run
+*"Semantic Suggestion: split root_page_id into site root and analysis scope"*.
+
+The wizard moves the old value into `scope_page_id` and fills `root_page_id` with the real site
+root of that page. It is idempotent and does not delete anything.
+
+**3. Verify**
+
+```sql
+-- Must return 0
+SELECT COUNT(*) FROM tx_semanticsuggestion_similarities WHERE scope_page_id = 0;
+```
+
+Rows whose starting page no longer belongs to any configured site cannot be resolved and are left
+untouched — the query above will report them. Re-run the corresponding scheduler task to
+regenerate them, or delete them if the task is gone.
+
+**4. Review your template integration**
+
+`overrideBootstrapTemplates` now defaults to `0`. If you relied on the automatic Bootstrap Package
+integration, enable it explicitly **in the constants of the site that uses Bootstrap Package** —
+and read the warning in [Bootstrap Package Integration](#bootstrap-package-integration) first if
+your instance hosts more than one site.
+
+> **Skipping the wizard?** Suggestions will disappear for any analysis whose task started on a
+> subtree rather than a site root: the frontend now filters on `root_page_id`, and un-migrated rows
+> still carry the `startPageId` there, which does not match the page's real site.
 
 ## Migration from v2.x
 
