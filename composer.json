@@ -1,6 +1,6 @@
 {
     "name": "talan-hdf/semantic-suggestion",
-    "version": "4.0.0",
+    "version": "4.1.0",
     "type": "typo3-cms-extension",
     "description": "TYPO3 extension for suggesting semantically related pages using advanced NLP and TF-IDF analysis",
     "license": "GPL-2.0-or-later",

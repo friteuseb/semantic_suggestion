@@ -33,7 +33,7 @@ Since version 2.0.0, similarity scores are **stored in a dedicated database tabl
 
 ---
 
-## 🆕 What's New in Version 4.0.0
+## 🆕 What's New in Version 4.1.0
 
 ### 🏢 Multi-Site Correctness
 -   **Per-site suggestion scoping**: the frontend lookup filters on `root_page_id`, so suggestions can never cross a site boundary
@@ -43,7 +43,7 @@ Since version 2.0.0, similarity scores are **stored in a dedicated database tabl
 -   **Permission-aware backend module**: non-admin users only see the analyses of sites they hold a webmount on
 -   **Opt-in template integration**: the Bootstrap Package page template override is disabled by default and must be enabled per site
 
-⚠️ **Upgrading from 3.x?** Run the `semanticSuggestionMigrateRootPageId` upgrade wizard — see [Upgrading to 4.0.0](#upgrading-to-400).
+⚠️ **Upgrading from 3.x or 4.0.0?** Run the `semanticSuggestionMigrateRootPageId` upgrade wizard — see [Upgrading to 4.1.0](#upgrading-to-410).
 
 ### 🧰 TYPO3 14 Support
 -   **Cache clearing fixed on TYPO3 14**: the DataHandler hooks are registered on all supported versions
@@ -98,7 +98,7 @@ Since version 2.0.0, similarity scores are **stored in a dedicated database tabl
 -   [Multilingual Sites Setup](#multilingual-sites-setup)
 -   [Display Customization](#display-customization)
 -   [Debugging & Performance](#debugging--performance)
--   [Upgrading to 4.0.0](#upgrading-to-400)
+-   [Upgrading to 4.1.0](#upgrading-to-410)
 -   [Migration from v2.x](#migration-from-v2x)
 -   [Contributing](#contributing)
 -   [License](#license)
@@ -147,7 +147,7 @@ Since version 2.0.0, similarity scores are **stored in a dedicated database tabl
 2.  Activate both extensions in the TYPO3 Extension Manager.
 3.  Clear TYPO3 cache: `./vendor/bin/typo3 cache:flush`
 4.  Apply the database schema: `./vendor/bin/typo3 extension:setup --extension=semantic_suggestion`
-5.  **Upgrading from 3.x?** Run the migration wizard — see [Upgrading to 4.0.0](#upgrading-to-400).
+5.  **Upgrading from 3.x or 4.0.0?** Run the migration wizard — see [Upgrading to 4.1.0](#upgrading-to-410).
 
 > **Running the tests**: the extension ships a `phpunit.xml.dist` but declares no `require-dev`
 > dependencies, so PHPUnit is not installed with it. Install it yourself first:
@@ -1102,7 +1102,7 @@ The `tx_semanticsuggestion_similarities` table stores two distinct page referenc
 | `scope_page_id` | **The task**, i.e. the `startPageId` that produced the row. Several values can share one `root_page_id` when different tasks cover different subtrees of a site. |
 | `sys_language_uid` | Language the pair was computed in |
 
-> **Before 4.0.0**, `root_page_id` held the task's `startPageId` and `scope_page_id` did not exist. A task started on a subtree therefore produced rows that looked like a separate site. See [Upgrading to 4.0.0](#upgrading-to-400).
+> **Before 4.1.0**, `root_page_id` held the task's `startPageId` and `scope_page_id` did not exist. A task started on a subtree therefore produced rows that looked like a separate site. See [Upgrading to 4.1.0](#upgrading-to-410).
 
 ## Multi-Site Setup
 
@@ -1767,9 +1767,9 @@ Rate your setup (aim for 80%+ before going live):
 > **Target**: 80+ for production deployment
 > **Minimum**: 60+ for staging/testing
 
-## Upgrading to 4.0.0
+## Upgrading to 4.1.0
 
-Version 4.0.0 changes what the `root_page_id` column means and adds `scope_page_id`
+Version 4.1.0 changes what the `root_page_id` column means and adds `scope_page_id`
 (see [Database Columns](#database-columns)). Existing rows must be migrated.
 
 **1. Update the database schema**
