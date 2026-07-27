@@ -22,7 +22,12 @@ $moduleConfig = [
     'web_SemanticSuggestion' => [
         'parent' => 'web',
         'position' => ['after' => 'web_info'], // Ou une autre position si vous préférez
-        'access' => 'user,group',
+        // Must be a single identifier. TYPO3 14 resolves this through a gate registry and
+        // denies everyone, admins included, when the value matches no registered gate --
+        // which is what the former 'user,group' did. On 12 and 13 any value other than
+        // 'admin' or 'systemMaintainer' takes the same generic path, so 'user' is
+        // equivalent there.
+        'access' => 'user',
         'workspaces' => 'live',
         'path' => '/module/web/SemanticSuggestion', // Chemin utilisé principalement par v13+ pour le routing
         'labels' => 'LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_mod.xlf',
