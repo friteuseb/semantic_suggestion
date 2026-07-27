@@ -9,7 +9,7 @@ Backend module
 :guilabel:`Web > Semantic Suggestion` shows what the scheduler task stored. It never
 computes anything itself, so opening it is safe on a production site.
 
-..  figure:: /Medias/backend_module.png
+..  figure:: ../Medias/backend_module.png
     :alt: The Semantic Suggestion backend module
 
     Analysis selector, configuration reminder and statistics.
@@ -47,7 +47,7 @@ What it shows
 Each section can be switched off in TypoScript — see
 :ref:`configuration-typoscript`.
 
-..  figure:: /Medias/backend_module_performance_metrics.png
+..  figure:: ../Medias/backend_module_performance_metrics.png
     :alt: Performance metrics section
 
 ..  _backend-module-access:

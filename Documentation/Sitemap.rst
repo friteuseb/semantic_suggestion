@@ -6,10 +6,7 @@
 Sitemap
 =======
 
-..  contents::
-    :local:
-
-..  toctree::
+..  menu::
     :glob:
 
     */Index

@@ -25,7 +25,7 @@ themselves. No category has to be maintained and no link has to be created by ha
 Because the frontend only reads pre-computed rows, displaying suggestions costs a
 single indexed query — all the work happens in the scheduler task.
 
-..  figure:: /Medias/frontend_plugin.png
+..  figure:: ../Medias/frontend_plugin.png
     :alt: The suggestion list rendered in the frontend
 
     The plugin output with the shipped template.
