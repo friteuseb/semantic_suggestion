@@ -32,20 +32,46 @@ class GenerateSimilaritiesTask extends AbstractTask
     public $excludePages = '';
     
     /**
-     * Quality level for suggestions (0.0-1.0)
-     * This replaces the old minimumSimilarity/proximityThreshold split
-     * Storage threshold = qualityLevel - 0.1 (permissive storage)
-     * Display threshold = qualityLevel (quality display)
-     * @var float
+     * Default quality level, also used to detect a task saved before this
+     * property existed (see resolveQualityLevel()).
      */
-    public $qualityLevel = 0.3;
+    public const DEFAULT_QUALITY_LEVEL = 0.3;
 
     /**
-     * Legacy support: Minimum similarity threshold to save in database
-     * @deprecated Will be removed in v4.0 - use qualityLevel instead
+     * Default of the legacy minimumSimilarity property, same purpose.
+     */
+    public const LEGACY_DEFAULT_MINIMUM_SIMILARITY = 0.1;
+
+    /**
+     * Never store below this, whatever the configured quality level.
+     */
+    public const MINIMUM_STORAGE_THRESHOLD = 0.05;
+
+    /**
+     * Quality level for suggestions (0.0-1.0). Single knob of the task.
+     *
+     * The storage threshold is exactly this value (floored at
+     * MINIMUM_STORAGE_THRESHOLD): a pair scoring below it is not written to the
+     * database. There is no offset — what you set here is what gets stored.
+     *
+     * The display threshold is configured separately in TypoScript and filters
+     * what is shown among the stored pairs; it should be >= this value, since
+     * anything below was never stored.
+     *
      * @var float
      */
-    public $minimumSimilarity = 0.1;
+    public $qualityLevel = self::DEFAULT_QUALITY_LEVEL;
+
+    /**
+     * Derived storage threshold, kept in sync with $qualityLevel.
+     *
+     * @deprecated since 4.1, use $qualityLevel. Still declared because the
+     *             scheduler stores tasks serialized: removing the property
+     *             would turn it into a dynamic one when an existing task is
+     *             unserialized. Treat it as read-only output, not as input.
+     * @var float
+     */
+    public $minimumSimilarity = self::LEGACY_DEFAULT_MINIMUM_SIMILARITY;
     
     /**
      * Determines if exclusion is recursive or not
@@ -76,22 +102,46 @@ class GenerateSimilaritiesTask extends AbstractTask
     }
 
     /**
-     * Initialize quality level from legacy parameters if needed
+     * Resolve the effective quality level, honouring the legacy property, and
+     * keep the derived storage threshold in sync.
+     *
+     * Called both from the constructor (for a freshly created task) and from
+     * execute() (for a stored one). The second call is the one that matters:
+     * the scheduler persists tasks with serialize() and restores them with
+     * unserialize(), which never invokes __construct(). Deriving the threshold
+     * only in the constructor left stored tasks running on whatever value had
+     * been serialized.
      */
     public function initializeQualityLevel(): void
     {
-        // If qualityLevel is at default but minimumSimilarity was customized
-        if ($this->qualityLevel === 0.3 && $this->minimumSimilarity !== 0.1) {
-            // Migrate from legacy minimumSimilarity (now direct mapping)
-            $this->qualityLevel = max(0.1, $this->minimumSimilarity);
-            $this->logger->info('Migrated from legacy minimumSimilarity', [
+        // A task saved before qualityLevel existed carries the default here and
+        // a customised value in the legacy property. The third condition keeps
+        // this from firing once the two are already in sync, which is the normal
+        // state after a previous call and would otherwise log a bogus migration
+        // on every run.
+        if ($this->qualityLevel === self::DEFAULT_QUALITY_LEVEL
+            && $this->minimumSimilarity !== self::LEGACY_DEFAULT_MINIMUM_SIMILARITY
+            && $this->minimumSimilarity !== $this->getStorageThreshold()
+        ) {
+            $this->qualityLevel = max(self::LEGACY_DEFAULT_MINIMUM_SIMILARITY, $this->minimumSimilarity);
+            $this->logger?->info('Migrated from legacy minimumSimilarity', [
                 'legacy' => $this->minimumSimilarity,
                 'qualityLevel' => $this->qualityLevel
             ]);
         }
 
-        // Storage threshold equals quality level (no -0.1 offset)
-        $this->minimumSimilarity = max(0.05, $this->qualityLevel);
+        $this->minimumSimilarity = $this->getStorageThreshold();
+    }
+
+    /**
+     * The score below which a pair is not written to the database.
+     *
+     * Single source of truth for the storage threshold. Equal to the quality
+     * level, floored — no offset is applied anywhere.
+     */
+    public function getStorageThreshold(): float
+    {
+        return max(self::MINIMUM_STORAGE_THRESHOLD, $this->qualityLevel);
     }
 
     /**
@@ -113,10 +163,16 @@ class GenerateSimilaritiesTask extends AbstractTask
     {
         try {
             $this->initializeDependencies();
+
+            // Must run here, not only in the constructor: a stored task is
+            // restored with unserialize(), which does not construct the object.
+            $this->initializeQualityLevel();
+            $storageThreshold = $this->getStorageThreshold();
+
             $this->logger->info('Starting similarity generation task', [
                 'startPageId' => $this->startPageId,
                 'qualityLevel' => $this->qualityLevel,
-                'storageThreshold' => $this->minimumSimilarity,
+                'storageThreshold' => $storageThreshold,
                 'recursiveExclusion' => $this->recursiveExclusion,
                 'languageId' => $this->languageId
             ]);
@@ -175,7 +231,7 @@ class GenerateSimilaritiesTask extends AbstractTask
                 $analysisData = $this->pageAnalysisService->analyzePages($pages, $languageId);
 
                 // Save results
-                $this->saveResults($analysisData, $rootPageId, $this->startPageId, $languageId, $this->minimumSimilarity);
+                $this->saveResults($analysisData, $rootPageId, $this->startPageId, $languageId, $storageThreshold);
             }
 
             $this->logger->info('Similarity generation task completed successfully');
@@ -406,9 +462,9 @@ class GenerateSimilaritiesTask extends AbstractTask
         $qualityLabel = LocalizationUtility::translate('LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:scheduler.info.quality_level', 'semantic_suggestion') ?? 'Quality Level';
         $info[] = '🎯 ' . $qualityLabel . ': ' . number_format($this->qualityLevel, 2);
 
-        // Storage threshold (computed)
+        // Storage threshold (derived, never read from the serialized property)
         $storageLabel = LocalizationUtility::translate('LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:scheduler.info.storage_threshold', 'semantic_suggestion') ?? 'Storage Threshold';
-        $info[] = '💾 ' . $storageLabel . ': ' . number_format($this->minimumSimilarity, 2);
+        $info[] = '💾 ' . $storageLabel . ': ' . number_format($this->getStorageThreshold(), 2);
 
         // Add language limitation
         $languageLabel = LocalizationUtility::translate('LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:scheduler.info.language', 'semantic_suggestion') ?? 'Language';

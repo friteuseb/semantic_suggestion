@@ -31,6 +31,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bypasses that filter.
 
 ### Changed
+- **The storage threshold is now exactly `qualityLevel`**, floored at `0.05`, with no offset.
+  Four places disagreed on how to derive it: the task constructor applied no offset, the scheduler
+  field provider and a dead `SuggestionService::getStorageThreshold()` applied `-0.1`, and the
+  `$qualityLevel` docblock documented `-0.1`. The value that actually took effect was the field
+  provider's, so a task set to `0.3` stored from `0.2`. All of them now use the single
+  `GenerateSimilaritiesTask::getStorageThreshold()`. Tasks store slightly fewer pairs than before;
+  those pairs sat below the display threshold and were not shown.
+- **The threshold is derived at execution time, not in the constructor.** The scheduler restores
+  tasks with `unserialize()`, which never calls `__construct()`, so a stored task ran on whatever
+  threshold had been serialized — and the legacy `minimumSimilarity` migration never fired for the
+  upgraded tasks it existed for. Both now run at the start of `execute()`.
+- **`minimumSimilarity` is a derived, read-only mirror** of the storage threshold. It remains
+  declared so existing serialized tasks unserialize cleanly, but setting it has no effect and the
+  scheduler no longer accepts it as input.
 - **Cache invalidation is scoped per site** (#21): a DataHandler operation now flushes only the
   sites it touched, instead of every analysis of the instance on any record change. Changes to
   tables other than `pages` and `tt_content` no longer trigger a flush at all.

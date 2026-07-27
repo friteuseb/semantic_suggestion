@@ -470,7 +470,8 @@ Create a **"Semantic Suggestion: Generate Similarities"** task in the TYPO3 Sche
 
 - **`qualityLevel`** (required): Threshold (0.0 to 1.0) below which a pair of similar pages will **not be saved** to the database. This controls storage efficiency.
   - Example: `0.3` (saves only pairs with similarity ≥ 30%)
-  - Replaces the former `minimumSimilarity`, which is still read for backward compatibility and migrated automatically.
+  - **The storage threshold is exactly this value**, floored at `0.05`. No offset is applied.
+  - Replaces the former `minimumSimilarity`. A task saved before `qualityLevel` existed is migrated on its next run: the old value becomes the quality level. The `minimumSimilarity` property still exists but is now a derived, read-only mirror of the storage threshold — setting it has no effect.
 
 - **`languageId`** (optional, default `-1`): Restricts the run to one language of the site.
   - `-1` analyses **every language** configured on the site in a single run — this is usually what you want on a multilingual site.
@@ -659,12 +660,13 @@ plugin.tx_semanticsuggestion_suggestions.settings {
 
 Create a **"Semantic Suggestion: Generate Similarities"** task with these settings:
 
-- **`startPageId`** (required): Root page UID for analysis scope
+- **`startPageId`** (required): Page UID the analysis starts from
 - **`qualityLevel`** (required): Quality threshold (0.1-1.0) for suggestions
-  - **Storage**: Automatically set to `qualityLevel - 0.1` (broad data collection)
-  - **Display**: Uses `qualityLevel` directly (quality suggestions to users)
+  - **Storage**: exactly this value, floored at `0.05`. No offset is applied — what you set is what gets stored.
+  - **Display**: the TypoScript setting of the same name, filtering the stored pairs. Keep it ≥ this value; anything below was never stored.
 - **`excludePages`** (optional): Pages to exclude from both analysis and display
 - **`recursiveExclusion`** (optional): Apply exclusions recursively
+- **`languageId`** (optional, default `-1`): `-1` covers every language of the site in one run
 
 **Recommended Quality Levels:**
 ```
@@ -750,7 +752,7 @@ Auto-migrated to v3.1:
 2. **Set `qualityLevel`** to that value
 3. **Remove old parameters**:
    - Delete `proximityThreshold` from TypoScript
-   - Delete `minimumSimilarity` from Scheduler (auto-computed)
+   - Leave `minimumSimilarity` alone in the Scheduler — it is derived from `qualityLevel` and no longer accepts input
    - Merge duplicate `excludePages` lists
 
 **Example Migration:**
@@ -1799,7 +1801,18 @@ Rows whose starting page no longer belongs to any configured site cannot be reso
 untouched — the query above will report them. Re-run the corresponding scheduler task to
 regenerate them, or delete them if the task is gone.
 
-**4. Review your template integration**
+**4. Check your scheduler thresholds**
+
+The storage threshold is now exactly the `qualityLevel` you set, with no hidden offset. Earlier
+versions silently stored from `qualityLevel - 0.1`, so a task configured at `0.3` was really
+storing from `0.2`.
+
+Nothing breaks, but each task now stores slightly fewer pairs than before. Those extra pairs were
+below the display threshold and therefore never shown, unless you had deliberately lowered the
+TypoScript `qualityLevel` below the task's to exploit the buffer. If you did, lower the **task's**
+`qualityLevel` to match, and re-run it.
+
+**5. Review your template integration**
 
 `overrideBootstrapTemplates` now defaults to `0`. If you relied on the automatic Bootstrap Package
 integration, enable it explicitly **in the constants of the site that uses Bootstrap Package** —

@@ -500,11 +500,4 @@ class SuggestionService
         return self::DEFAULT_QUALITY_LEVEL;
     }
 
-    /**
-     * Get storage threshold from quality level (for scheduler tasks)
-     */
-    protected function getStorageThreshold(float $qualityLevel): float
-    {
-        return max(0.05, $qualityLevel - 0.1);
-    }
 }

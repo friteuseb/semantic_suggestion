@@ -95,7 +95,8 @@ class GenerateSimilaritiesAdditionalFieldProvider extends AbstractAdditionalFiel
         }
 
         $fieldId = 'task_qualityLevel';
-        $storageThreshold = max(0.05, (float)$taskInfo['qualityLevel']);
+        // Storage threshold equals the quality level, floored — no offset.
+        $storageThreshold = max(GenerateSimilaritiesTask::MINIMUM_STORAGE_THRESHOLD, (float)$taskInfo['qualityLevel']);
         $displayThreshold = (float)$taskInfo['qualityLevel'];
 
         $fieldCode = '<div class="form-group">
@@ -141,13 +142,11 @@ class GenerateSimilaritiesAdditionalFieldProvider extends AbstractAdditionalFiel
             'cshLabel' => $fieldId
         ];
 
-        // Legacy support: minimumSimilarity (hidden, computed from qualityLevel)
+        // Legacy support: minimumSimilarity is derived, never entered by the user
         if (!isset($taskInfo['minimumSimilarity'])) {
-            if ($task instanceof GenerateSimilaritiesTask) {
-                $taskInfo['minimumSimilarity'] = $task->minimumSimilarity;
-            } else {
-                $taskInfo['minimumSimilarity'] = max(0.05, (float)$taskInfo['qualityLevel'] - 0.1);
-            }
+            $taskInfo['minimumSimilarity'] = $task instanceof GenerateSimilaritiesTask
+                ? $task->getStorageThreshold()
+                : max(GenerateSimilaritiesTask::MINIMUM_STORAGE_THRESHOLD, (float)$taskInfo['qualityLevel']);
         }
 
         return $additionalFields;
@@ -233,16 +232,20 @@ class GenerateSimilaritiesAdditionalFieldProvider extends AbstractAdditionalFiel
             $task->startPageId = (int)$submittedData['startPageId'];
             $task->excludePages = $submittedData['excludePages'];
 
-            // NEW: Quality Level (unified configuration)
+            // Quality Level is the only threshold the user sets; the storage
+            // threshold is derived from it by the task itself.
             if (isset($submittedData['qualityLevel'])) {
                 $task->qualityLevel = (float)$submittedData['qualityLevel'];
-                // Auto-compute minimumSimilarity for backward compatibility
-                $task->minimumSimilarity = max(0.05, $task->qualityLevel - 0.1);
             } elseif (isset($submittedData['minimumSimilarity'])) {
-                // Legacy support: if only minimumSimilarity provided
-                $task->minimumSimilarity = (float)$submittedData['minimumSimilarity'];
-                $task->qualityLevel = min(1.0, $task->minimumSimilarity + 0.1);
+                // Legacy payload: treat the old value as the quality level.
+                $task->qualityLevel = (float)$submittedData['minimumSimilarity'];
             }
+
+            // Sync the derived property directly rather than through
+            // initializeQualityLevel(): its legacy-migration branch would
+            // mistake a deliberate 0.3 for "unset" and overwrite it with the
+            // previously stored minimumSimilarity.
+            $task->minimumSimilarity = $task->getStorageThreshold();
 
             // Handle checkbox: if not present in $_POST, it's unchecked
             $task->recursiveExclusion = isset($submittedData['recursiveExclusion']) && $submittedData['recursiveExclusion'] === '1';

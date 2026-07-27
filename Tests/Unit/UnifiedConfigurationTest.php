@@ -57,10 +57,19 @@ class UnifiedConfigurationTest extends UnitTestCase
     {
         $task = new GenerateSimilaritiesTask();
 
-        // Test very low quality level
+        // No offset: the storage threshold is the quality level itself
         $task->qualityLevel = 0.1;
         $task->initializeQualityLevel();
-        $this->assertEquals(0.05, $task->minimumSimilarity, 'Minimum storage threshold should be 0.05');
+        $this->assertEquals(0.1, $task->minimumSimilarity, 'Storage should equal quality level');
+
+        // Below the floor, the floor wins
+        $task->qualityLevel = 0.01;
+        $task->initializeQualityLevel();
+        $this->assertEquals(
+            GenerateSimilaritiesTask::MINIMUM_STORAGE_THRESHOLD,
+            $task->minimumSimilarity,
+            'Minimum storage threshold should be 0.05'
+        );
 
         // Test high quality level
         $task->qualityLevel = 0.9;

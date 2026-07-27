@@ -85,20 +85,6 @@ class SuggestionServiceTest extends UnitTestCase
     }
 
     /**
-     * Test getStorageThreshold calculation
-     */
-    public function testGetStorageThreshold(): void
-    {
-        $reflection = new \ReflectionClass($this->service);
-        $method = $reflection->getMethod('getStorageThreshold');
-        $method->setAccessible(true);
-
-        $result = $method->invoke($this->service, 0.3);
-
-        $this->assertEquals(0.2, $result); // 0.3 - 0.1
-    }
-
-    /**
      * Test calculateRecencyScore
      */
     public function testCalculateRecencyScore(): void
