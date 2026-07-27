@@ -87,34 +87,9 @@ class LegacySemanticBackendController extends ActionController
         $this->logDebug('GET parameters', ['GET' => $_GET]);
         $this->logDebug('Request parameters', ['params' => $this->request->getQueryParams()]);
 
-        // 🎯 Masquer le pagetree avec CSS pour TYPO3 v12
-        $pageRenderer = GeneralUtility::makeInstance(\TYPO3\CMS\Core\Page\PageRenderer::class);
-        $pageRenderer->addCssInlineBlock(
-            'hide-pagetree-v12',
-            '
-            .scaffold-content-navigation,
-            .scaffold-content-navigation-component,
-            .module-docheader-bar-navigation,
-            .typo3-module-navigation,
-            .navigation-component-frame,
-            .scaffold-content-navigation-expanded,
-            .module-navigation {
-                display: none !important;
-            }
-            .scaffold-content-module,
-            .module-body,
-            .scaffold-content-module-wrapper {
-                margin-left: 0 !important;
-                width: 100% !important;
-            }
-            .module-docheader {
-                margin-left: 0 !important;
-            }
-            .scaffold {
-                grid-template-columns: 1fr !important;
-            }
-            '
-        );
+        // The page tree is hidden through inheritNavigationComponentFromMainModule in
+        // Configuration/Backend/Modules.php. A CSS fallback used to live here; it never
+        // reached the output, and it is redundant now that the module config is right.
         try {
             // Récupérer la configuration via le service PageAnalysisService
             $extensionConfig = $this->pageAnalysisService->getSettings();

@@ -244,7 +244,7 @@
                                                 <td class="text-center">
                                                     <f:if condition="{totalLangPages} > 0">
                                                         <f:then>
-                                                            <f:variable name="percentage" value="{(langStat.count / totalLangPages * 100)}" />
+                                                            <f:variable name="percentage" value="{langStat.percentage}" />
                                                             <div class="progress" style="height: 20px;">
                                                                 <div class="progress-bar" role="progressbar" 
                                                                      style="width: {percentage -> f:format.number(decimals: 1)}%" 

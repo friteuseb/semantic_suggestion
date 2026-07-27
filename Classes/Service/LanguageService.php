@@ -52,11 +52,22 @@ class LanguageService implements LoggerAwareInterface
             ];
         }
 
+        $total = 0;
         foreach ($pages as $page) {
             $languageId = $page['sys_language_uid'] ?? 0;
             if (isset($languageStats[$languageId])) {
                 $languageStats[$languageId]['count']++;
+                $total++;
             }
+        }
+
+        // Computed here rather than in the template: Fluid evaluates a single binary
+        // operation per expression, so the chained {count / total * 100} the templates
+        // used silently produced an empty value and every row displayed 0.0%.
+        foreach ($languageStats as $languageId => $stat) {
+            $languageStats[$languageId]['percentage'] = $total > 0
+                ? $stat['count'] / $total * 100
+                : 0.0;
         }
 
         return ['statistics' => $languageStats];

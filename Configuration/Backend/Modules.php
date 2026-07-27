@@ -45,14 +45,11 @@ $moduleConfig = [
     ],
 ];
 
-// 🎯 AJOUT : Configuration spécifique par version pour masquer le pagetree
-if ($isV13OrGreater) {
-    // TYPO3 v13+ : Nouvelle méthode propre
-    $moduleConfig['web_SemanticSuggestion']['inheritNavigationComponentFromMainModule'] = false;
-} else {
-    // TYPO3 v12 : Ancienne méthode
-    $moduleConfig['web_SemanticSuggestion']['navigationComponent'] = '';
-    $moduleConfig['web_SemanticSuggestion']['navigationComponentId'] = '';
-}
+// Hide the page tree: the module picks its analysis from a dropdown, not from the tree.
+// This key exists since v12 (the core uses it in ext:form there), and it is the only one
+// that works: a submodule of `web` inherits the parent's navigation component unless
+// inheritance is switched off, so setting `navigationComponent` to an empty string is
+// silently ignored and leaves the tree visible.
+$moduleConfig['web_SemanticSuggestion']['inheritNavigationComponentFromMainModule'] = false;
 
 return $moduleConfig;
