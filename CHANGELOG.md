@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.3] - 2026-07-27
+
+Documentation release. No behaviour change; the only code touched is TypoScript comments
+and two settings that were never read.
+
+### Added
+- A real TYPO3 manual under `Documentation/`, rendered by the current toolchain
+  (`guides.xml`): installation, configuration reference, integration, backend module,
+  multi-site and multilingual, how the analysis works, troubleshooting, upgrade. The
+  previous `Documentation/` folder was stale (1.1.0) and could not be rendered at all —
+  its `toctree` pointed at four files that did not exist and `Includes.txt` was missing.
+
+### Changed
+- The README is now a 150-line entry point instead of a 1900-line manual. Everything
+  reference-like moved to `Documentation/`.
+- Constant Editor help for `qualityLevel` and `recencyWeight` rewritten; both described
+  their own behaviour incorrectly. The display quality level is not constrained by the
+  scheduler task's: below it, everything stored is displayed; above it, fewer pairs are.
+  And `recencyWeight` does not "favor newer content" — the recency term is the absolute
+  difference between the two pages' normalised ages.
+
+### Removed
+- `settings.minTextLength` and `settings.confidenceThreshold` from the shipped
+  TypoScript. No code has ever read them.
+
+### Documentation fixes worth noting for existing users
+- `nlp_tools` is a hard requirement, not a suggestion: without it every score stays at
+  `0.0` and nothing is stored. Composer installs it; a TER install does not.
+- `nlp_tools` supports six languages equally (de, en, es, fr, it, pt), each with a
+  Snowball stemmer and a dedicated stop word list. The former README wrongly demoted
+  Italian and Portuguese and listed Dutch as supported.
+- Language detection from content never overrides the site configuration; it is only a
+  fallback for pages outside any site.
+- `analyzedFields` weights are applied by repeating a field's text
+  `max(1, round($weight))` times, so `1.0`, `1.2` and `1.4` are identical and `0` does
+  not disable a field.
+- The TypoScript `proximityThreshold` has no effect: it is only consulted when
+  `qualityLevel` is absent, and the shipped setup always sets `qualityLevel`.
+- Stop word removal and stemming take their language from the request context rather
+  than from the page, so under a CLI run (cron) they fall back to `en`. Vectorisation
+  does use each page's own language. To be fixed separately.
+
 ## [4.1.2] - 2026-07-27
 
 Multi-site correctness and cross-version compatibility release, consolidating the 4.1.x
@@ -15,7 +57,7 @@ instances, one of them configured with two sites.
 version.
 
 ⚠️ **Upgrading from 3.x or 4.0.0 requires running the `semanticSuggestionMigrateRootPageId`
-upgrade wizard.** See [Upgrading to 4.1.0](README.md#upgrading-to-410) — without it,
+upgrade wizard.** See [Upgrade](Documentation/Upgrade/Index.rst) — without it,
 suggestions disappear for any analysis whose scheduler task started on a subtree rather
 than a site root.
 
