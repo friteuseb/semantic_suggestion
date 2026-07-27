@@ -48,6 +48,13 @@ class GenerateSimilaritiesTask extends AbstractTask
     public const MINIMUM_STORAGE_THRESHOLD = 0.05;
 
     /**
+     * Value written to the `source` column, identifying rows produced by this
+     * extension's analysis. semantic_suggestion_solr writes 'solr' and deletes by
+     * it; scoping both ways keeps the two producers from erasing each other.
+     */
+    public const SOURCE = 'analysis';
+
+    /**
      * Quality level for suggestions (0.0-1.0). Single knob of the task.
      *
      * The storage threshold is exactly this value (floored at
@@ -333,6 +340,11 @@ class GenerateSimilaritiesTask extends AbstractTask
                     $queryBuilder->expr()->eq('root_page_id', $queryBuilder->createNamedParameter($rootPageId)),
                     $queryBuilder->expr()->eq('scope_page_id', $queryBuilder->createNamedParameter($scopePageId)),
                     $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter($languageId))
+                    // Deliberately not filtered on `source`. scope_page_id already
+                    // isolates us from semantic_suggestion_solr, which never writes
+                    // that column, and leaving it out lets this run clean up rows
+                    // written before `source` was set — they carried the column's
+                    // old 'solr' default and would otherwise linger as duplicates.
                 )
                 ->executeStatement();
             
@@ -359,6 +371,7 @@ class GenerateSimilaritiesTask extends AbstractTask
                             'root_page_id' => $rootPageId,   // real site root
                             'scope_page_id' => $scopePageId, // this task's startPageId
                             'sys_language_uid' => $languageId,
+                            'source' => self::SOURCE,
                             'crdate' => $now,
                             'tstamp' => $now
                         ];
@@ -423,7 +436,7 @@ class GenerateSimilaritiesTask extends AbstractTask
         $connection->bulkInsert(
             'tx_semanticsuggestion_similarities',
             $records,
-            ['page_id', 'similar_page_id', 'similarity_score', 'root_page_id', 'scope_page_id', 'sys_language_uid', 'crdate', 'tstamp']
+            ['page_id', 'similar_page_id', 'similarity_score', 'root_page_id', 'scope_page_id', 'sys_language_uid', 'source', 'crdate', 'tstamp']
         );
     }
 

@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-07-27T08:25:13.036Z",
+  "projectRoot": "/home/cyril/ddev/archive/DDEV/13TYPO3/packages/semantic_suggestion",
+  "structure": {
+    "hasPackageJson": false,
+    "hasTsConfig": false,
+    "hasClaudeConfig": false,
+    "hasClaudeFlow": true
+  },
+  "scannedAt": 1785140713036
+}

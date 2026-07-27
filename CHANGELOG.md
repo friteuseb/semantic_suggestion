@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.1] - 2026-07-27
+
+### Fixed
+- **The scheduler task no longer fails on every CLI run** (#14): `PageAnalysisService::__construct()`
+  asked the Extbase ConfigurationManager for TypoScript settings, which requires a server request.
+  There is none under `scheduler:run` or `scheduler:execute`, so the task threw
+  `NoServerRequestGivenException` and failed from cron while working from the backend
+  "Execute now" button. Settings resolution now falls back to extension configuration and then to
+  built-in defaults, which cover every value the analysis needs. `SuggestionService` was guarded
+  the same way.
+- **Analysis rows are no longer deleted by semantic_suggestion_solr.** The `source` column was
+  declared only by that extension, with a default of `'solr'`. This extension never set it, so
+  every row written by the scheduler task inherited `'solr'` — and the Solr extension deletes by
+  `page_id + sys_language_uid + source = 'solr'`, erasing analysis rows it did not own. The column
+  is now declared here with a default of `'analysis'` and written explicitly, so the two producers
+  no longer collide. Verified: a Solr-owned row survives a full task run untouched.
+
+### Added
+- Upgrade wizard `semanticSuggestionLabelAnalysisRows`, which relabels pre-existing rows. It
+  deliberately does nothing when `semantic_suggestion_solr` is installed, because the two
+  producers' rows are then indistinguishable; in that case re-run the scheduler task and the Solr
+  indexer once and each rewrites its own rows correctly.
+
 ## [4.1.0] - 2026-07-27
 
 Multi-site correctness release. Every fix below was verified on running TYPO3 13.4.22 and

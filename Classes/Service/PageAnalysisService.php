@@ -9,6 +9,7 @@ use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Cache\CacheManager;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
@@ -65,10 +66,7 @@ class PageAnalysisService implements LoggerAwareInterface
             $this->setLogger($logger);
         }
 
-        $this->settings = $this->configurationManager->getConfiguration(
-            ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
-            'semanticsuggestion_suggestions'
-        );
+        $this->settings = $this->resolveSettings();
 
         $this->initializeSettings();
         $this->initializeCache();
@@ -162,6 +160,51 @@ class PageAnalysisService implements LoggerAwareInterface
     private function logError(string $message, array $context = []): void
     {
         $this->logger->error($message, $context);
+    }
+
+    /**
+     * TypoScript settings, or the best available substitute.
+     *
+     * The Extbase ConfigurationManager requires a server request, which does not
+     * exist when the scheduler runs from cron or `scheduler:execute`. Calling it
+     * unguarded made the task throw NoServerRequestGivenException on every CLI
+     * run while it worked from the backend "Execute now" button (#14).
+     *
+     * Falling back is safe: initializeSettings() supplies defaults for every value
+     * the analysis actually needs, so an empty array yields a working task rather
+     * than a broken one. Extension configuration is tried first because, unlike
+     * TypoScript, it is request-independent and may carry the integrator's values.
+     */
+    protected function resolveSettings(): array
+    {
+        try {
+            $settings = $this->configurationManager->getConfiguration(
+                ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
+                'semanticsuggestion_suggestions'
+            );
+
+            if (is_array($settings) && $settings !== []) {
+                return $settings;
+            }
+        } catch (\Throwable $e) {
+            $this->logger?->info(
+                'TypoScript settings unavailable, falling back to extension configuration and defaults',
+                ['reason' => $e->getMessage()]
+            );
+        }
+
+        try {
+            $extensionConfiguration = GeneralUtility::makeInstance(ExtensionConfiguration::class)
+                ->get('semantic_suggestion');
+
+            if (is_array($extensionConfiguration['settings'] ?? null)) {
+                return $extensionConfiguration['settings'];
+            }
+        } catch (\Throwable $e) {
+            // No extension configuration either; defaults below cover it.
+        }
+
+        return [];
     }
 
     protected function initializeSettings(): void

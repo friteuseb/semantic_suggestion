@@ -40,10 +40,18 @@ class SuggestionService
     
     protected function initializeSettings(): void
     {
-        $this->settings = $this->configurationManager->getConfiguration(
-            ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
-            'semanticsuggestion_suggestions'
-        );
+        // Guarded for the same reason as PageAnalysisService::resolveSettings():
+        // the ConfigurationManager needs a server request and throws without one,
+        // which breaks any CLI context (#14). Callers fall back to their own
+        // defaults when a setting is missing.
+        try {
+            $this->settings = $this->configurationManager->getConfiguration(
+                ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
+                'semanticsuggestion_suggestions'
+            ) ?? [];
+        } catch (\Throwable $e) {
+            $this->settings = [];
+        }
     }
 
     /**

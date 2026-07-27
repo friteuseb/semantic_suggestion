@@ -62,6 +62,8 @@ use TYPO3\CMS\Core\Log\Writer\FileWriter;
     if ($isTypo3Version12OrLower) {
         $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['ext/install']['update']['semanticSuggestionMigrateRootPageId']
             = \TalanHdf\SemanticSuggestion\Upgrades\MigrateRootPageIdUpgradeWizard::class;
+        $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['ext/install']['update']['semanticSuggestionLabelAnalysisRows']
+            = \TalanHdf\SemanticSuggestion\Upgrades\LabelAnalysisRowsUpgradeWizard::class;
     }
 
     // Scheduler task registration for background similarity generation

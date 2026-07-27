@@ -1,4 +1,10 @@
 #
+# source        = which producer wrote the row. This extension writes 'analysis';
+#                 semantic_suggestion_solr writes 'solr'. Both scope their deletes
+#                 by it so they never erase each other's rows. Declared here rather
+#                 than only in the Solr extension so the column exists — with a
+#                 correct default — whether or not that extension is installed.
+#
 # root_page_id  = UID of the real site root page (Site::getRootPageId()).
 #                 Shared by every analysis of the same site.
 # scope_page_id = UID the scheduler task started from (its startPageId).
@@ -14,6 +20,7 @@ CREATE TABLE tx_semanticsuggestion_similarities (
     root_page_id int(11) unsigned DEFAULT '0' NOT NULL,
     scope_page_id int(11) unsigned DEFAULT '0' NOT NULL,
     sys_language_uid int(11) DEFAULT '0' NOT NULL,
+    source varchar(20) DEFAULT 'analysis' NOT NULL,
     crdate int(11) unsigned DEFAULT '0' NOT NULL,
     tstamp int(11) unsigned DEFAULT '0' NOT NULL,
     PRIMARY KEY (uid),
