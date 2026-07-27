@@ -28,12 +28,14 @@ plugin.tx_semanticsuggestion_suggestions {
     # Unified Quality Settings
     settings {
          # cat=semantic_suggestion:Quality Control/100/001; type=float; label=Display Quality Level (0.1-1.0) - Filters suggestions shown to users
-         # Must be ≤ Storage Quality Level from scheduler task
-         # Can be = Storage Quality Level for simple configuration
-         # Can be < Storage Quality Level to show fewer suggestions
-         # In doubt: Use the same value as scheduler task for simplicity
-         # Example: Scheduler = 0.3 → Display can be 0.1-0.3 (recommended: 0.3)
-         # Higher values = fewer but higher-quality suggestions
+         # Filters the pairs already stored by the scheduler task: a stored pair is
+         # displayed when its score is >= this value.
+         # Independent from the task's own quality level, which decides what gets stored:
+         #   equal to it     -> everything stored is displayed (simplest, recommended)
+         #   lower than it   -> same thing; there is nothing stored below the task's level
+         #   higher than it  -> fewer, better suggestions
+         # It can never reveal a pair the task did not store.
+         # In doubt: use the same value as the scheduler task.
          qualityLevel = 0.3
 
         # cat=semantic_suggestion:Frontend Display/100/002; type=int+; label=Maximum Suggestions
@@ -89,7 +91,13 @@ plugin.tx_semanticsuggestion_suggestions {
     # Analysis Algorithm Settings (Used by Scheduler Task)
     settings {
         # cat=semantic_suggestion:Analysis Algorithm/120/001; type=float; label=Recency Weight
-        # Importance of page recency in similarity calculation (0.0 to 1.0). Higher values favor newer content.
+        # Share of the final score taken from the recency term (0.0 to 1.0):
+        #   score = textualSimilarity * (1 - recencyWeight) + recencyBoost * recencyWeight
+        # Careful: recencyBoost is the ABSOLUTE DIFFERENCE between the two pages'
+        # normalised ages over a 30-day window, not a freshness bonus. Raising this
+        # weight favours pairs modified at different times, and lets a pair with no
+        # textual similarity at all reach recencyWeight as a score.
+        # Set to 0 for a purely textual score.
         recencyWeight = 0.2
 
         # Fields analyzed and their weights in similarity calculation

@@ -55,37 +55,35 @@ plugin.tx_semanticsuggestion_suggestions {
             content = {$plugin.tx_semanticsuggestion_suggestions.settings.analyzedFields.content}
         }
 
-        # Configuration NLP avancée avec nlp_tools
+        # NLP processing (provided by nlp_tools)
         enableStemming = 1
+
+        # Last-resort language code, used only when neither the site configuration nor
+        # content analysis could determine one.
         defaultLanguage = en
-        
-        # Note: Language mapping is now handled automatically via TYPO3 Site Configuration
-        # No more hard-coded language mappings needed
-        
-        # Paramètres optimisés pour l'allemand
-        minTextLength = 50
-        confidenceThreshold = 0.3
-        
+
+        # Note: language mapping is handled automatically via the TYPO3 site
+        # configuration (each language's locale). The legacy settings.languageMapping
+        # is only consulted if that fails.
+
          # ========================================
          # DISPLAY QUALITY CONFIGURATION
          # ========================================
-         # qualityLevel: Filters which stored suggestions are shown to users
-         # Storage is controlled by scheduler task - this only affects display
-         # Must be ≤ Storage Quality Level from scheduler task
-         # Can be = Storage Quality Level for simple configuration
-         # Can be < Storage Quality Level to show fewer suggestions
-         # Example: Scheduler = 0.3 → Display = 0.3 shows all, Display = 0.4 shows only best matches
-         # Higher values = fewer but higher-quality suggestions
-
-         # TF-IDF optimized values:
+         # Filters the pairs already stored by the scheduler task: a stored pair is
+         # displayed when its score is >= this value. Storage is controlled by the task
+         # and is independent from this; a value below the task's simply displays
+         # everything stored, a value above it displays fewer, better matches.
+         # TF-IDF scores are low by nature: 0.3 is a sane default, 0.8 matches nothing.
          qualityLevel = 0.3           # Standard sites
          # qualityLevel = 0.25        # German sites (compound words)
          # qualityLevel = 0.4         # High-quality only sites
 
-         # Legacy support (automatically computed from qualityLevel)
-         proximityThreshold = 0.3     # Fallback for old templates
+         # Legacy alias of the above, kept for old setups. Only read when qualityLevel
+         # is absent, which never happens with this file loaded -- editing it has no effect.
+         proximityThreshold = 0.3
 
-        # Debug
+        # Debug: verbose log AND a debug block appended to the rendered plugin output.
+        # Never enable on a production site.
         debugMode = 0
     }
 }
