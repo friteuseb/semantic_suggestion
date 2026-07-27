@@ -26,7 +26,8 @@ multi-site setup, upgrade notes and troubleshooting.
 | Required extension | `cywolf/nlp-tools` ^2.0 (`nlp_tools`) |
 
 `nlp_tools` is **not optional**: without it no vector can be built and no similarity is
-ever stored. Composer installs it automatically.
+ever stored. It is a declared dependency in both `composer.json` and `ext_emconf.php`,
+so Composer and the Extension Manager pull it in for you.
 
 ## Installation
 
@@ -36,8 +37,8 @@ vendor/bin/typo3 extension:setup --extension=semantic_suggestion
 vendor/bin/typo3 cache:flush
 ```
 
-Installing from the TER instead? Install `nlp_tools` as well — `ext_emconf.php` only lists
-it under `suggests`, but the extension does not work without it.
+Installing from the TER instead? Install `nlp_tools` first; the Extension Manager will
+refuse to activate the extension without it.
 
 **Upgrading from 3.x or 4.0.0?** Run the migration wizards, otherwise suggestions
 disappear for any task that started on a subtree:

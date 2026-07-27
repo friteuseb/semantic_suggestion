@@ -26,11 +26,14 @@ Requirements
         -   ^2.0, **required**
 
 ..  warning::
-    ``nlp_tools`` is a hard requirement, even though :file:`ext_emconf.php` lists it
-    under ``suggests``. All text processing and the whole TF-IDF vectorisation live
-    there: without it no vector can be built, every score stays at :php:`0.0` and
-    nothing is ever stored. Composer installs it automatically; a TER install does
-    not, so install it manually in that case.
+    ``nlp_tools`` is a hard requirement: all text processing and the whole TF-IDF
+    vectorisation live there, so without it no vector can be built, every score stays
+    at :php:`0.0` and nothing is ever stored.
+
+    Since 4.1.4 it is declared as a real dependency, in ``composer.json`` and in
+    :file:`ext_emconf.php` alike, so both Composer and the Extension Manager pull it
+    in or refuse to activate. Earlier versions only listed it under ``suggests``,
+    which let a TER install activate a non-working extension.
 
 ..  _installation-composer:
 

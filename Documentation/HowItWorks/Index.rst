@@ -24,13 +24,15 @@ Everything below happens inside the scheduler task.
     language. Deleted and hidden pages are skipped, as are the pages listed in
     ``excludePages``.
 
-#.  **Text preparation.** For every page, each field of
+#.  **Text preparation.** For every page, its language is resolved from the site
+    configuration (see :ref:`how-it-works-languages`), then each field of
     :ref:`analyzedFields <ts-analyzedFields>` is read. ``content`` falls back to the
     :sql:`bodytext` of the page's content elements in that language when the page field
-    itself is empty. Stop words are removed, then — if
-    :ref:`enableStemming <ts-enableStemming>` is on — the text is stemmed.
+    itself is empty. Stop words of that language are removed, then — if
+    :ref:`enableStemming <ts-enableStemming>` is on — the text is stemmed with that
+    language's stemmer.
 
-#.  **Vectorisation.** Pages are grouped by their language code and each group is
+#.  **Vectorisation.** Pages are grouped by that same language code and each group is
     vectorised together, so all pages of one language share a single vocabulary and
     IDF corpus. Every page is vectorised exactly once, not once per comparison.
 
@@ -79,18 +81,27 @@ The relevance labels shown in the backend module are thresholds on that score:
 Language handling
 =================
 
-The language of a page is determined in this order:
+The language is resolved **per page**, once, and the same value is then used for stop
+word removal, stemming and vectorisation. The order is:
 
 #.  **The site configuration.** The ``locale`` of the page's language, reduced to its
     two-letter code (:yaml:`de_DE.UTF-8` → ``de``). This is the normal case and it
     always wins for a page belonging to a configured site.
-#.  **Content analysis**, by ``nlp_tools``, only when the step above found nothing.
-#.  The legacy :ref:`languageMapping <ts-languageMapping>`, then
-    :ref:`defaultLanguage <ts-defaultLanguage>`.
+#.  **Content analysis**, by ``nlp_tools``, only when the step above found nothing —
+    a page outside any configured site.
+#.  :ref:`defaultLanguage <ts-defaultLanguage>`, when there is not even any text to
+    analyse.
 
 ..  note::
     Content analysis never overrides the site configuration. It is a fallback for
     pages outside any site, not a second opinion.
+
+..  note::
+    Nothing in this chain depends on the current request, so a run from cron
+    (:shell:`typo3 scheduler:run`) and a run from :guilabel:`Execute now` in the
+    backend resolve the same language for the same page. Before 4.1.4 they did not:
+    stop word removal and stemming took the language from the request context, which
+    under a CLI run meant ``en`` for every page of every language.
 
 Stop words, stemming and detection profiles come from ``nlp_tools``, which supports
 six languages:
@@ -145,14 +156,6 @@ point on a German site.
 Known limitations
 =================
 
-*   **Stop-word removal and stemming use the request language, not the page's.** They
-    are applied with the language of the current TYPO3 context, while vectorisation
-    uses each page's own language. In a CLI run — the usual cron case — there is no
-    request language, so the fallback ``en`` is used for that step. On a non-English
-    site analysed from cron, expect stop words to survive and stemming to be applied
-    with the wrong rules. Running the task from :guilabel:`Execute now` in the backend
-    does not have this problem in the same way, but the two runs are then not strictly
-    equivalent.
 *   **Field weights are coarse**, being implemented as text repetition — see
     :ref:`analyzedFields <ts-analyzedFields>`.
 *   **The comparison is quadratic** in the number of pages of a scope. Split a very

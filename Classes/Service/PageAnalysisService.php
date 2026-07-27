@@ -42,6 +42,13 @@ class PageAnalysisService implements LoggerAwareInterface
     protected ?TextVectorizerService $textVectorizer = null;
     protected ?SiteLanguageService $siteLanguageService;
 
+    /**
+     * Resolved language code per "<pageUid>_<languageUid>", see resolvePageLanguage().
+     *
+     * @var array<string, string>
+     */
+    protected array $pageLanguageCache = [];
+
     public function __construct(
         Context $context,
         ConfigurationManagerInterface $configurationManager,
@@ -553,12 +560,9 @@ class PageAnalysisService implements LoggerAwareInterface
             ];
         }
     
-        $language = $this->getCurrentLanguage();
-    
         $this->logDebug('Starting page analysis', [
             'pageCount' => count($pages),
             'languageUid' => $currentLanguageUid,
-            'language' => $language
         ]);
     
     
@@ -593,7 +597,11 @@ class PageAnalysisService implements LoggerAwareInterface
         $parentPageId = $firstPage['pid'] ?? 0;
         $depth = $this->calculateDepth($pages);
         $rootPageId = $this->resolveRootPageId($firstPage);
-        $cacheIdentifier = "semantic_analysis_{$rootPageId}_{$parentPageId}_{$depth}_{$language}";
+        // Keyed on the language UID being analysed, not on a language code derived from
+        // the request: under a CLI run that code is the same for every language of the
+        // site, so a multi-language run would serve the first language's results to all
+        // the others.
+        $cacheIdentifier = "semantic_analysis_{$rootPageId}_{$parentPageId}_{$depth}_lang{$currentLanguageUid}";
     
         if ($this->cache->has($cacheIdentifier)) {
             $cachedResult = $this->cache->get($cacheIdentifier);
@@ -724,16 +732,98 @@ class PageAnalysisService implements LoggerAwareInterface
     }
 
 
+    /**
+     * Language code to process a single page with.
+     *
+     * Derived from the page and from the language being analysed, never from the
+     * current request. getCurrentLanguage() reads the request context, which does not
+     * exist under `scheduler:run`: it then fell back to 'en' for every page, so a
+     * German site analysed from cron had its stop words left in place and the English
+     * stemmer applied to German text (#25).
+     *
+     * @param array $page Raw page record, as fetched by the caller
+     * @param int $languageUid Language being analysed; -1 means "take it from the record"
+     */
+    protected function resolvePageLanguage(array $page, int $languageUid): string
+    {
+        $pageId = (int)($page['uid'] ?? 0);
+        $languageUid = $languageUid >= 0 ? $languageUid : (int)($page['sys_language_uid'] ?? 0);
+
+        $cacheKey = $pageId . '_' . $languageUid;
+        if (isset($this->pageLanguageCache[$cacheKey])) {
+            return $this->pageLanguageCache[$cacheKey];
+        }
+
+        $language = null;
+
+        // 1. The site configuration of the page: the locale of that language.
+        if ($this->siteLanguageService !== null && $pageId > 0) {
+            $language = $this->siteLanguageService->getLanguageCodeByUid($languageUid, $pageId);
+        }
+
+        // 2. Content analysis, for a page that belongs to no configured site.
+        if ($language === null) {
+            $text = $this->extractTextForLanguageDetection($page);
+
+            if ($text !== '') {
+                try {
+                    $language = $this->languageDetector->detectLanguage($text);
+                } catch (\Throwable $e) {
+                    $this->logWarning('Content language detection failed', [
+                        'pageId' => $pageId,
+                        'exception' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
+
+        // 3. Configured fallback.
+        if ($language === null || $language === '') {
+            $language = (string)($this->settings['defaultLanguage'] ?? 'en');
+        }
+
+        $this->logDebug('Page language resolved', [
+            'pageId' => $pageId,
+            'languageUid' => $languageUid,
+            'language' => $language,
+        ]);
+
+        $this->pageLanguageCache[$cacheKey] = $language;
+
+        return $language;
+    }
+
+    /**
+     * Plain text of a raw page record, for content-based language detection.
+     */
+    private function extractTextForLanguageDetection(array $page): string
+    {
+        $parts = [];
+
+        foreach (['title', 'description', 'keywords', 'abstract'] as $field) {
+            $value = $page[$field] ?? '';
+            if (is_string($value) && $value !== '') {
+                $parts[] = strip_tags($value);
+            }
+        }
+
+        return trim(implode(' ', $parts));
+    }
+
     protected function preparePageData(array $page, int $currentLanguageUid): array
     {
+        // Resolved from the page itself, and carried in the prepared data so that every
+        // later step — vectorisation, pairwise comparison — uses the same language as
+        // the stop word removal and stemming below.
+        $language = $this->resolvePageLanguage($page, $currentLanguageUid);
+
         $preparedData = [
             'uid' => $page['uid'],
             'sys_language_uid' => $page['sys_language_uid'] ?? 0,
             'isTranslation' => isset($page['_PAGES_OVERLAY']),
+            'detectedLanguage' => $language,
         ];
-    
-        $language = $this->getCurrentLanguage();
-    
+
         foreach ($this->settings['analyzedFields'] as $field => $weight) {
             $originalContent = $page[$field] ?? '';
     
@@ -796,7 +886,8 @@ class PageAnalysisService implements LoggerAwareInterface
 
         $this->logDebug('Page data prepared', [
             'pageUid' => $page['uid'],
-            'language' => $currentLanguageUid,
+            'languageUid' => $currentLanguageUid,
+            'language' => $language,
             'fieldsProcessed' => array_keys($this->settings['analyzedFields']),
             'contentLength' => strlen($preparedData['content']['content'] ?? '')
         ]);
@@ -902,8 +993,8 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
     protected function getWeightedWords(array $pageData): array
     {
         $weightedWords = [];
-        $language = $this->getCurrentLanguage();
-    
+        $language = $pageData['detectedLanguage'] ?? $this->getCurrentLanguage();
+
         if ($this->settings['debugMode']) {
             $this->logDebug('Starting getWeightedWords', ['pageData' => $pageData, 'language' => $language]);
         }
@@ -942,33 +1033,71 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
 
 
 
+    /**
+     * Language of an already prepared page whose data does not carry one.
+     *
+     * Only a safety net for prepared data produced outside preparePageData(): the raw
+     * page record is gone at this point, so the site configuration cannot be consulted
+     * and only content analysis is left.
+     */
+    private function detectLanguageOfPreparedPage(array $preparedPage): string
+    {
+        $text = $this->prepareTextForAnalysis($preparedPage);
+
+        if ($text !== '') {
+            try {
+                return $this->languageDetector->detectLanguage($text);
+            } catch (\Throwable $e) {
+                $this->logWarning('Content language detection failed', [
+                    'pageId' => $preparedPage['uid'] ?? 'unknown',
+                    'exception' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return (string)($this->settings['defaultLanguage'] ?? 'en');
+    }
+
+    /**
+     * Whether two pages may be compared at all.
+     */
+    private function areLanguagesCompatible(?string $lang1, ?string $lang2): bool
+    {
+        if ($lang1 === null || $lang2 === null) {
+            return false;
+        }
+
+        if ($this->siteLanguageService !== null) {
+            return $this->siteLanguageService->areLanguagesCompatible($lang1, $lang2);
+        }
+
+        return $lang1 === $lang2;
+    }
+
     private function calculateSimilarity(array $page1, array $page2): array
     {
-        // Vérifier la compatibilité des langues avant le calcul
-        if ($this->siteLanguageService !== null) {
-            $lang1 = $this->siteLanguageService->detectLanguageForPage($page1, $this->languageDetector);
-            $lang2 = $this->siteLanguageService->detectLanguageForPage($page2, $this->languageDetector);
-            
-            if (!$this->siteLanguageService->areLanguagesCompatible($lang1, $lang2)) {
-                $this->logDebug('Languages not compatible, skipping similarity calculation', [
-                    'page1' => $page1['uid'] ?? 'unknown',
-                    'page2' => $page2['uid'] ?? 'unknown',
-                    'lang1' => $lang1,
-                    'lang2' => $lang2
-                ]);
-                return [
-                    'semanticSimilarity' => 0.0,
-                    'recencyBoost' => 0.0,
-                    'finalSimilarity' => 0.0
-                ];
-            }
-            // Utiliser la langue détectée pour l'analyse
-            $language = $lang1; // Les deux langues sont identiques à ce stade
-        } else {
-            // Fallback si SiteLanguageService n'est pas disponible
-            $language = $this->languageDetector->detectLanguage($this->prepareTextForAnalysis($page1));
+        // Languages carried by preparePageData(), which resolved them from the pages
+        // themselves. Falling back to detection here only covers prepared data coming
+        // from somewhere else.
+        $lang1 = $page1['detectedLanguage'] ?? $this->detectLanguageOfPreparedPage($page1);
+        $lang2 = $page2['detectedLanguage'] ?? $this->detectLanguageOfPreparedPage($page2);
+
+        if (!$this->areLanguagesCompatible($lang1, $lang2)) {
+            $this->logDebug('Languages not compatible, skipping similarity calculation', [
+                'page1' => $page1['uid'] ?? 'unknown',
+                'page2' => $page2['uid'] ?? 'unknown',
+                'lang1' => $lang1,
+                'lang2' => $lang2
+            ]);
+            return [
+                'semanticSimilarity' => 0.0,
+                'recencyBoost' => 0.0,
+                'finalSimilarity' => 0.0
+            ];
         }
-        
+
+        $language = $lang1;
+
         try {
             // Préparer les textes pour l'analyse TF-IDF
             $text1 = $this->prepareTextForAnalysis($page1);
@@ -986,9 +1115,6 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
                 ];
             }
 
-            // Utiliser la langue détectée pour l'analyse
-            $language = $lang1; // Les deux langues sont identiques à ce stade
-            
             // Créer les vecteurs TF-IDF
             $tfidfResult = $this->textVectorizer->createTfIdfVectors([$text1, $text2], $language);
             
@@ -1071,11 +1197,8 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
                 continue;
             }
 
-            if ($this->siteLanguageService !== null) {
-                $language = $this->siteLanguageService->detectLanguageForPage($pageData, $this->languageDetector);
-            } else {
-                $language = $this->languageDetector->detectLanguage($text);
-            }
+            // Resolved once per page by preparePageData(), from the page record itself.
+            $language = $pageData['detectedLanguage'] ?? $this->detectLanguageOfPreparedPage($pageData);
 
             $languages[$pageId] = $language;
             $vectors[$pageId] = null;
@@ -1123,12 +1246,8 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
             'finalSimilarity' => 0.0,
         ];
 
-        if ($this->siteLanguageService !== null) {
-            if ($language1 === null
-                || $language2 === null
-                || !$this->siteLanguageService->areLanguagesCompatible($language1, $language2)) {
-                return $noSimilarity;
-            }
+        if (!$this->areLanguagesCompatible($language1, $language2)) {
+            return $noSimilarity;
         }
 
         // Empty text on either side -> no vector was produced.
