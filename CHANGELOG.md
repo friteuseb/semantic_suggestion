@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.4] - 2026-07-27
+
+Fixes the language used to process page text, and makes `nlp_tools` a declared
+dependency. Verified on running TYPO3 12.4, 13.4 and 14.3 instances by analysing the
+same sites before and after the change.
+
+⚠️ **Re-run your scheduler tasks after upgrading a non-English site.** Stored scores were
+computed with the wrong stop word list and stemmer and will not match the new ones.
+
+⚠️ **`nlp_tools` is now a declared dependency** rather than a suggestion, so the Extension
+Manager will refuse to activate this extension without it. Composer users already had it.
+
+### Fixed
+- **Stop word removal and stemming now use the language of the page being analysed.**
+  `preparePageData()` took it from `getCurrentLanguage()`, which reads the request
+  context. Under `scheduler:run` there is no request, so the chain ended on
+  `detectLanguage('')` and returned `en` for every page of every language: on a German
+  or French site analysed from cron, stop words were left in place and the English
+  stemmer was applied to the text. Vectorisation already used each page's own language,
+  so the two halves of the pipeline disagreed. The language is now resolved once per
+  page — site configuration, then content analysis, then `defaultLanguage` — carried in
+  the prepared data as `detectedLanguage`, and reused by every later step.
+- **A multi-language run can no longer serve one language's analysis to another.** The
+  analysis cache identifier ended with a language *code* derived from the request, which
+  is identical for every language under CLI. It now uses the language UID being
+  analysed. In practice the per-site cache flush at the end of each language hid this,
+  but any caller that does not flush was exposed.
+- **`calculateSimilarity()` no longer reads an undefined variable** when
+  `SiteLanguageService` is unavailable: a redundant `$language = $lang1` after the
+  language check overwrote the value computed for that path.
+- Language compatibility is now checked in one place, and pages whose language could not
+  be determined are no longer compared.
+
+### Changed
+- **`nlp_tools` moved from `suggests` to `depends` in `ext_emconf.php`** (`composer.json`
+  already required it). Without it no vector is built, every score stays at `0.0` and
+  nothing is stored, so a TER install could activate a silently non-working extension.
+
 ## [4.1.3] - 2026-07-27
 
 Documentation release. No behaviour change; the only code touched is TypoScript comments
