@@ -99,7 +99,7 @@ The task runs but stores nothing
         -   Install ``nlp_tools``; without it every score is :php:`0.0`
     *   -   Quality level too high
         -   Log line ``Using threshold for filtering`` with a high value
-        -   Set the task's quality level to ``0.25``–``0.3`` and re-run
+        -   Set the task's quality level to ``0.1`` (``0.05`` for short pages) and re-run
     *   -   Pages have no text
         -   Log warnings *One or both pages have no text content*
         -   Nothing to do: image-only pages produce no vector
@@ -118,14 +118,11 @@ Suggestions are irrelevant
 *   **Raise the display quality level** first: it costs nothing and needs no re-run.
     Only raise the *task's* level once you know which value you want, since lowering it
     again requires a full re-analysis.
-*   **Set** :ref:`recencyWeight <ts-recencyWeight>` **to** :typoscript:`0` if you see
-    unrelated pages being suggested. The recency term is a difference of ages, not a
-    freshness bonus, and it can carry a pair with no textual overlap.
 *   **Check the language** of the affected pages: an unsupported language loses
     stemming and gets the English stop word list, which makes scores noisier — see
     :ref:`how-it-works-languages`.
-*   **Do not expect much from field weights.** They are applied as text repetition, so
-    only differences of half a point or more change anything.
+*   **Raise the weight of** ``title`` **and** ``keywords`` if the content of long
+    pages drowns them out — see :ref:`analyzedFields <ts-analyzedFields>`.
 
 ..  _troubleshooting-mixed-language:
 

@@ -36,7 +36,8 @@ plugin.tx_semanticsuggestion_suggestions {
          #   higher than it  -> fewer, better suggestions
          # It can never reveal a pair the task did not store.
          # In doubt: use the same value as the scheduler task.
-         qualityLevel = 0.3
+         # Scale since 5.0: pages on the same topic typically score 0.1 to 0.3.
+         qualityLevel = 0.1
 
         # cat=semantic_suggestion:Frontend Display/100/002; type=int+; label=Maximum Suggestions
         # The maximum number of similar pages to display in the suggestions list.
@@ -58,7 +59,7 @@ plugin.tx_semanticsuggestion_suggestions {
         # Legacy support (backward compatibility)
         # cat=semantic_suggestion:Legacy Support/199/001; type=float; label=Proximity Threshold (Legacy)
         # DEPRECATED: Use qualityLevel instead. Kept for backward compatibility.
-        proximityThreshold = 0.3
+        proximityThreshold = 0.1
     }
 
     # Backend Module Display Settings

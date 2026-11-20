@@ -80,7 +80,7 @@ frontend plugin renders the best matches for the page being displayed.
 
     ..  card:: :ref:`Upgrade <upgrade>`
 
-        Migrating from 3.x / 4.0.0, and the behaviour changes of 4.1.
+        Migrating from 4.x to 5.0 (new score scale), and from 3.x / 4.0.0 to 4.1.
 
 ..  toctree::
     :hidden:

@@ -90,7 +90,7 @@ class GenerateSimilaritiesAdditionalFieldProvider extends AbstractAdditionalFiel
             if ($task instanceof GenerateSimilaritiesTask) {
                 $taskInfo['qualityLevel'] = $task->qualityLevel;
             } else {
-                $taskInfo['qualityLevel'] = 0.3; // Default quality level
+                $taskInfo['qualityLevel'] = GenerateSimilaritiesTask::DEFAULT_QUALITY_LEVEL;
             }
         }
 
@@ -100,11 +100,11 @@ class GenerateSimilaritiesAdditionalFieldProvider extends AbstractAdditionalFiel
         $displayThreshold = (float)$taskInfo['qualityLevel'];
 
         $fieldCode = '<div class="form-group">
-            <input type="number" class="form-control" name="tx_scheduler[qualityLevel]" id="' . $fieldId . '" value="' . number_format((float)$taskInfo['qualityLevel'], 2) . '" step="0.01" min="0.1" max="1" />
+            <input type="number" class="form-control" name="tx_scheduler[qualityLevel]" id="' . $fieldId . '" value="' . number_format((float)$taskInfo['qualityLevel'], 2) . '" step="0.01" min="0.05" max="1" />
             <small class="form-text text-muted">
                 Defines the minimum similarity score for storing page pairs.<br>
                 Storage threshold = Quality Level (direct mapping).<br>
-                Example: 0.3 stores pairs ≥ 0.3, including high similarities like 0.85.<br>
+                Example: 0.1 stores pairs ≥ 0.1. Pages on the same topic typically score 0.1 to 0.3.<br>
                 Higher values = better performance but fewer stored pairs.<br>
                 <em>Note: Display filtering is controlled separately in TypoScript.</em>
             </small>
@@ -169,7 +169,7 @@ class GenerateSimilaritiesAdditionalFieldProvider extends AbstractAdditionalFiel
         }
         
         // Validation de qualityLevel
-        $qualityLevel = isset($submittedData['qualityLevel']) ? (float)$submittedData['qualityLevel'] : 0.3;
+        $qualityLevel = isset($submittedData['qualityLevel']) ? (float)$submittedData['qualityLevel'] : GenerateSimilaritiesTask::DEFAULT_QUALITY_LEVEL;
         if ($qualityLevel < 0.1 || $qualityLevel > 1) {
             $schedulerModule->addMessage(
                 LocalizationUtility::translate('LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:scheduler.validation.invalid_quality_level', 'semantic_suggestion') ?? 'The quality level must be between 0.1 and 1.0.',
@@ -243,7 +243,7 @@ class GenerateSimilaritiesAdditionalFieldProvider extends AbstractAdditionalFiel
 
             // Sync the derived property directly rather than through
             // initializeQualityLevel(): its legacy-migration branch would
-            // mistake a deliberate 0.3 for "unset" and overwrite it with the
+            // mistake a deliberate default value for "unset" and overwrite it with the
             // previously stored minimumSimilarity.
             $task->minimumSimilarity = $task->getStorageThreshold();
 

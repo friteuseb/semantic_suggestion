@@ -418,8 +418,8 @@
                                      <div class="card-body">
                                          <p class="small mb-2">Decides which page pairs are worth saving for later display.</p>
                                          <div class="bg-light p-2 rounded">
-                                             <strong>Example:</strong> Setting = 0.3<br>
-                                             <strong>Saves pairs with score:</strong> ≥ 0.3 (direct mapping)
+                                             <strong>Example:</strong> Setting = 0.1<br>
+                                             <strong>Saves pairs with score:</strong> ≥ 0.1 (direct mapping)
                                          </div>
                                          <small class="text-muted">Higher = fewer pairs stored; the analysis itself takes the same time</small>
                                      </div>
@@ -433,8 +433,8 @@
                                      <div class="card-body">
                                          <p class="small mb-2">Controls what suggestions users actually see on the frontend.</p>
                                          <div class="bg-light p-2 rounded">
-                                             <strong>Example:</strong> Setting = 0.4<br>
-                                             <strong>Shows:</strong> Pairs with score ≥ 0.4
+                                             <strong>Example:</strong> Setting = 0.15<br>
+                                             <strong>Shows:</strong> Pairs with score ≥ 0.15
                                          </div>
                                          <small class="text-muted">Higher = fewer but higher-quality suggestions</small>
                                      </div>
@@ -451,17 +451,17 @@
                                      </div>
                                  </div>
                                  <div class="row text-center">
+                                     <div class="col-2">0.05</div>
+                                     <div class="col-2">0.08</div>
                                      <div class="col-2">0.1</div>
+                                     <div class="col-2">0.15</div>
                                      <div class="col-2">0.2</div>
-                                     <div class="col-2">0.3</div>
-                                     <div class="col-2">0.4</div>
-                                     <div class="col-2">0.5</div>
-                                     <div class="col-2">0.6+</div>
+                                     <div class="col-2">0.3+</div>
                                  </div>
                                  <hr>
                                  <div class="row text-center mb-2">
                                      <div class="col-12">
-                                         <span class="badge bg-success">Scheduler = 0.3</span> → Saves from 0.3 and up
+                                         <span class="badge bg-success">Scheduler = 0.1</span> → Saves from 0.1 and up
                                      </div>
                                  </div>
                                  <div class="row text-center">
@@ -475,7 +475,7 @@
                                  <hr>
                                  <div class="row text-center mb-2">
                                      <div class="col-12">
-                                         <span class="badge bg-warning">TypoScript = 0.4</span> → Shows from 0.4 and up
+                                         <span class="badge bg-warning">TypoScript = 0.15</span> → Shows from 0.15 and up
                                      </div>
                                  </div>
                                  <div class="row text-center">
@@ -488,12 +488,12 @@
                                  </div>
                              </div>
                              <p class="small text-muted mt-2">
-                                 <strong>Result:</strong> Among the stored pairs ≥ 0.3, those scoring ≥ 0.4 are eligible, and the best ones are shown up to the maxSuggestions limit
+                                 <strong>Result:</strong> Among the stored pairs ≥ 0.1, those scoring ≥ 0.15 are eligible, and the best ones are shown up to the maxSuggestions limit
                              </p>
                          </div>
 
                          <div class="alert alert-success mt-3">
-                             <strong>Pro Tip:</strong> Start with the same value (0.3) in both places for simple configuration
+                             <strong>Pro Tip:</strong> Start with the same value (0.1) in both places for simple configuration
                          </div>
                      </div>
                  </div>

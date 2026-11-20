@@ -73,14 +73,14 @@ plugin.tx_semanticsuggestion_suggestions {
          # displayed when its score is >= this value. Storage is controlled by the task
          # and is independent from this; a value below the task's simply displays
          # everything stored, a value above it displays fewer, better matches.
-         # TF-IDF scores are low by nature: 0.3 is a sane default, 0.8 matches nothing.
-         qualityLevel = 0.3           # Standard sites
-         # qualityLevel = 0.25        # German sites (compound words)
-         # qualityLevel = 0.4         # High-quality only sites
+         # Scale since 5.0: pages on the same topic typically score 0.1 to 0.3,
+         # unrelated pages below 0.1. 0.1 is a sane default; lower it to 0.05 on a
+         # site of short pages, raise it to 0.2 to keep only close matches.
+         qualityLevel = 0.1
 
          # Legacy alias of the above, kept for old setups. Only read when qualityLevel
          # is absent, which never happens with this file loaded -- editing it has no effect.
-         proximityThreshold = 0.3
+         proximityThreshold = 0.1
 
         # Debug: verbose log AND a debug block appended to the rendered plugin output.
         # Never enable on a production site.

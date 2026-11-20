@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0] - 2026-11-20
+
+New similarity computation. Suggestions are far more relevant, and scores are lower.
+Measured on 42 French pages in six topics (Wikipedia articles), share of the top three
+suggestions on the right topic: 80 % → 98 % on long pages, 68 % → 94 % on pages cut at
+2,500 characters. Analysis is also faster (3.7 s → 2.2 s) and uses less memory
+(48 MB → 22 MB) on the long pages.
+
+⚠️ **Scores are on a new scale.** Pages on the same topic now typically score 0.1 to
+0.3. Default quality levels go from `0.3` to `0.1`. Run the upgrade wizard
+`semanticSuggestionLowerDefaultQualityLevel`, review any threshold you set yourself,
+then re-run every scheduler task. See *Upgrade → To 5.0 from 4.x* in the documentation.
+
+### Changed
+- **Field weights are applied to term counts.** Each term counts
+  `weight × (1 + log(occurrences))` per field. Until 4.x a field's text was repeated
+  `max(1, round(weight))` times: `1.0`, `1.2` and `1.4` behaved the same, and `0` did not
+  disable a field. A weight of `0` now removes the field from the analysis.
+- **Term counts are damped** with `1 + log(occurrences)`. With raw counts, frequent terms
+  of long pages dominated: 52 % of the top three were on topic in the same test.
+- **TF-IDF vectors are built by this extension**, sparse, from the already processed
+  fields. `nlp_tools` cut every text at 5,000 characters (after the repeated title,
+  keywords and abstract, so most of a long page's content was lost) and applied stop
+  word removal and stemming a second time.
+- **Recency multiplies the score** by the freshness of the suggested page:
+  `score = similarity × ((1 − recencyWeight) + recencyWeight × freshness)`. It was the
+  absolute age difference between the two pages, added to the score: a pair with no
+  textual similarity could reach `recencyWeight`.
+- **Default quality levels `0.3` → `0.1`** (scheduler task, TypoScript, extension
+  configuration). Relevance labels: High from 0.25, Medium from 0.1.
+- Extension configuration `maxSuggestions` default `5` → `3`, matching TypoScript, so the
+  backend module shows the value the frontend applies.
+
+### Fixed
+- **Each language analyses its own translated pages.** `getPages()` passed the language
+  as a seventh argument to `PageRepository::getMenu()`, which has six: every language
+  analysed the default-language pages, and untranslated pages received suggestions in
+  every language. Untranslated pages are now skipped; their subpages are still visited.
+- **Language statistics panel** counts the pages analysed in each language. It resolved
+  the page uids through the page repository, which returns default-language records, so
+  it showed 100 % for the default language on every multilingual site.
+- **"Max frontend suggestions" tile** showed `5` when the frontend applied `3`.
+
+### Added
+- Upgrade wizard `semanticSuggestionLowerDefaultQualityLevel`: moves scheduler tasks on
+  the 4.x default quality level (`0.3`) to `0.1`, on TYPO3 12, 13 (serialized task) and
+  14 (`parameters` column). Other values are left untouched.
+
+### Removed
+- Extension configuration `parentPageId`, which no code read.
+
 ## [4.1.4] - 2026-07-27
 
 Fixes the language used to process page text, and makes `nlp_tools` a declared

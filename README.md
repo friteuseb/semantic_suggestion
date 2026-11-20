@@ -58,7 +58,7 @@ See [Upgrade](Documentation/Upgrade/Index.rst) for what these do and how to veri
    | Field | Value |
    |---|---|
    | Start page ID | the site root (or any subtree to restrict the scope) |
-   | Quality level | `0.3` — pairs scoring below this are not stored |
+   | Quality level | `0.1` — pairs scoring below this are not stored |
    | Exclude pages | optional list of UIDs, e.g. `42,56` |
    | Language | `-1` (all languages of the site, in one run) |
 
@@ -89,13 +89,13 @@ category *semantic_suggestion*):
 
 | Setting | Default | Effect |
 |---|---|---|
-| `qualityLevel` | `0.3` | Display filter: stored pairs scoring below it are not shown |
+| `qualityLevel` | `0.1` | Display filter: stored pairs scoring below it are not shown |
 | `maxSuggestions` | `3` | Number of suggestions rendered |
 | `excludePages` | *(empty)* | UIDs never shown **as** a suggestion |
 | `excerptLength` | `100` | Characters of the excerpt |
 | `excerptSources` | `bodytext,description,abstract` | First non-empty field wins |
-| `recencyWeight` | `0.2` | Share of the score taken from the recency comparison |
-| `analyzedFields.*` | `title 1.5`, `keywords 2.0`, `abstract 1.2`, `description 1.0`, `content 1.0` | Field weights, applied by repeating the text `round(weight)` times |
+| `recencyWeight` | `0.2` | How much a page updated in the last 30 days is favoured; never creates similarity |
+| `analyzedFields.*` | `title 1.5`, `keywords 2.0`, `abstract 1.2`, `description 1.0`, `content 1.0` | Field weights: each term counts `weight × (1 + log(occurrences))`; `0` disables the field |
 | `enableStemming` | `1` | Stem before vectorizing |
 | `debugMode` | `0` | Verbose log **and** debug output in the rendered HTML |
 | `overrideBootstrapTemplates` | `0` | Opt-in Bootstrap Package page templates |
@@ -103,9 +103,9 @@ category *semantic_suggestion*):
 
 Two things are worth knowing before tuning:
 
-- **Weights are coarse.** They are applied by repeating a field's text
-  `max(1, round(weight))` times, so `1.0`, `1.2` and `1.3` are identical, and `0` does
-  **not** disable a field.
+- **Scores are low by nature.** Pages on the same topic typically score 0.1 to 0.3;
+  `0.1` is a sane threshold, `0.05` on a site of short pages. Upgrading from 4.x? See
+  the upgrade chapter: 5.0 scores are lower than 4.x ones.
 - **Storage and display are separate thresholds.** The task's quality level decides what is
   written to the database; the TypoScript `qualityLevel` filters what is displayed among
   those rows. Setting the display value *below* the task's simply shows everything stored.

@@ -15,7 +15,15 @@ use TYPO3\CMS\Frontend\ContentObject\ContentObjectRenderer;
 
 class SuggestionService
 {
-    public const DEFAULT_QUALITY_LEVEL = 0.3;
+    public const DEFAULT_QUALITY_LEVEL = 0.1;
+
+    /**
+     * Relevance labels, on the 5.0 score scale. Measured on 42 French pages in six
+     * topics: pairs within a topic scored 0.13 (2,500-character pages) to 0.22
+     * (long pages) at the median; the best pair across topics, 0.10 to 0.18.
+     */
+    public const RELEVANCE_HIGH = 0.25;
+    public const RELEVANCE_MEDIUM = 0.1;
     public const MAX_RECENCY_DAYS = 30;
 
     /**

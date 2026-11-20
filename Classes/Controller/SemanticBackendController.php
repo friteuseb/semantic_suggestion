@@ -98,7 +98,7 @@ class SemanticBackendController extends ActionController
             );
             $maxSuggestions = (int)(
                 $extensionConfig['maxSuggestions'] ??
-                ($extensionConfiguration['settings']['maxSuggestions'] ?? 5)
+                ($extensionConfiguration['settings']['maxSuggestions'] ?? 3)
             );
             $excludePages = GeneralUtility::intExplode(',', $extensionConfig['excludePages'] ?? ($extensionConfiguration['settings']['excludePages'] ?? ''), true);
             $excerptLength = (int)(
@@ -190,7 +190,7 @@ class SemanticBackendController extends ActionController
             $pageIdsInResults = array_keys($analysisData['results'] ?? []);
             $languageStatistics = [];
             if (!empty($pageIdsInResults) && !empty($siteLanguages)) {
-                $pagesForLangStats = $this->pageRepository->getMenuForPages($pageIdsInResults, 'uid, sys_language_uid');
+                $pagesForLangStats = $this->languageService->getAnalysedPagesPerLanguage($rootPageId, $pageIdsInResults);
                 $languageStatistics = $this->languageService->getLanguageStatistics($pagesForLangStats, $siteLanguages);
             }
 
@@ -466,8 +466,8 @@ class SemanticBackendController extends ActionController
      */
     protected function determineRelevanceLevel(float $score): string
     {
-        if ($score >= 0.8) return 'high';
-        if ($score >= 0.6) return 'medium';
+        if ($score >= \TalanHdf\SemanticSuggestion\Service\SuggestionService::RELEVANCE_HIGH) return 'high';
+        if ($score >= \TalanHdf\SemanticSuggestion\Service\SuggestionService::RELEVANCE_MEDIUM) return 'medium';
         return 'low';
     }
 

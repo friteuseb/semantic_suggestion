@@ -15,8 +15,8 @@
                interlink-shortcode="semantic_suggestion"
     />
     <project title="Semantic Suggestion"
-             version="4.1"
-             release="4.1.4"
+             version="5.0"
+             release="5.0.0"
              copyright="since 2024 by Wolfangel Cyril"
     />
 </guides>

@@ -35,7 +35,7 @@ class GenerateSimilaritiesTask extends AbstractTask
      * Default quality level, also used to detect a task saved before this
      * property existed (see resolveQualityLevel()).
      */
-    public const DEFAULT_QUALITY_LEVEL = 0.3;
+    public const DEFAULT_QUALITY_LEVEL = 0.1;
 
     /**
      * Default of the legacy minimumSimilarity property, same purpose.
@@ -261,18 +261,31 @@ class GenerateSimilaritiesTask extends AbstractTask
         $allPages = [];
         
         try {
-            // Retrieve pages directly under parent
+            // Default-language records: getMenu() has no language parameter and
+            // overlays with the context language, which is 0 in the scheduler. Until
+            // 5.0 the language was passed as a seventh argument that getMenu()
+            // ignored, so every language analysed the default-language titles and
+            // descriptions, translated or not.
             $pages = $this->pageRepository->getMenu(
                 $parentPageId,
                 '*',
                 'sorting',
                 'AND hidden=0 AND deleted=0',
                 false,
-                false, // disableGroupAccessCheck doit être un booléen
-                $languageId
+                false
             );
             
             foreach ($pages as $page) {
+                $isTranslated = true;
+                if ($languageId > 0) {
+                    // Keeps the default-language uid, which is what the similarity
+                    // rows store. The overlay marker differs between TYPO3 versions
+                    // (_PAGES_OVERLAY, then _LOCALIZED_UID); the language of the
+                    // returned record does not.
+                    $page = $this->pageRepository->getPageOverlay($page, $languageId);
+                    $isTranslated = (int)($page['sys_language_uid'] ?? 0) === $languageId;
+                }
+
                 // Check if page is excluded
                 $isExcluded = in_array($page['uid'], $excludePages);
                 
@@ -289,9 +302,13 @@ class GenerateSimilaritiesTask extends AbstractTask
                     continue;
                 }
                 
-                // Add page if not excluded
-                $allPages[$page['uid']] = $page;
-                $allPages[$page['uid']]['sys_language_uid'] = $languageId;
+                // Add page if not excluded. A page with no translation in this
+                // language is skipped, but its subpages are still visited: they
+                // may be translated.
+                if ($isTranslated) {
+                    $allPages[$page['uid']] = $page;
+                    $allPages[$page['uid']]['sys_language_uid'] = $languageId;
+                }
                 
                 // Recurse if depth allows
                 if ($depth > 1) {

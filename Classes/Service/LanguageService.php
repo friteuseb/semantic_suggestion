@@ -1,7 +1,9 @@
 <?php
 namespace TalanHdf\SemanticSuggestion\Service;
 
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Site\SiteFinder;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Log\LogManager;
 use TYPO3\CMS\Core\Site\Entity\SiteLanguage;
@@ -29,6 +31,41 @@ class LanguageService implements LoggerAwareInterface
     public function setLogger(LoggerInterface $logger): void
     {
         $this->logger = $logger;
+    }
+
+    /**
+     * One entry per page and language that has stored similarities, in the shape
+     * getLanguageStatistics() expects.
+     *
+     * Read from the similarity rows, which carry the language in sys_language_uid
+     * while page_id is always the default-language uid. Resolving the uids through
+     * the page repository, as before 5.0, returned default-language records only,
+     * so the panel showed 100 % for the default language on every multilingual site.
+     *
+     * @param int[] $pageIds Pages the current user may see, as already filtered
+     * @return list<array{sys_language_uid: int}>
+     */
+    public function getAnalysedPagesPerLanguage(int $rootPageId, array $pageIds): array
+    {
+        if ($pageIds === []) {
+            return [];
+        }
+
+        $queryBuilder = GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getQueryBuilderForTable('tx_semanticsuggestion_similarities');
+        $rows = $queryBuilder
+            ->select('page_id', 'sys_language_uid')
+            ->from('tx_semanticsuggestion_similarities')
+            ->where(
+                $queryBuilder->expr()->eq('root_page_id', $queryBuilder->createNamedParameter($rootPageId, \TYPO3\CMS\Core\Database\Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('source', $queryBuilder->createNamedParameter('analysis')),
+                $queryBuilder->expr()->in('page_id', $queryBuilder->createNamedParameter(array_map('intval', $pageIds), \TYPO3\CMS\Core\Database\Connection::PARAM_INT_ARRAY))
+            )
+            ->groupBy('page_id', 'sys_language_uid')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return array_map(static fn(array $row): array => ['sys_language_uid' => (int)$row['sys_language_uid']], $rows);
     }
 
     public function getLanguageStatistics(array $pages, array $siteLanguages): array

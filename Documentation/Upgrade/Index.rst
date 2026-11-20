@@ -9,6 +9,51 @@ Upgrade
 ..  contents::
     :local:
 
+..  _upgrade-50:
+
+To 5.0 from 4.x
+===============
+
+Version 5.0 computes the scores differently. The suggestions are better: on 42 French
+pages in six topics, the share of the top three suggestions on the right topic went
+from 80 % to 98 %, and from 68 % to 94 % with short pages. But the scores are lower,
+so thresholds tuned for 4.x are now too high, and stored rows must be regenerated.
+
+..  rubric:: 1. Run the upgrade wizards
+
+..  code-block:: shell
+
+    vendor/bin/typo3 upgrade:run semanticSuggestionLowerDefaultQualityLevel
+
+The wizard moves scheduler tasks still on the 4.x default quality level (``0.3``) to
+the new default (``0.1``). Tasks with any other value are left as they are.
+
+..  rubric:: 2. Review the thresholds you set yourself
+
+*   A task quality level you chose in 4.x: divide it by two or three as a first guess.
+*   The display threshold, if your TypoScript sets
+    :typoscript:`plugin.tx_semanticsuggestion_suggestions.settings.qualityLevel`.
+
+See :ref:`how-it-works-scores` for the new scale.
+
+..  rubric:: 3. Re-run every task
+
+Stored rows carry 4.x scores until the task runs again.
+
+..  rubric:: What changed
+
+*   Term counts are damped (``1 + log(occurrences)``) and multiplied by the field
+    weight; fields are no longer repeated as text. A weight of ``0`` now disables the
+    field.
+*   The whole text of a page is analysed. Until 4.x, ``nlp_tools`` cut it at 5,000
+    characters, after the title, keywords and abstract had been repeated, and
+    applied stop word removal and stemming a second time.
+*   Recency multiplies the score by the freshness of the suggested page instead of
+    adding the difference of age between the two pages.
+*   Each language analyses its own translated pages. Until 4.x, every language
+    analysed the default-language pages, so untranslated pages received suggestions
+    in every language.
+
 ..  _upgrade-41:
 
 To 4.1 from 3.x or 4.0.0

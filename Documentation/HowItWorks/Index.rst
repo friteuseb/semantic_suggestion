@@ -34,15 +34,18 @@ Everything below happens inside the scheduler task.
 
 #.  **Vectorisation.** Pages are grouped by that same language code and each group is
     vectorised together, so all pages of one language share a single vocabulary and
-    IDF corpus. Every page is vectorised exactly once, not once per comparison.
+    IDF corpus. Every page is vectorised exactly once, not once per comparison. A term
+    counts :php:`weight * (1 + log(occurrences))` per field (see
+    :ref:`analyzedFields <ts-analyzedFields>`), times its IDF. The whole text is used:
+    there is no length cut-off.
 
 #.  **Comparison.** Every page is compared with every other page of the same language
-    using cosine similarity on those vectors, then combined with the recency term:
+    using cosine similarity on those vectors, then weighted by the freshness of the
+    suggested page:
 
     ..  code-block:: text
 
-        score = cosine(vector1, vector2) * (1 - recencyWeight)
-              + recencyBoost              * recencyWeight
+        score = cosine(vector1, vector2) * ((1 - recencyWeight) + recencyWeight * freshness)
 
     Pairs of different languages score :php:`0.0` and are dropped.
 
@@ -60,21 +63,32 @@ most ``maxSuggestions`` of them.
 Reading the scores
 ==================
 
-The score is a cosine similarity between TF-IDF vectors, mixed with the recency term.
-Two consequences worth keeping in mind:
+The score is a cosine similarity between TF-IDF vectors, lowered by up to
+``recencyWeight`` for pages that have not changed recently. Scores are low by nature,
+and lower on short pages, which share fewer terms. Measured on 42 French pages in six
+topics:
 
-*   **Scores are lower than a naive word-count similarity would give.** Real values on
-    a normal site cluster well below 0.5; ``0.3`` is a reasonable threshold and ``0.8``
-    will match nothing. If you are migrating from a 2.x configuration, lower your
-    thresholds.
-*   **The recency term can carry a pair on its own.** ``recencyBoost`` is the absolute
-    difference between the two pages' normalised ages over a 30-day window, so with
-    the default :typoscript:`recencyWeight = 0.2` a pair with no textual similarity at
-    all can still score ``0.2``. Set the weight to :typoscript:`0` for a purely
-    textual score.
+..  list-table::
+    :header-rows: 1
+
+    *   -   Pages
+        -   Same topic (median)
+        -   Different topics (highest)
+        -   Top three on topic, at 0.1
+    *   -   Long (encyclopaedia articles)
+        -   0.22
+        -   0.18
+        -   99 %
+    *   -   Short (2,500 characters)
+        -   0.13
+        -   0.10
+        -   100 %
+
+``0.1`` is a sane quality level; lower it to ``0.05`` on a site of short pages, raise
+it to ``0.2`` to keep only close matches. ``0.5`` and above match almost nothing.
 
 The relevance labels shown in the backend module are thresholds on that score:
-``High`` above 0.8, ``Medium`` above 0.6, ``Low`` below.
+``High`` from 0.25, ``Medium`` from 0.1, ``Low`` below.
 
 ..  _how-it-works-languages:
 
@@ -148,16 +162,13 @@ content-based detection can only ever return one of the six codes above.
 
 German is the language this extension was tuned on: the Snowball stemmer is what makes
 ``Automobilindustrie`` and ``Automobil`` share a stem, and umlauts are handled. A lower
-quality level than for English (``0.25`` instead of ``0.3``) is a reasonable starting
-point on a German site.
+quality level than for English is a reasonable starting point on a German site.
 
 ..  _how-it-works-limitations:
 
 Known limitations
 =================
 
-*   **Field weights are coarse**, being implemented as text repetition — see
-    :ref:`analyzedFields <ts-analyzedFields>`.
 *   **The comparison is quadratic** in the number of pages of a scope. Split a very
     large site into several tasks on subtrees rather than raising the quality level to
     compensate.

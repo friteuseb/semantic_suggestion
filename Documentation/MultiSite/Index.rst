@@ -74,7 +74,7 @@ of them in one run:
     Task "Similarities – Main site"
       startPageId:  1     # the site root — one per SITE, not per language
       languageId:   -1    # all languages of this site
-      qualityLevel: 0.3
+      qualityLevel: 0.1
 
 Do not create one task per language pointing at different page UIDs: that pattern
 belongs to multi-site setups, where each site has its own root page.
@@ -84,7 +84,7 @@ then target the same root page with an explicit language ID:
 
 ..  code-block:: text
 
-    Task 1  startPageId: 1   languageId: 0   qualityLevel: 0.3
+    Task 1  startPageId: 1   languageId: 0   qualityLevel: 0.1
     Task 2  startPageId: 1   languageId: 1   qualityLevel: 0.25
 
 Rows are keyed by ``sys_language_uid`` on top of the site and the scope, so the two

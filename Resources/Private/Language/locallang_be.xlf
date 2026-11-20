@@ -49,7 +49,7 @@
                 <source><strong>Start Page ID</strong>: Root page ID for analysis (e.g.: 1)</source>
             </trans-unit>
             <trans-unit id="backend.config.param.threshold">
-                <source><strong>Minimum similarity threshold</strong>: Storage threshold (e.g.: 0.3)</source>
+                <source><strong>Minimum similarity threshold</strong>: Storage threshold (e.g.: 0.1)</source>
             </trans-unit>
             <trans-unit id="backend.config.param.exclude">
                 <source><strong>Pages to exclude</strong>: Pages to exclude (optional)</source>
@@ -104,7 +104,7 @@
                 <source>Display threshold</source>
             </trans-unit>
             <trans-unit id="backend.analysis.display_threshold.help">
-                <source>Configured in TypoScript</source>
+                <source>TypoScript, or the default when no TypoScript is found</source>
             </trans-unit>
             <trans-unit id="backend.analysis.max_suggestions">
                 <source>Max frontend suggestions</source>
@@ -273,7 +273,7 @@
                 <source>Storage Quality Level (0.1-1.0) - Controls what similarities get stored in database</source>
             </trans-unit>
             <trans-unit id="scheduler.task.storage_quality_level.description">
-                <source>Defines the minimum similarity score for storing page pairs. Storage threshold = Quality Level (direct mapping). Example: 0.3 stores pairs ≥ 0.3, including high similarities like 0.85. Higher values = better performance but fewer stored pairs.</source>
+                <source>Defines the minimum similarity score for storing page pairs. Storage threshold = Quality Level (direct mapping). Example: 0.1 stores pairs ≥ 0.1. Pages on the same topic typically score 0.1 to 0.3. Higher values = better performance but fewer stored pairs.</source>
             </trans-unit>
             <trans-unit id="scheduler.validation.invalid_quality_level">
                 <source>The quality level must be between 0.1 and 1.0.</source>

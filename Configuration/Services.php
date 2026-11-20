@@ -48,6 +48,9 @@ return function (ContainerConfigurator $configurator, ContainerBuilder $containe
     $services->set(TalanHdf\SemanticSuggestion\Upgrades\LabelAnalysisRowsUpgradeWizard::class)
         ->tag('install.upgradewizard', ['identifier' => 'semanticSuggestionLabelAnalysisRows']);
 
+    $services->set(TalanHdf\SemanticSuggestion\Upgrades\LowerDefaultQualityLevelUpgradeWizard::class)
+        ->tag('install.upgradewizard', ['identifier' => 'semanticSuggestionLowerDefaultQualityLevel']);
+
     // Optional nlp_tools services (auto-instantiated if available)
     if (class_exists(\Cywolf\NlpTools\Service\LanguageDetectionService::class)) {
         $services->set(\Cywolf\NlpTools\Service\LanguageDetectionService::class)->public(true);

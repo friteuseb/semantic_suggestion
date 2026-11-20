@@ -49,9 +49,9 @@ Create a :guilabel:`Semantic Suggestion: Generate Similarities` task in the
 ..  confval:: qualityLevel
     :name: task-qualityLevel
     :type: float
-    :Default: 0.3
+    :Default: 0.1
 
-    Storage threshold, between 0.1 and 1.0. A pair scoring below it is **not written
+    Storage threshold, between 0.05 and 1.0. A pair scoring below it is **not written
     to the database**, so it can never be displayed either.
 
     The threshold applied is exactly this value, floored at 0.05. No offset is
@@ -122,7 +122,7 @@ Display
 ..  confval:: qualityLevel
     :name: ts-qualityLevel
     :type: float
-    :Default: 0.3
+    :Default: 0.1
     :Path: plugin.tx_semanticsuggestion_suggestions.settings
 
     Display filter. Stored pairs scoring below this value are not shown.
@@ -203,13 +203,15 @@ Analysis
     Page fields fed to the analysis, and their weight. ``content`` falls back to the
     :sql:`bodytext` of the page's content elements when the page field is empty.
 
-    ..  warning::
-        Weights are coarse. A field's text is repeated
-        :php:`max(1, round($weight))` times before vectorisation, so:
+    Each term of a field counts :php:`weight * (1 + log(occurrences))` towards the
+    page's vector, and the fields are summed. A weight of ``1.2`` therefore counts
+    20 % more than ``1.0``, and :typoscript:`0` removes the field from the analysis
+    (it is not even fetched).
 
-        *   ``1.0``, ``1.2`` and ``1.4`` all behave identically (repeated once),
-        *   ``1.5`` to ``2.4`` are repeated twice,
-        *   ``0`` does **not** disable a field — it is still included once.
+    The weight multiplies a field's terms, it does not normalise its length: a
+    ten-word title weighted ``1.5`` still carries less than a page of content weighted
+    ``1.0``. Raise ``title`` or ``keywords`` well above ``1`` if you want them to
+    dominate.
 
 ..  _ts-recencyWeight:
 
@@ -219,19 +221,18 @@ Analysis
     :Default: 0.2
     :Path: plugin.tx_semanticsuggestion_suggestions.settings
 
-    Share of the final score taken from the recency comparison:
+    How much a recently updated suggestion is favoured:
 
     ..  code-block:: text
 
-        score = semanticSimilarity * (1 - recencyWeight) + recencyBoost * recencyWeight
+        score = semanticSimilarity * ((1 - recencyWeight) + recencyWeight * freshness)
 
-    ..  warning::
-        ``recencyBoost`` is the *absolute difference* between the two pages'
-        normalised ages (over a 30-day window), not their freshness. Raising this
-        weight therefore favours pairs of pages that were modified at *different*
-        times, and it lets a pair with no textual similarity at all reach
-        ``recencyWeight`` as a score. Leave it low, or at :typoscript:`0` if you want
-        the score to be purely textual.
+    ``freshness`` is that of the *suggested* page: ``1`` when its content changed
+    today, falling linearly to ``0`` after 30 days. With the default ``0.2``, a page
+    untouched for a month keeps 80 % of its textual score and a page updated today
+    keeps all of it. Recency only reorders pages that are already similar: a pair with
+    no textual similarity scores ``0`` whatever the weight. Set it to :typoscript:`0`
+    for a purely textual score.
 
 ..  _ts-enableStemming:
 
@@ -334,15 +335,17 @@ Extension configuration
 =======================
 
 :guilabel:`Admin Tools > Settings > Extension Configuration > semantic_suggestion`
-offers ``parentPageId``, ``proximityThreshold``, ``maxSuggestions`` and
-``excerptLength``. They are a fallback only:
+offers ``proximityThreshold``, ``maxSuggestions`` and ``excerptLength``. They are a
+fallback only:
 
 *   the **backend module** uses them when the corresponding TypoScript setting is
     missing,
 *   the **analysis** uses this section when TypoScript is unreachable (the CLI case
     described above),
-*   the **frontend plugin** never reads them,
-*   ``parentPageId`` is read by no code at all.
+*   the **frontend plugin** never reads them.
+
+Their defaults match the TypoScript ones (``0.1`` and ``3``), so the backend module
+shows the values the frontend applies when no TypoScript overrides them.
 
 ..  _configuration-columns:
 
