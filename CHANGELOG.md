@@ -30,9 +30,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one small stylesheet; tabs are pure CSS, as the backend's Content Security Policy
   forbids inline scripts. Scores are shown as numbers with a relevance label instead
   of percentage bars.
-- The module is fully translated into French.
+- The module is translated into French and German, module menu labels included. English
+  stays the default language.
 
 ### Fixed
+- Texts of the "no analysis yet" screen lost words in every language ("Note:", "Start
+  Page ID"…): their XLIFF sources held raw `<strong>` tags, which TYPO3 drops with their
+  content. They are plain text now. "Start Page ID" in the analysis selector was
+  hard-coded in English; it is a label now.
 - The module mixed languages: rows of a translation overwrote the default-language
   pairs of the same page. It now reads the default language only.
 

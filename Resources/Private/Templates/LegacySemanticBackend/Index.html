@@ -63,7 +63,7 @@
                                     <select name="rootPageId" id="rootPageId" class="form-select" onchange="this.form.submit()">
                                         <f:for each="{availableAnalyses}" as="analysis">
                                             <option value="{analysis.root_page_id}" {f:if(condition: '{analysis.root_page_id} == {currentRootPageId}', then: 'selected')}>
-                                                {analysis.title} | {analysis.page_count} <f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.analysis.pages_analyzed" /> | {analysis.pair_count} <f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.analysis.stored_pairs" /> | Start Page ID: {analysis.root_page_id}
+                                                {analysis.title} | {analysis.page_count} <f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.analysis.pages_analyzed" /> | {analysis.pair_count} <f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.analysis.stored_pairs" /> | <f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.analysis.start_page" /> {analysis.root_page_id}
                                             </option>
                                         </f:for>
                                     </select>

@@ -200,6 +200,78 @@
                 <source>Full documentation</source>
                 <target>Documentation complète</target>
             </trans-unit>
+            <trans-unit id="backend.analysis.available">
+                <source>Available Scheduler analysis</source>
+                <target>Analyses disponibles</target>
+            </trans-unit>
+            <trans-unit id="backend.analysis.help">
+                <source>One analysis per site, whatever subtree each scheduler task started from.</source>
+                <target>Une analyse par site, quel que soit le sous-arbre de départ de chaque tâche du planificateur.</target>
+            </trans-unit>
+            <trans-unit id="backend.analysis.pages_analyzed">
+                <source>Analyzed pages</source>
+                <target>pages analysées</target>
+            </trans-unit>
+            <trans-unit id="backend.analysis.selection">
+                <source>Analysis selection</source>
+                <target>Choix de l'analyse</target>
+            </trans-unit>
+            <trans-unit id="backend.analysis.stored_pairs">
+                <source>Stored pairs</source>
+                <target>paires enregistrées</target>
+            </trans-unit>
+            <trans-unit id="backend.config.note">
+                <source>Note: the first run may take a while, depending on the number of pages.</source>
+                <target>Remarque : la première exécution peut prendre du temps, selon le nombre de pages.</target>
+            </trans-unit>
+            <trans-unit id="backend.config.param.exclude">
+                <source>Pages to exclude (optional)</source>
+                <target>Pages à exclure (facultatif)</target>
+            </trans-unit>
+            <trans-unit id="backend.config.param.start_page">
+                <source>Start page: root page of the analysis, for example 1</source>
+                <target>Page de départ : page racine de l'analyse, par exemple 1</target>
+            </trans-unit>
+            <trans-unit id="backend.config.param.threshold">
+                <source>Quality level: storage threshold, for example 0.1</source>
+                <target>Niveau de qualité : seuil d'enregistrement, par exemple 0,1</target>
+            </trans-unit>
+            <trans-unit id="backend.config.required">
+                <source>Required configuration:</source>
+                <target>Configuration nécessaire :</target>
+            </trans-unit>
+            <trans-unit id="backend.config.step1">
+                <source>Open the System &gt; Scheduler module</source>
+                <target>Ouvrez le module Système &gt; Planificateur</target>
+            </trans-unit>
+            <trans-unit id="backend.config.step2">
+                <source>Create a new "Semantic Suggestion: Generate Similarities" task</source>
+                <target>Créez une tâche « Semantic Suggestion: Generate Similarities »</target>
+            </trans-unit>
+            <trans-unit id="backend.config.step3">
+                <source>Configure the parameters:</source>
+                <target>Réglez les paramètres :</target>
+            </trans-unit>
+            <trans-unit id="backend.config.step4">
+                <source>Schedule execution (daily/weekly during off-peak hours)</source>
+                <target>Planifiez l'exécution (quotidienne ou hebdomadaire, aux heures creuses)</target>
+            </trans-unit>
+            <trans-unit id="backend.config.step5">
+                <source>Run the task once for the first time</source>
+                <target>Lancez la tâche une première fois</target>
+            </trans-unit>
+            <trans-unit id="backend.error.no_analysis">
+                <source>No analysis available</source>
+                <target>Aucune analyse disponible</target>
+            </trans-unit>
+            <trans-unit id="backend.refresh">
+                <source>Refresh</source>
+                <target>Actualiser</target>
+            </trans-unit>
+            <trans-unit id="module.analysis.start_page">
+                <source>Start page</source>
+                <target>Page de départ</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

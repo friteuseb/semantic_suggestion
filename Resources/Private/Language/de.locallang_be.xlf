@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<xliff version="1.0">
+    <file source-language="en" target-language="de" datatype="plaintext" original="messages" date="2026-11-20T00:00:00Z" product-name="semantic_suggestion">
+        <header/>
+        <body>
+            <trans-unit id="backend.analysis.available">
+                <source>Available Scheduler analysis</source>
+                <target>Verfügbare Analysen</target>
+            </trans-unit>
+            <trans-unit id="backend.analysis.help">
+                <source>One analysis per site, whatever subtree each scheduler task started from.</source>
+                <target>Eine Analyse pro Website, unabhängig davon, in welchem Teilbaum jede Scheduler-Aufgabe beginnt.</target>
+            </trans-unit>
+            <trans-unit id="backend.analysis.pages_analyzed">
+                <source>Analyzed pages</source>
+                <target>analysierte Seiten</target>
+            </trans-unit>
+            <trans-unit id="backend.analysis.selection">
+                <source>Analysis selection</source>
+                <target>Auswahl der Analyse</target>
+            </trans-unit>
+            <trans-unit id="backend.analysis.stored_pairs">
+                <source>Stored pairs</source>
+                <target>gespeicherte Paare</target>
+            </trans-unit>
+            <trans-unit id="backend.config.note">
+                <source>Note: the first run may take a while, depending on the number of pages.</source>
+                <target>Hinweis: Der erste Lauf kann je nach Anzahl der Seiten etwas dauern.</target>
+            </trans-unit>
+            <trans-unit id="backend.config.param.exclude">
+                <source>Pages to exclude (optional)</source>
+                <target>Auszuschließende Seiten (optional)</target>
+            </trans-unit>
+            <trans-unit id="backend.config.param.start_page">
+                <source>Start page: root page of the analysis, for example 1</source>
+                <target>Startseite: Wurzelseite der Analyse, zum Beispiel 1</target>
+            </trans-unit>
+            <trans-unit id="backend.config.param.threshold">
+                <source>Quality level: storage threshold, for example 0.1</source>
+                <target>Qualitätsstufe: Speicherschwelle, zum Beispiel 0,1</target>
+            </trans-unit>
+            <trans-unit id="backend.config.required">
+                <source>Required configuration:</source>
+                <target>Erforderliche Konfiguration:</target>
+            </trans-unit>
+            <trans-unit id="backend.config.step1">
+                <source>Open the System &gt; Scheduler module</source>
+                <target>Öffnen Sie das Modul System &gt; Scheduler</target>
+            </trans-unit>
+            <trans-unit id="backend.config.step2">
+                <source>Create a new "Semantic Suggestion: Generate Similarities" task</source>
+                <target>Legen Sie eine neue Aufgabe „Semantic Suggestion: Generate Similarities“ an</target>
+            </trans-unit>
+            <trans-unit id="backend.config.step3">
+                <source>Configure the parameters:</source>
+                <target>Stellen Sie die Parameter ein:</target>
+            </trans-unit>
+            <trans-unit id="backend.config.step4">
+                <source>Schedule execution (daily/weekly during off-peak hours)</source>
+                <target>Planen Sie die Ausführung (täglich oder wöchentlich, außerhalb der Stoßzeiten)</target>
+            </trans-unit>
+            <trans-unit id="backend.config.step5">
+                <source>Run the task once for the first time</source>
+                <target>Führen Sie die Aufgabe einmal aus</target>
+            </trans-unit>
+            <trans-unit id="backend.error.no_analysis">
+                <source>No analysis available</source>
+                <target>Keine Analyse verfügbar</target>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.edit">
+                <source>Open this page in the Layout module</source>
+                <target>Diese Seite im Seitenmodul öffnen</target>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.help">
+                <source>Similar pages that do not link to each other yet (default language). Pages that no other page links to come first.</source>
+                <target>Ähnliche Seiten, die noch nicht aufeinander verlinken (Standardsprache). Seiten, auf die keine andere Seite verlinkt, stehen oben.</target>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.incoming">
+                <source>Links received</source>
+                <target>Eingehende Links</target>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.none">
+                <source>Every similar pair already links.</source>
+                <target>Alle ähnlichen Paare sind bereits verlinkt.</target>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.orphan">
+                <source>Orphan</source>
+                <target>Verwaist</target>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.source">
+                <source>Add a link on</source>
+                <target>Link setzen auf</target>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.summary">
+                <source>Among the 5 closest pages of each page, above the display threshold: %1$s pairs, %2$s already linked, %3$s to add. Orphan pages: %4$s (with a similar page to link from: %5$s).</source>
+                <target>Unter den 5 ähnlichsten Seiten jeder Seite, oberhalb der Anzeigeschwelle: %1$s Paare, %2$s bereits verlinkt, %3$s fehlen. Verwaiste Seiten: %4$s (mit einer ähnlichen Seite, die verlinken könnte: %5$s).</target>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.target">
+                <source>Pointing to</source>
+                <target>Ziel</target>
+            </trans-unit>
+            <trans-unit id="backend.refresh">
+                <source>Refresh</source>
+                <target>Aktualisieren</target>
+            </trans-unit>
+            <trans-unit id="module.analysis.start_page">
+                <source>Start page</source>
+                <target>Startseite</target>
+            </trans-unit>
+            <trans-unit id="module.kpi.links">
+                <source>Links to add</source>
+                <target>Fehlende Links</target>
+            </trans-unit>
+            <trans-unit id="module.kpi.orphans">
+                <source>Orphan pages</source>
+                <target>Verwaiste Seiten</target>
+            </trans-unit>
+            <trans-unit id="module.kpi.pages">
+                <source>Pages analysed</source>
+                <target>Analysierte Seiten</target>
+            </trans-unit>
+            <trans-unit id="module.kpi.pairs">
+                <source>Similar pairs shown</source>
+                <target>Angezeigte ähnliche Paare</target>
+            </trans-unit>
+            <trans-unit id="module.pages.help">
+                <source>Every analysed page with the suggestions visitors see. Pages without suggestions, then orphan pages, come first.</source>
+                <target>Alle analysierten Seiten mit den Vorschlägen, die Besucher sehen. Seiten ohne Vorschlag, danach verwaiste Seiten, stehen oben.</target>
+            </trans-unit>
+            <trans-unit id="module.pages.none">
+                <source>No suggestion above the threshold</source>
+                <target>Kein Vorschlag oberhalb der Schwelle</target>
+            </trans-unit>
+            <trans-unit id="module.pages.page">
+                <source>Page</source>
+                <target>Seite</target>
+            </trans-unit>
+            <trans-unit id="module.pages.suggestions">
+                <source>Suggestions shown</source>
+                <target>Angezeigte Vorschläge</target>
+            </trans-unit>
+            <trans-unit id="module.pairs.help">
+                <source>The %s most similar pairs among the suggestions visitors see.</source>
+                <target>Die %s ähnlichsten Paare unter den Vorschlägen, die Besucher sehen.</target>
+            </trans-unit>
+            <trans-unit id="module.pairs.none">
+                <source>No pair above the display threshold.</source>
+                <target>Kein Paar oberhalb der Anzeigeschwelle.</target>
+            </trans-unit>
+            <trans-unit id="module.pairs.page1">
+                <source>Page</source>
+                <target>Seite</target>
+            </trans-unit>
+            <trans-unit id="module.pairs.page2">
+                <source>Similar page</source>
+                <target>Ähnliche Seite</target>
+            </trans-unit>
+            <trans-unit id="module.relevance.high">
+                <source>strong</source>
+                <target>stark</target>
+            </trans-unit>
+            <trans-unit id="module.relevance.low">
+                <source>weak</source>
+                <target>schwach</target>
+            </trans-unit>
+            <trans-unit id="module.relevance.medium">
+                <source>medium</source>
+                <target>mittel</target>
+            </trans-unit>
+            <trans-unit id="module.score">
+                <source>Score</source>
+                <target>Wert</target>
+            </trans-unit>
+            <trans-unit id="module.settings.display">
+                <source>Display</source>
+                <target>Anzeige</target>
+            </trans-unit>
+            <trans-unit id="module.settings.excerpt">
+                <source>Excerpt length</source>
+                <target>Länge des Auszugs</target>
+            </trans-unit>
+            <trans-unit id="module.settings.exclude">
+                <source>Excluded pages</source>
+                <target>Ausgeschlossene Seiten</target>
+            </trans-unit>
+            <trans-unit id="module.settings.help.body1">
+                <source>The scheduler task stores the pairs scoring at or above its quality level.</source>
+                <target>Die Scheduler-Aufgabe speichert die Paare, deren Wert ihre Qualitätsstufe erreicht.</target>
+            </trans-unit>
+            <trans-unit id="module.settings.help.body2">
+                <source>The display threshold then filters what visitors see among the stored pairs. It cannot show a pair the task did not store.</source>
+                <target>Die Anzeigeschwelle filtert dann, was Besucher unter den gespeicherten Paaren sehen. Sie kann kein Paar anzeigen, das die Aufgabe nicht gespeichert hat.</target>
+            </trans-unit>
+            <trans-unit id="module.settings.help.body3">
+                <source>Pages on the same topic typically score 0.1 to 0.3. Start with 0.1 in both places, or 0.05 on a site of short or German pages.</source>
+                <target>Seiten zum selben Thema erreichen meist 0,1 bis 0,3. Beginnen Sie an beiden Stellen mit 0,1, bei kurzen oder deutschsprachigen Seiten mit 0,05.</target>
+            </trans-unit>
+            <trans-unit id="module.settings.help.doc">
+                <source>Full documentation</source>
+                <target>Vollständige Dokumentation</target>
+            </trans-unit>
+            <trans-unit id="module.settings.help.title">
+                <source>How the two thresholds work</source>
+                <target>So funktionieren die beiden Schwellen</target>
+            </trans-unit>
+            <trans-unit id="module.settings.languages">
+                <source>Analysed pages per language</source>
+                <target>Analysierte Seiten pro Sprache</target>
+            </trans-unit>
+            <trans-unit id="module.settings.max">
+                <source>Suggestions per page</source>
+                <target>Vorschläge pro Seite</target>
+            </trans-unit>
+            <trans-unit id="module.settings.none">
+                <source>none</source>
+                <target>keine</target>
+            </trans-unit>
+            <trans-unit id="module.settings.root">
+                <source>Site</source>
+                <target>Website</target>
+            </trans-unit>
+            <trans-unit id="module.settings.source">
+                <source>From TypoScript (plugin.tx_semanticsuggestion_suggestions.settings), or the extension defaults when the backend cannot read it.</source>
+                <target>Werte aus dem TypoScript (plugin.tx_semanticsuggestion_suggestions.settings) oder die Standardwerte der Extension, wenn das Backend es nicht lesen kann.</target>
+            </trans-unit>
+            <trans-unit id="module.settings.threshold">
+                <source>Display threshold</source>
+                <target>Anzeigeschwelle</target>
+            </trans-unit>
+            <trans-unit id="module.subtitle">
+                <source>Analysis of the site "%s", default language. Figures apply the frontend display settings.</source>
+                <target>Analyse der Website „%s“, Standardsprache. Die Zahlen berücksichtigen die Anzeigeeinstellungen des Frontends.</target>
+            </trans-unit>
+            <trans-unit id="module.tab.links">
+                <source>Links to add</source>
+                <target>Fehlende Links</target>
+            </trans-unit>
+            <trans-unit id="module.tab.pages">
+                <source>Pages</source>
+                <target>Seiten</target>
+            </trans-unit>
+            <trans-unit id="module.tab.pairs">
+                <source>Similar pairs</source>
+                <target>Ähnliche Paare</target>
+            </trans-unit>
+            <trans-unit id="module.tab.settings">
+                <source>Settings</source>
+                <target>Einstellungen</target>
+            </trans-unit>
+            <trans-unit id="module.title">
+                <source>Semantic Suggestion</source>
+                <target>Semantic Suggestion</target>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>

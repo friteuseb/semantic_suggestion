@@ -37,22 +37,22 @@
                 <source>Required configuration:</source>
             </trans-unit>
             <trans-unit id="backend.config.step1">
-                <source>Go to the <strong>System > Scheduler</strong> module</source>
+                <source>Open the System &gt; Scheduler module</source>
             </trans-unit>
             <trans-unit id="backend.config.step2">
-                <source>Create a new <strong>"Semantic Suggestion: Generate Similarities"</strong> task</source>
+                <source>Create a new "Semantic Suggestion: Generate Similarities" task</source>
             </trans-unit>
             <trans-unit id="backend.config.step3">
                 <source>Configure the parameters:</source>
             </trans-unit>
             <trans-unit id="backend.config.param.start_page">
-                <source><strong>Start Page ID</strong>: Root page ID for analysis (e.g.: 1)</source>
+                <source>Start page: root page of the analysis, for example 1</source>
             </trans-unit>
             <trans-unit id="backend.config.param.threshold">
-                <source><strong>Minimum similarity threshold</strong>: Storage threshold (e.g.: 0.1)</source>
+                <source>Quality level: storage threshold, for example 0.1</source>
             </trans-unit>
             <trans-unit id="backend.config.param.exclude">
-                <source><strong>Pages to exclude</strong>: Pages to exclude (optional)</source>
+                <source>Pages to exclude (optional)</source>
             </trans-unit>
             <trans-unit id="backend.config.step4">
                 <source>Schedule execution (daily/weekly during off-peak hours)</source>
@@ -61,7 +61,7 @@
                 <source>Run the task once for the first time</source>
             </trans-unit>
             <trans-unit id="backend.config.note">
-                <source><strong>Note:</strong> The first execution may take time depending on the number of pages to analyze.</source>
+                <source>Note: the first run may take a while, depending on the number of pages.</source>
             </trans-unit>
 
             <!-- Analysis Selection -->
@@ -72,7 +72,7 @@
                 <source>Available Scheduler analysis</source>
             </trans-unit>
             <trans-unit id="backend.analysis.help">
-                <source>Each analysis corresponds to a Scheduler task execution with a specific Start Page ID.</source>
+                <source>One analysis per site, whatever subtree each scheduler task started from.</source>
             </trans-unit>
             <trans-unit id="backend.refresh">
                 <source>Refresh</source>
@@ -466,6 +466,9 @@
             </trans-unit>
             <trans-unit id="module.settings.help.doc">
                 <source>Full documentation</source>
+            </trans-unit>
+            <trans-unit id="module.analysis.start_page">
+                <source>Start page</source>
             </trans-unit>
         </body>
     </file>
