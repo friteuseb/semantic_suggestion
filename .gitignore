@@ -56,3 +56,8 @@ extension_report.json
 /.git
 
 *.env
+# Local agent tooling (ruflo / claude-flow)
+/.claude-flow/
+/.swarm/
+/.claude/
+ruvector.db
