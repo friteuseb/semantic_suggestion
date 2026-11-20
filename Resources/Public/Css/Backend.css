@@ -1,0 +1,217 @@
+/*
+ * Backend module of semantic_suggestion.
+ *
+ * Colours derive from the current text colour (currentColor) rather than from
+ * Bootstrap variables: TYPO3 14 switches themes with light-dark() and its own
+ * --typo3-* tokens, while the --bs-* variables keep their light values. Deriving
+ * from the text colour follows any scheme on TYPO3 12, 13 and 14.
+ * Tabs are pure CSS (radio buttons): the backend's Content Security Policy forbids
+ * inline scripts.
+ */
+
+.ss-module {
+    --ss-muted: color-mix(in srgb, currentColor 65%, transparent);
+    --ss-border: color-mix(in srgb, currentColor 20%, transparent);
+}
+
+.ss-module {
+    max-width: 1400px;
+}
+
+.ss-subtitle {
+    color: var(--ss-muted);
+    margin-top: -0.5rem;
+    margin-bottom: 1.25rem;
+}
+
+/* Key figures */
+.ss-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.ss-kpi {
+    border: 1px solid var(--ss-border);
+    border-radius: var(--bs-border-radius, 0.25rem);
+    padding: 0.75rem 1rem;
+}
+
+.ss-kpi-value {
+    display: block;
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.ss-kpi-label {
+    display: block;
+    color: var(--ss-muted);
+    font-size: 0.875rem;
+}
+
+.ss-kpi-alert .ss-kpi-value {
+    color: #e03131;
+}
+
+/* Tabs */
+.ss-tab-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+
+.ss-tab-count {
+    font-weight: normal;
+}
+
+/* Own class names: TYPO3 14 wraps any .nav-tabs in its tab scroller component,
+   which breaks the sibling selectors below. */
+.ss-tablist {
+    display: flex;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--ss-border);
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+}
+
+.ss-tabs .ss-tab {
+    cursor: pointer;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    color: inherit;
+    opacity: 0.7;
+    padding: 0.5rem 0.9rem;
+}
+
+.ss-tabs .ss-tab:hover {
+    opacity: 1;
+}
+
+.ss-tabs .ss-tab:focus-visible {
+    outline: 2px solid var(--bs-primary, #0d6efd);
+}
+
+#ss-tab-links:focus-visible ~ .ss-tablist .ss-label-links,
+#ss-tab-pairs:focus-visible ~ .ss-tablist .ss-label-pairs,
+#ss-tab-pages:focus-visible ~ .ss-tablist .ss-label-pages,
+#ss-tab-settings:focus-visible ~ .ss-tablist .ss-label-settings {
+    outline: 2px solid var(--bs-primary, #0d6efd);
+}
+
+#ss-tab-links:checked ~ .ss-tablist .ss-label-links,
+#ss-tab-pairs:checked ~ .ss-tablist .ss-label-pairs,
+#ss-tab-pages:checked ~ .ss-tablist .ss-label-pages,
+#ss-tab-settings:checked ~ .ss-tablist .ss-label-settings {
+    opacity: 1;
+    font-weight: 600;
+    box-shadow: inset 0 -3px 0 currentColor;
+}
+
+.ss-panel {
+    display: none;
+}
+
+#ss-tab-links:checked ~ .ss-panels .ss-panel-links,
+#ss-tab-pairs:checked ~ .ss-panels .ss-panel-pairs,
+#ss-tab-pages:checked ~ .ss-panels .ss-panel-pages,
+#ss-tab-settings:checked ~ .ss-panels .ss-panel-settings {
+    display: block;
+}
+
+.ss-tab-count {
+    margin-left: 0.35rem;
+    font-size: 0.75em;
+    color: var(--ss-muted);
+}
+
+.ss-help {
+    color: var(--ss-muted);
+    margin-bottom: 1rem;
+}
+
+/* Tables */
+.ss-module .table td,
+.ss-module .table th {
+    vertical-align: middle;
+}
+
+.ss-uid {
+    color: var(--ss-muted);
+    font-size: 0.8em;
+    margin-left: 0.35rem;
+}
+
+.ss-score {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.ss-suggestion-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.ss-suggestion-list li + li {
+    margin-top: 0.15rem;
+}
+
+/* Relevance and orphan badges: mid-tone colours, legible on light and dark */
+.ss-badge {
+    display: inline-block;
+    border: 1px solid currentColor;
+    border-radius: 0.25rem;
+    padding: 0 0.4em;
+    font-size: 0.75em;
+    line-height: 1.5;
+    margin-left: 0.4rem;
+    white-space: nowrap;
+}
+
+.ss-rel-high { color: #2f9e44; }
+.ss-rel-medium { color: #e67700; }
+.ss-rel-low { color: #868e96; }
+.ss-orphan { color: #e03131; }
+
+/* Settings */
+.ss-settings {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.ss-settings dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.35rem 1rem;
+    margin: 0;
+}
+
+.ss-settings dt {
+    font-weight: normal;
+    color: var(--ss-muted);
+}
+
+.ss-settings dd {
+    margin: 0;
+    font-weight: 600;
+}
+
+.ss-details summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.ss-details[open] summary {
+    margin-bottom: 0.5rem;
+}
+
+.ss-details a,
+.ss-module td a {
+    text-decoration: underline;
+}

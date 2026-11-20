@@ -56,6 +56,150 @@
                 <source>Similarity score</source>
                 <target>Score de similarité</target>
             </trans-unit>
+            <trans-unit id="module.title">
+                <source>Semantic Suggestion</source>
+                <target>Semantic Suggestion</target>
+            </trans-unit>
+            <trans-unit id="module.subtitle">
+                <source>Analysis of the site "%s", default language. Figures apply the frontend display settings.</source>
+                <target>Analyse du site « %s », langue par défaut. Les chiffres appliquent les réglages d'affichage du frontend.</target>
+            </trans-unit>
+            <trans-unit id="module.kpi.pages">
+                <source>Pages analysed</source>
+                <target>Pages analysées</target>
+            </trans-unit>
+            <trans-unit id="module.kpi.pairs">
+                <source>Similar pairs shown</source>
+                <target>Paires proches affichées</target>
+            </trans-unit>
+            <trans-unit id="module.kpi.links">
+                <source>Links to add</source>
+                <target>Liens à ajouter</target>
+            </trans-unit>
+            <trans-unit id="module.kpi.orphans">
+                <source>Orphan pages</source>
+                <target>Pages orphelines</target>
+            </trans-unit>
+            <trans-unit id="module.tab.links">
+                <source>Links to add</source>
+                <target>Liens à ajouter</target>
+            </trans-unit>
+            <trans-unit id="module.tab.pairs">
+                <source>Similar pairs</source>
+                <target>Paires proches</target>
+            </trans-unit>
+            <trans-unit id="module.tab.pages">
+                <source>Pages</source>
+                <target>Pages</target>
+            </trans-unit>
+            <trans-unit id="module.tab.settings">
+                <source>Settings</source>
+                <target>Réglages</target>
+            </trans-unit>
+            <trans-unit id="module.score">
+                <source>Score</source>
+                <target>Score</target>
+            </trans-unit>
+            <trans-unit id="module.relevance.high">
+                <source>strong</source>
+                <target>forte</target>
+            </trans-unit>
+            <trans-unit id="module.relevance.medium">
+                <source>medium</source>
+                <target>moyenne</target>
+            </trans-unit>
+            <trans-unit id="module.relevance.low">
+                <source>weak</source>
+                <target>faible</target>
+            </trans-unit>
+            <trans-unit id="module.pairs.help">
+                <source>The %s most similar pairs among the suggestions visitors see.</source>
+                <target>Les %s paires les plus proches parmi les suggestions que voient les visiteurs.</target>
+            </trans-unit>
+            <trans-unit id="module.pairs.page1">
+                <source>Page</source>
+                <target>Page</target>
+            </trans-unit>
+            <trans-unit id="module.pairs.page2">
+                <source>Similar page</source>
+                <target>Page proche</target>
+            </trans-unit>
+            <trans-unit id="module.pairs.none">
+                <source>No pair above the display threshold.</source>
+                <target>Aucune paire au-dessus du seuil d'affichage.</target>
+            </trans-unit>
+            <trans-unit id="module.pages.help">
+                <source>Every analysed page with the suggestions visitors see. Pages without suggestions, then orphan pages, come first.</source>
+                <target>Chaque page analysée, avec les suggestions que voient les visiteurs. Les pages sans suggestion, puis les pages orphelines, passent en premier.</target>
+            </trans-unit>
+            <trans-unit id="module.pages.page">
+                <source>Page</source>
+                <target>Page</target>
+            </trans-unit>
+            <trans-unit id="module.pages.suggestions">
+                <source>Suggestions shown</source>
+                <target>Suggestions affichées</target>
+            </trans-unit>
+            <trans-unit id="module.pages.none">
+                <source>No suggestion above the threshold</source>
+                <target>Aucune suggestion au-dessus du seuil</target>
+            </trans-unit>
+            <trans-unit id="module.settings.display">
+                <source>Display</source>
+                <target>Affichage</target>
+            </trans-unit>
+            <trans-unit id="module.settings.threshold">
+                <source>Display threshold</source>
+                <target>Seuil d'affichage</target>
+            </trans-unit>
+            <trans-unit id="module.settings.max">
+                <source>Suggestions per page</source>
+                <target>Suggestions par page</target>
+            </trans-unit>
+            <trans-unit id="module.settings.exclude">
+                <source>Excluded pages</source>
+                <target>Pages exclues</target>
+            </trans-unit>
+            <trans-unit id="module.settings.excerpt">
+                <source>Excerpt length</source>
+                <target>Longueur de l'extrait</target>
+            </trans-unit>
+            <trans-unit id="module.settings.root">
+                <source>Site</source>
+                <target>Site</target>
+            </trans-unit>
+            <trans-unit id="module.settings.none">
+                <source>none</source>
+                <target>aucune</target>
+            </trans-unit>
+            <trans-unit id="module.settings.source">
+                <source>From TypoScript (plugin.tx_semanticsuggestion_suggestions.settings), or the extension defaults when the backend cannot read it.</source>
+                <target>Valeurs du TypoScript (plugin.tx_semanticsuggestion_suggestions.settings), ou valeurs par défaut de l'extension quand le backend ne peut pas le lire.</target>
+            </trans-unit>
+            <trans-unit id="module.settings.languages">
+                <source>Analysed pages per language</source>
+                <target>Pages analysées par langue</target>
+            </trans-unit>
+            <trans-unit id="module.settings.help.title">
+                <source>How the two thresholds work</source>
+                <target>Comment fonctionnent les deux seuils</target>
+            </trans-unit>
+            <trans-unit id="module.settings.help.body1">
+                <source>The scheduler task stores the pairs scoring at or above its quality level.</source>
+                <target>La tâche du planificateur enregistre les paires dont le score atteint son niveau de qualité.</target>
+            </trans-unit>
+            <trans-unit id="module.settings.help.body2">
+                <source>The display threshold then filters what visitors see among the stored pairs. It cannot show a pair the task did not store.</source>
+                <target>Le seuil d'affichage filtre ensuite ce que voient les visiteurs parmi les paires enregistrées. Il ne peut pas afficher une paire que la tâche n'a pas enregistrée.</target>
+            </trans-unit>
+            <trans-unit id="module.settings.help.body3">
+                <source>Pages on the same topic typically score 0.1 to 0.3. Start with 0.1 in both places, or 0.05 on a site of short or German pages.</source>
+                <target>Deux pages du même sujet obtiennent en général 0,1 à 0,3. Commencez à 0,1 aux deux endroits, ou à 0,05 sur un site de pages courtes ou en allemand.</target>
+            </trans-unit>
+            <trans-unit id="module.settings.help.doc">
+                <source>Full documentation</source>
+                <target>Documentation complète</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

@@ -39,7 +39,7 @@ final class LinkOpportunityService
     /**
      * @param int[] $allowedPageIds Pages the backend user may see; the result never names another
      * @param int[] $excludePages   Pages never suggested, as in the frontend
-     * @return array{opportunities: list<array{source: int, target: int, score: float, targetIncoming: int, targetOrphan: bool}>, summary: array<string, int>}
+     * @return array{opportunities: list<array{source: int, target: int, score: float, targetIncoming: int, targetOrphan: bool}>, summary: array<string, int>, incoming: array<int, int>}
      */
     public function findOpportunities(int $rootPageId, array $allowedPageIds, float $threshold, array $excludePages = [], int $limit = 20): array
     {
@@ -97,6 +97,8 @@ final class LinkOpportunityService
 
         return [
             'opportunities' => array_slice($opportunities, 0, $limit),
+            // Links received by every allowed page, for the module's page list.
+            'incoming' => $incoming,
             'summary' => [
                 'pairs' => count($pairs),
                 'alreadyLinked' => $alreadyLinked,

@@ -1,0 +1,223 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers" xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers" data-namespace-typo3-fluid="true">
+
+<f:comment>Shared by the TYPO3 12 and the TYPO3 13/14 templates. See Backend.css for the tabs.</f:comment>
+
+<div class="ss-kpis">
+    <div class="ss-kpi">
+        <span class="ss-kpi-value">{overview.totals.pages}</span>
+        <span class="ss-kpi-label"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.kpi.pages" /></span>
+    </div>
+    <div class="ss-kpi">
+        <span class="ss-kpi-value">{overview.totals.pairs}</span>
+        <span class="ss-kpi-label"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.kpi.pairs" /></span>
+    </div>
+    <f:if condition="{linkOpportunities}">
+        <div class="ss-kpi">
+            <span class="ss-kpi-value">{linkOpportunities.summary.missing}</span>
+            <span class="ss-kpi-label"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.kpi.links" /></span>
+        </div>
+        <div class="ss-kpi {f:if(condition: '{linkOpportunities.summary.orphanPages} > 0', then: 'ss-kpi-alert')}">
+            <span class="ss-kpi-value">{linkOpportunities.summary.orphanPages}</span>
+            <span class="ss-kpi-label"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.kpi.orphans" /></span>
+        </div>
+    </f:if>
+</div>
+
+<div class="ss-tabs">
+    <f:comment>First visible tab is the default one.</f:comment>
+    <f:variable name="defaultTab" value="settings" />
+    <f:if condition="{showTopSimilarPages}"><f:variable name="defaultTab" value="pages" /></f:if>
+    <f:if condition="{showTopSimilarPairs}"><f:variable name="defaultTab" value="pairs" /></f:if>
+    <f:if condition="{showLinkOpportunities}"><f:variable name="defaultTab" value="links" /></f:if>
+    <f:if condition="{showLinkOpportunities}"><f:render section="TabInput" arguments="{tab: 'links', defaultTab: defaultTab}" /></f:if>
+    <f:if condition="{showTopSimilarPairs}"><f:render section="TabInput" arguments="{tab: 'pairs', defaultTab: defaultTab}" /></f:if>
+    <f:if condition="{showTopSimilarPages}"><f:render section="TabInput" arguments="{tab: 'pages', defaultTab: defaultTab}" /></f:if>
+    <f:render section="TabInput" arguments="{tab: 'settings', defaultTab: defaultTab}" />
+
+    <div class="ss-tablist" role="tablist">
+        <f:if condition="{showLinkOpportunities}">
+            <label for="ss-tab-links" class="ss-tab ss-label-links"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.tab.links" /><f:if condition="{linkOpportunities}"><span class="ss-tab-count">{linkOpportunities.summary.missing}</span></f:if></label>
+        </f:if>
+        <f:if condition="{showTopSimilarPairs}">
+            <label for="ss-tab-pairs" class="ss-tab ss-label-pairs"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.tab.pairs" /></label>
+        </f:if>
+        <f:if condition="{showTopSimilarPages}">
+            <label for="ss-tab-pages" class="ss-tab ss-label-pages"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.tab.pages" /><f:if condition="{overview.totals.pagesWithoutSuggestion}"><span class="ss-tab-count ss-orphan">{overview.totals.pagesWithoutSuggestion}</span></f:if></label>
+        </f:if>
+        <label for="ss-tab-settings" class="ss-tab ss-label-settings"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.tab.settings" /></label>
+    </div>
+
+    <div class="ss-panels">
+
+        <f:if condition="{showLinkOpportunities}">
+            <section class="ss-panel ss-panel-links" aria-labelledby="ss-tab-links">
+                <p class="ss-help"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.help" /></p>
+                <f:if condition="{linkOpportunities}">
+                    <p>
+                        <f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.summary" arguments="{0: linkOpportunities.summary.pairs, 1: linkOpportunities.summary.alreadyLinked, 2: linkOpportunities.summary.missing, 3: linkOpportunities.summary.orphanPages, 4: linkOpportunities.summary.orphansWithOpportunity}" />
+                    </p>
+                    <f:if condition="{linkOpportunities.opportunities}">
+                        <f:then>
+                            <div class="table-fit">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.source" /></th>
+                                            <th><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.target" /></th>
+                                            <th class="text-end"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.incoming" /></th>
+                                            <th class="text-end"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.score" /></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <f:for each="{linkOpportunities.opportunities}" as="opportunity">
+                                            <tr>
+                                                <td>
+                                                    <a href="{be:moduleLink(route: 'web_layout', arguments: {id: opportunity.source})}" title="{f:translate(key: 'LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.edit')}">{analysisResults.{opportunity.source}.title.content}</a><span class="ss-uid">{opportunity.source}</span>
+                                                </td>
+                                                <td>{analysisResults.{opportunity.target}.title.content}<span class="ss-uid">{opportunity.target}</span></td>
+                                                <td class="text-end">
+                                                    <f:if condition="{opportunity.targetOrphan}">
+                                                        <f:then><span class="ss-badge ss-orphan"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.orphan" /></span></f:then>
+                                                        <f:else>{opportunity.targetIncoming}</f:else>
+                                                    </f:if>
+                                                </td>
+                                                <td class="text-end ss-score"><f:render section="Score" arguments="{score: opportunity.score}" /></td>
+                                            </tr>
+                                        </f:for>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </f:then>
+                        <f:else>
+                            <p class="text-muted"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.none" /></p>
+                        </f:else>
+                    </f:if>
+                </f:if>
+            </section>
+        </f:if>
+
+        <f:if condition="{showTopSimilarPairs}">
+            <section class="ss-panel ss-panel-pairs" aria-labelledby="ss-tab-pairs">
+                <f:variable name="pairCount">{overview.pairs -> f:count()}</f:variable>
+                <p class="ss-help"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.pairs.help" arguments="{0: pairCount}" /></p>
+                <f:if condition="{overview.pairs}">
+                    <f:then>
+                        <div class="table-fit">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.pairs.page1" /></th>
+                                        <th><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.pairs.page2" /></th>
+                                        <th class="text-end"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.score" /></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <f:for each="{overview.pairs}" as="pair">
+                                        <tr>
+                                            <td>{pair.title1}<span class="ss-uid">{pair.page1}</span></td>
+                                            <td>{pair.title2}<span class="ss-uid">{pair.page2}</span></td>
+                                            <td class="text-end ss-score"><f:render section="Score" arguments="{score: pair.score}" /></td>
+                                        </tr>
+                                    </f:for>
+                                </tbody>
+                            </table>
+                        </div>
+                    </f:then>
+                    <f:else><p class="text-muted"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.pairs.none" /></p></f:else>
+                </f:if>
+            </section>
+        </f:if>
+
+        <f:if condition="{showTopSimilarPages}">
+            <section class="ss-panel ss-panel-pages" aria-labelledby="ss-tab-pages">
+                <p class="ss-help"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.pages.help" /></p>
+                <div class="table-fit">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.pages.page" /></th>
+                                <th><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.pages.suggestions" /></th>
+                                <f:if condition="{linkOpportunities}"><th class="text-end"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.incoming" /></th></f:if>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <f:for each="{overview.pages}" as="page">
+                                <tr>
+                                    <td>{page.title}<span class="ss-uid">{page.uid}</span></td>
+                                    <td>
+                                        <f:if condition="{page.suggestions}">
+                                            <f:then>
+                                                <ul class="ss-suggestion-list">
+                                                    <f:for each="{page.suggestions}" as="suggestion">
+                                                        <li>{suggestion.title} <span class="ss-score"><f:render section="Score" arguments="{score: suggestion.score}" /></span></li>
+                                                    </f:for>
+                                                </ul>
+                                            </f:then>
+                                            <f:else><span class="ss-badge ss-orphan"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.pages.none" /></span></f:else>
+                                        </f:if>
+                                    </td>
+                                    <f:if condition="{linkOpportunities}">
+                                        <td class="text-end">
+                                            <f:if condition="{page.orphan}">
+                                                <f:then><span class="ss-badge ss-orphan"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.orphan" /></span></f:then>
+                                                <f:else>{page.incoming}</f:else>
+                                            </f:if>
+                                        </td>
+                                    </f:if>
+                                </tr>
+                            </f:for>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </f:if>
+
+        <section class="ss-panel ss-panel-settings" aria-labelledby="ss-tab-settings">
+            <div class="ss-settings">
+                <div>
+                    <h3 class="h5"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.settings.display" /></h3>
+                    <dl>
+                        <dt><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.settings.threshold" /></dt>
+                        <dd>{proximityThreshold -> f:format.number(decimals: 2)}</dd>
+                        <dt><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.settings.max" /></dt>
+                        <dd>{maxSuggestions}</dd>
+                        <dt><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.settings.exclude" /></dt>
+                        <dd><f:if condition="{excludePages}"><f:then>{excludePages}</f:then><f:else><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.settings.none" /></f:else></f:if></dd>
+                        <dt><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.settings.excerpt" /></dt>
+                        <dd>{excerptLength}</dd>
+                        <f:if condition="{currentAnalysis}">
+                            <dt><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.settings.root" /></dt>
+                            <dd>{currentAnalysis.title}<span class="ss-uid">{currentAnalysis.root_page_id}</span></dd>
+                        </f:if>
+                    </dl>
+                    <p class="ss-help mt-2"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.settings.source" /></p>
+                </div>
+                <f:if condition="{showLanguageStatistics} && {languageStatistics}">
+                    <div>
+                        <h3 class="h5"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.settings.languages" /></h3>
+                        <dl>
+                            <f:for each="{languageStatistics}" as="langStat">
+                                <dt>{langStat.info.title} ({langStat.info.twoLetterIsoCode})</dt>
+                                <dd>{langStat.count}</dd>
+                            </f:for>
+                        </dl>
+                    </div>
+                </f:if>
+            </div>
+            <details class="ss-details mt-4">
+                <summary><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.settings.help.title" /></summary>
+                <p><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.settings.help.body1" /></p>
+                <p><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.settings.help.body2" /></p>
+                <p><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.settings.help.body3" /></p>
+                <p><a href="https://docs.typo3.org/p/talan-hdf/semantic-suggestion/main/en-us/" target="_blank" rel="noopener"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.settings.help.doc" /></a></p>
+            </details>
+        </section>
+
+    </div>
+</div>
+
+<f:section name="TabInput"><f:if condition="{tab} == {defaultTab}"><f:then><input type="radio" name="ss-tab" id="ss-tab-{tab}" class="ss-tab-input" checked="checked" /></f:then><f:else><input type="radio" name="ss-tab" id="ss-tab-{tab}" class="ss-tab-input" /></f:else></f:if></f:section>
+
+<f:section name="Score">{score -> f:format.number(decimals: 2)}<f:if condition="{score} >= 0.25"><f:then><span class="ss-badge ss-rel-high"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.relevance.high" /></span></f:then><f:else if="{score} >= 0.1"><span class="ss-badge ss-rel-medium"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.relevance.medium" /></span></f:else><f:else><span class="ss-badge ss-rel-low"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:module.relevance.low" /></span></f:else></f:if></f:section>
+
+</html>

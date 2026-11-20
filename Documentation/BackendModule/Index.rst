@@ -12,46 +12,44 @@ computes anything itself, so opening it is safe on a production site.
 ..  figure:: ../Medias/backend_module.png
     :alt: The Semantic Suggestion backend module
 
-    Analysis selector, configuration reminder and statistics.
+    Key figures, then the *Links to add* tab.
 
-The page tree is hidden on purpose: the module works on one *analysis* at a time,
-picked from a dropdown.
+The page tree is hidden on purpose: the module works on one *analysis* at a time. With
+several analyses (one per site), a selector lists them above the figures.
 
 ..  _backend-module-sections:
 
 What it shows
 =============
 
+Four key figures sit at the top: pages analysed, similar pairs shown to visitors, links
+to add, and orphan pages (pages no other page links to). Everything below applies the
+frontend display settings (quality level, ``excludePages``, ``maxSuggestions``), so the
+module shows what visitors actually get. Default language only.
+
 ..  list-table::
     :header-rows: 1
 
-    *   -   Section
+    *   -   Tab
         -   Content
-    *   -   Analysis selector
-        -   One entry per site, grouped by ``root_page_id``, with the number of pages
-            and of stored pairs. Every task of a site appears as a single analysis,
-            whichever subtree each one started from.
-    *   -   Configuration reminder
-        -   The display settings in effect: quality level, ``maxSuggestions``,
-            ``excludePages``, ``excerptLength``.
-    *   -   Statistics
-        -   The five most similar pairs, the five pages with the most links, the score
-            distribution, and the totals — all computed with the display filters
-            applied, so they reflect what visitors actually see.
-    *   -   Language statistics
-        -   Distribution of the analysed pages over the site's languages.
-    *   -   Performance metrics
-        -   Module execution time and the number of stored pairs above the display
-            threshold.
-    *   -   Link opportunities
+    *   -   Links to add
         -   Similar pages that do not link to each other yet, orphan pages first — see
-            :ref:`backend-module-link-opportunities`.
+            :ref:`backend-module-link-opportunities`. Each source page opens in the
+            *Page* module.
+    *   -   Similar pairs
+        -   The 50 most similar pairs among the suggestions visitors see, with a
+            relevance label: *strong* from 0.25, *medium* from 0.1, *weak* below.
+    *   -   Pages
+        -   Every analysed page with the suggestions it shows and the links it receives.
+            Pages without any suggestion, then orphan pages, come first.
+    *   -   Settings
+        -   The display settings in effect, the analysed pages per language, and a short
+            explanation of the two thresholds.
 
-Each section can be switched off in TypoScript — see
+Tabs can be switched off in TypoScript (:typoscript:`showLinkOpportunities`,
+:typoscript:`showTopSimilarPairs`, :typoscript:`showTopSimilarPages`), as can the
+language figures (:typoscript:`showLanguageStatistics`) — see
 :ref:`configuration-typoscript`.
-
-..  figure:: ../Medias/backend_module_performance_metrics.png
-    :alt: Performance metrics section
 
 ..  _backend-module-link-opportunities:
 

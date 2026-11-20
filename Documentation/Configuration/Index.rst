@@ -280,11 +280,13 @@ Analysis
 Backend module
 --------------
 
-Seven booleans toggle the sections of the module, all enabled by default:
-:typoscript:`showStatistics`, :typoscript:`showPerformanceMetrics`,
-:typoscript:`showLanguageStatistics`, :typoscript:`showTopSimilarPairs`,
-:typoscript:`showDistributionScores`, :typoscript:`showTopSimilarPages`,
-:typoscript:`showLinkOpportunities` (see :ref:`backend-module-link-opportunities`).
+Four booleans toggle parts of the module, all enabled by default:
+:typoscript:`showLinkOpportunities`, :typoscript:`showTopSimilarPairs` and
+:typoscript:`showTopSimilarPages` (the *Links to add*, *Similar pairs* and *Pages* tabs),
+and :typoscript:`showLanguageStatistics` (the per-language figures of the *Settings*
+tab). Since 5.1, :typoscript:`showStatistics`, :typoscript:`showPerformanceMetrics` and
+:typoscript:`showDistributionScores` have no effect: the sections they toggled were
+removed.
 
 Template integration
 --------------------

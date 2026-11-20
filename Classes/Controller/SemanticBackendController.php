@@ -169,6 +169,11 @@ class SemanticBackendController extends ActionController
                     ->findOpportunities($rootPageId, array_keys($analysisData['results'] ?? []), $proximityThreshold, $excludePages)
                 : null;
 
+            $overview = GeneralUtility::makeInstance(\TalanHdf\SemanticSuggestion\Service\BackendOverviewService::class)
+                ->build($analysisData, $proximityThreshold, $excludePages, $maxSuggestions, $linkOpportunities['incoming'] ?? null);
+            GeneralUtility::makeInstance(\TYPO3\CMS\Core\Page\PageRenderer::class)
+                ->addCssFile('EXT:semantic_suggestion/Resources/Public/Css/Backend.css');
+
             // Informations sur l'analyse sélectionnée
             $currentAnalysis = null;
             foreach ($availableAnalyses as $analysis) {
@@ -223,6 +228,7 @@ class SemanticBackendController extends ActionController
                 'showTopSimilarPages' => $showTopSimilarPages,
                 'showLinkOpportunities' => $showLinkOpportunities,
                 'linkOpportunities' => $linkOpportunities,
+                'overview' => $overview,
 
                 // Données d'analyse
                 'performanceMetrics' => $showPerformanceMetrics ? $performanceMetrics : null,
@@ -341,7 +347,10 @@ class SemanticBackendController extends ActionController
             ->select('page_id', 'similar_page_id', 'similarity_score', 'sys_language_uid')
             ->from('tx_semanticsuggestion_similarities')
             ->where(
-                $queryBuilder->expr()->eq('root_page_id', $queryBuilder->createNamedParameter($rootPageId, ParameterType::INTEGER))
+                $queryBuilder->expr()->eq('root_page_id', $queryBuilder->createNamedParameter($rootPageId, ParameterType::INTEGER)),
+                // Default language only: page_id is always the default-language uid, so
+                // rows of other languages overwrote the default ones in the arrays below.
+                $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter(0, ParameterType::INTEGER))
             )
             ->executeQuery()
             ->fetchAllAssociative();

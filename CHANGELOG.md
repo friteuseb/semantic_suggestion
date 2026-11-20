@@ -17,9 +17,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   88 already linked, 115 to add.
   Toggle: `showLinkOpportunities` (default `1`).
 
+### Changed
+- **Backend module redesigned.** Four key figures (pages analysed, pairs shown, links to
+  add, orphan pages) and four tabs: *Links to add* (default), *Similar pairs* (top 50),
+  *Pages* (each page with its suggestions and incoming links, pages needing attention
+  first) and *Settings*. The page was ten stacked sections over some 4,300 px, with
+  duplicated counters and a permanent tutorial that was unreadable in dark mode.
+  Removed: performance metrics, score distribution, duplicated statistics and the
+  "visual example". The TypoScript toggles `showStatistics`, `showPerformanceMetrics`
+  and `showDistributionScores` no longer have any effect.
+- Styling follows the backend's light and dark schemes on TYPO3 12, 13 and 14, from
+  one small stylesheet; tabs are pure CSS, as the backend's Content Security Policy
+  forbids inline scripts. Scores are shown as numbers with a relevance label instead
+  of percentage bars.
+- The module is fully translated into French.
+
 ### Fixed
-- Score bars of the "most similar pairs" table used the 4.x colour thresholds (0.8 and
-  0.6), which 5.0 scores never reach: they now follow the relevance levels (0.25, 0.1).
+- The module mixed languages: rows of a translation overwrote the default-language
+  pairs of the same page. It now reads the default language only.
 
 ## [5.0.0] - 2026-11-20
 
