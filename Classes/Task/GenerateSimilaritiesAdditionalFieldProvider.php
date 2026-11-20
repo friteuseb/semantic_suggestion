@@ -112,7 +112,7 @@ class GenerateSimilaritiesAdditionalFieldProvider extends AbstractAdditionalFiel
 
         $additionalFields[$fieldId] = [
             'code' => $fieldCode,
-            'label' => LocalizationUtility::translate('LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:scheduler.task.storage_quality_level', 'semantic_suggestion') ?? 'Storage Quality Level (0.1-1.0) - Controls what similarities get stored in database',
+            'label' => LocalizationUtility::translate('LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:scheduler.task.storage_quality_level', 'semantic_suggestion') ?? 'Storage Quality Level (0.05-1.0) - Controls what similarities get stored in database',
             'cshKey' => '_MOD_system_txschedulerM1',
             'cshLabel' => $fieldId
         ];

@@ -27,7 +27,7 @@ plugin.tx_semanticsuggestion_suggestions {
 
     # Unified Quality Settings
     settings {
-         # cat=semantic_suggestion:Quality Control/100/001; type=float; label=Display Quality Level (0.1-1.0) - Filters suggestions shown to users
+         # cat=semantic_suggestion:Quality Control/100/001; type=float; label=Display Quality Level (0.05-1.0) - Filters suggestions shown to users
          # Filters the pairs already stored by the scheduler task: a stored pair is
          # displayed when its score is >= this value.
          # Independent from the task's own quality level, which decides what gets stored:

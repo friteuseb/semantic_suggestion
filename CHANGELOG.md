@@ -11,7 +11,9 @@ New similarity computation. Suggestions are far more relevant, and scores are lo
 Measured on 42 French pages in six topics (Wikipedia articles), share of the top three
 suggestions on the right topic: 80 % → 98 % on long pages, 68 % → 94 % on pages cut at
 2,500 characters. Analysis is also faster (3.7 s → 2.2 s) and uses less memory
-(48 MB → 22 MB) on the long pages.
+(48 MB → 22 MB) on the long pages. Verified on TYPO3 12.4.45, 13.4.40 and 14.3.12:
+same scores on all three, upgrade wizard, backend module, scheduler form and frontend
+plugin in two languages.
 
 ⚠️ **Scores are on a new scale.** Pages on the same topic now typically score 0.1 to
 0.3. Default quality levels go from `0.3` to `0.1`. Run the upgrade wizard
