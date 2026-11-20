@@ -10,7 +10,7 @@ Suggests related pages on a TYPO3 site by comparing the text of the pages themse
 instead of relying on categories or manual links.
 
 A scheduler task walks a page tree, builds a TF-IDF vector per page (via
-[nlp_tools](https://github.com/cywolf/nlp_tools)), compares them pairwise and stores the
+[nlp_tools](https://github.com/friteuseb/nlp_tools)), compares them pairwise and stores the
 resulting scores in `tx_semanticsuggestion_similarities`. The frontend plugin only reads
 that table, so displaying suggestions costs one indexed query.
 

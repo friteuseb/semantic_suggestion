@@ -75,5 +75,5 @@ Credits
 
 The text processing — language detection, stop words, stemming and TF-IDF
 vectorisation — is provided by the
-`nlp_tools <https://github.com/cywolf/nlp_tools>`__ extension, which in turn uses
+`nlp_tools <https://github.com/friteuseb/nlp_tools>`__ extension, which in turn uses
 `wamania/php-stemmer <https://github.com/wamania/php-stemmer>`__ (Snowball).
