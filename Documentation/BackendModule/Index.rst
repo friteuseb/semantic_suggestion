@@ -43,12 +43,48 @@ What it shows
     *   -   Performance metrics
         -   Module execution time and the number of stored pairs above the display
             threshold.
+    *   -   Link opportunities
+        -   Similar pages that do not link to each other yet, orphan pages first — see
+            :ref:`backend-module-link-opportunities`.
 
 Each section can be switched off in TypoScript — see
 :ref:`configuration-typoscript`.
 
 ..  figure:: ../Medias/backend_module_performance_metrics.png
     :alt: Performance metrics section
+
+..  _backend-module-link-opportunities:
+
+Link opportunities
+==================
+
+The analysis says which pages are close; the reference index (:sql:`sys_refindex`)
+says which pages already link to which. The panel lists the pairs where the first page
+does not link to the second yet: each row is a link an editor can add.
+
+*   **Which pairs.** For each page, its 5 closest pages at or above the display quality
+    level. Further neighbours are left out: above the threshold a page can still be
+    loosely related to dozens of others, and those are not links worth adding.
+*   **Which links count as existing.** Links to a page from a visible content element of
+    the default language, as recorded in the reference index. Links in other tables
+    (news, records) and in translations are not counted.
+*   **Order.** Pages that no other page links to (*orphans*) come first, then the most
+    similar pairs. A link to an orphan page is worth more than one more link between
+    pages that are already well connected.
+*   **Action.** The source page links to the *Page* module, where the link is added.
+
+The summary line counts the pairs considered, those already linked, those to add, the
+orphan pages, and how many of them have a similar page that could link to them. An
+orphan page with no similar page above the threshold needs a link that this analysis
+cannot suggest.
+
+..  note::
+    The panel reads the reference index. If links were added outside the backend (by
+    an import, for instance), update it first:
+    :shell:`vendor/bin/typo3 referenceindex:update`.
+
+Default language only: similarity rows store default-language page uids, and
+translated content usually mirrors the default links.
 
 ..  _backend-module-access:
 

@@ -146,12 +146,19 @@ class LegacySemanticBackendController extends ActionController
             $showTopSimilarPairs = (bool)($extensionConfig['showTopSimilarPairs'] ?? true);
             $showDistributionScores = (bool)($extensionConfig['showDistributionScores'] ?? true);
             $showTopSimilarPages = (bool)($extensionConfig['showTopSimilarPages'] ?? true);
+            $showLinkOpportunities = (bool)($extensionConfig['showLinkOpportunities'] ?? true);
 
             $this->logDebug('Using config (Legacy)', $extensionConfig);
 
             // Récupérer les données d'analyse depuis la base
             $analysisData = $this->getAnalysisFromDatabase($rootPageId);
             $statistics = $this->calculateStatistics($analysisData, $proximityThreshold);
+
+            // Similar pages that do not link to each other yet, orphans first.
+            $linkOpportunities = $showLinkOpportunities
+                ? GeneralUtility::makeInstance(\TalanHdf\SemanticSuggestion\Service\LinkOpportunityService::class)
+                    ->findOpportunities($rootPageId, array_keys($analysisData['results'] ?? []), $proximityThreshold, $excludePages)
+                : null;
 
             // Informations sur l'analyse sélectionnée
             $currentAnalysis = null;
@@ -215,6 +222,8 @@ class LegacySemanticBackendController extends ActionController
                 'showTopSimilarPairs' => $showTopSimilarPairs,
                 'showDistributionScores' => $showDistributionScores,
                 'showTopSimilarPages' => $showTopSimilarPages,
+                'showLinkOpportunities' => $showLinkOpportunities,
+                'linkOpportunities' => $linkOpportunities,
 
                 // Données d'analyse
                 'performanceMetrics' => $showPerformanceMetrics ? $performanceMetrics : null,

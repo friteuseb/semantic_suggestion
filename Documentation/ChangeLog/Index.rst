@@ -19,6 +19,13 @@ Release highlights
 
     *   -   Version
         -   Highlights
+    *   -   5.1.0
+        -   Link opportunities in the backend module: similar pages that do not link
+            to each other yet, orphan pages first.
+    *   -   5.0.0
+        -   New similarity computation: far more relevant suggestions in every language
+            measured, on a lower score scale. Default quality level 0.1. Requires the
+            upgrade wizard and a re-run of every task — see :ref:`upgrade`.
     *   -   4.1.x
         -   Multi-site correctness: suggestions are scoped to the current site, the
             backend module is permission-scoped, cache invalidation is per site, and

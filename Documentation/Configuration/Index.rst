@@ -280,10 +280,11 @@ Analysis
 Backend module
 --------------
 
-Six booleans toggle the sections of the module, all enabled by default:
+Seven booleans toggle the sections of the module, all enabled by default:
 :typoscript:`showStatistics`, :typoscript:`showPerformanceMetrics`,
 :typoscript:`showLanguageStatistics`, :typoscript:`showTopSimilarPairs`,
-:typoscript:`showDistributionScores`, :typoscript:`showTopSimilarPages`.
+:typoscript:`showDistributionScores`, :typoscript:`showTopSimilarPages`,
+:typoscript:`showLinkOpportunities` (see :ref:`backend-module-link-opportunities`).
 
 Template integration
 --------------------

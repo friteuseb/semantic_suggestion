@@ -31,6 +31,7 @@ return function (ContainerConfigurator $configurator, ContainerBuilder $containe
     $services->set(TalanHdf\SemanticSuggestion\Service\PageAnalysisService::class)->public(true);
     $services->set(TalanHdf\SemanticSuggestion\Service\SuggestionService::class)->public(true);
     $services->set(TalanHdf\SemanticSuggestion\Service\UtilityService::class)->public(true);
+    $services->set(TalanHdf\SemanticSuggestion\Service\LinkOpportunityService::class)->public(true);
     $services->set(TalanHdf\SemanticSuggestion\Service\LanguageService::class);
     $services->set(TalanHdf\SemanticSuggestion\Service\SiteLanguageService::class);
 

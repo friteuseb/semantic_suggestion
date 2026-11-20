@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.0] - 2026-11-20
+
+### Added
+- **Link opportunities** in the backend module: similar pages that do not link to each
+  other yet, read from the reference index. For each page, its 5 closest pages above the
+  display threshold are considered; a pair is listed when no visible default-language
+  content element of the first page links to the second. Pages that no other page links
+  to (orphans) come first, and each row links to the *Page* module of the page to edit.
+  On the 42-page French test site (160 internal links, TYPO3 13): 203 pairs considered,
+  88 already linked, 115 to add.
+  Toggle: `showLinkOpportunities` (default `1`).
+
+### Fixed
+- Score bars of the "most similar pairs" table used the 4.x colour thresholds (0.8 and
+  0.6), which 5.0 scores never reach: they now follow the relevance levels (0.25, 0.1).
+
 ## [5.0.0] - 2026-11-20
 
 New similarity computation. Suggestions are far more relevant, and scores are lower.

@@ -332,6 +332,33 @@
             <trans-unit id="scheduler.task.description">
                 <source>Analyzes site pages and generates semantic similarity relationships for content recommendations</source>
             </trans-unit>
+            <trans-unit id="backend.link_opportunities.title">
+                <source>Link opportunities</source>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.help">
+                <source>Similar pages that do not link to each other yet (default language). Pages that no other page links to come first.</source>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.summary">
+                <source>Among the 5 closest pages of each page, above the display threshold: %1$s pairs, %2$s already linked, %3$s to add. Orphan pages: %4$s (with a similar page to link from: %5$s).</source>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.source">
+                <source>Add a link on</source>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.target">
+                <source>Pointing to</source>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.incoming">
+                <source>Links received</source>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.orphan">
+                <source>Orphan</source>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.none">
+                <source>Every similar pair already links.</source>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.edit">
+                <source>Open this page in the Layout module</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

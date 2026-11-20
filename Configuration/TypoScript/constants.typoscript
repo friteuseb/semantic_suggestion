@@ -87,6 +87,10 @@ plugin.tx_semanticsuggestion_suggestions {
         # cat=semantic_suggestion:Backend Module/110/006; type=boolean; label=Show Top Similar Pages
         # Display pages with the most similarities in the backend module.
         showTopSimilarPages = 1
+
+        # cat=semantic_suggestion:Backend Module/110/007; type=boolean; label=Show Link Opportunities
+        # List similar pages that do not link to each other yet, orphan pages first.
+        showLinkOpportunities = 1
     }
 
     # Analysis Algorithm Settings (Used by Scheduler Task)

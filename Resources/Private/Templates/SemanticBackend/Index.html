@@ -1,4 +1,4 @@
-<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers" xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers" data-namespace-typo3-fluid="true">
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers" xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers" xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers" data-namespace-typo3-fluid="true">
 
 <f:layout name="Default" />
 
@@ -301,7 +301,7 @@
                                                         <f:variable name="scorePercentage" value="{pair.score * 100}" />
                                                         <div class="d-flex flex-column align-items-center">
                                                             <div class="progress mb-2" style="height: 20px; width: 100%;">
-                                                                <div class="progress-bar {f:if(condition: '{pair.score} >= 0.8', then: 'bg-success', else: f:if(condition: '{pair.score} >= 0.6', then: 'bg-warning text-dark', else: 'bg-info'))}"
+                                                                <div class="progress-bar {f:if(condition: '{pair.score} >= 0.25', then: 'bg-success', else: f:if(condition: '{pair.score} >= 0.1', then: 'bg-warning text-dark', else: 'bg-info'))}"
                                                                      role="progressbar"
                                                                      style="width: {scorePercentage -> f:format.number(decimals: 1)}%"
                                                                      aria-valuenow="{scorePercentage -> f:format.number(decimals: 1)}"
@@ -319,6 +319,65 @@
                                     </tbody>
                                 </table>
                             </div>
+                        </div>
+                    </div>
+                </f:if>
+
+                <f:if condition="{showLinkOpportunities} && {linkOpportunities}">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h3 class="card-title mb-0">
+                                <core:icon identifier="actions-link" />
+                                <f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.title" />
+                            </h3>
+                            <small class="text-muted"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.help" /></small>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-3">
+                                <f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.summary" arguments="{0: linkOpportunities.summary.pairs, 1: linkOpportunities.summary.alreadyLinked, 2: linkOpportunities.summary.missing, 3: linkOpportunities.summary.orphanPages, 4: linkOpportunities.summary.orphansWithOpportunity}" />
+                            </p>
+                            <f:if condition="{linkOpportunities.opportunities}">
+                                <f:then>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead class="table-dark">
+                                                <tr>
+                                                    <th width="35%"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.source" /></th>
+                                                    <th width="35%"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.target" /></th>
+                                                    <th width="15%" class="text-center"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.incoming" /></th>
+                                                    <th width="15%" class="text-center"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.top_pairs.similarity_score" /></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <f:for each="{linkOpportunities.opportunities}" as="opportunity">
+                                                    <tr>
+                                                        <td>
+                                                            <a href="{be:moduleLink(route: 'web_layout', arguments: {id: opportunity.source})}" title="{f:translate(key: 'LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.edit')}">
+                                                                <strong>{analysisResults.{opportunity.source}.title.content -> f:format.crop(maxCharacters: 45, append: '...')}</strong>
+                                                            </a>
+                                                            <br><small class="text-muted">ID: {opportunity.source}</small>
+                                                        </td>
+                                                        <td>
+                                                            <strong>{analysisResults.{opportunity.target}.title.content -> f:format.crop(maxCharacters: 45, append: '...')}</strong>
+                                                            <br><small class="text-muted">ID: {opportunity.target}</small>
+                                                        </td>
+                                                        <td class="text-center">
+                                                            <f:if condition="{opportunity.targetOrphan}">
+                                                                <f:then><span class="badge bg-danger"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.orphan" /></span></f:then>
+                                                                <f:else>{opportunity.targetIncoming}</f:else>
+                                                            </f:if>
+                                                        </td>
+                                                        <td class="text-center">{opportunity.score -> f:format.number(decimals: 3)}</td>
+                                                    </tr>
+                                                </f:for>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </f:then>
+                                <f:else>
+                                    <p class="text-muted mb-0"><f:translate key="LLL:EXT:semantic_suggestion/Resources/Private/Language/locallang_be.xlf:backend.link_opportunities.none" /></p>
+                                </f:else>
+                            </f:if>
                         </div>
                     </div>
                 </f:if>

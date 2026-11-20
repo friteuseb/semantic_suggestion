@@ -80,7 +80,8 @@ See [Upgrade](Documentation/Upgrade/Index.rst) for what these do and how to veri
    ```
 
 3. **Check the result** in *Web → Semantic Suggestion*, which shows the stored pairs, the
-   score distribution and the pages with the most links.
+   score distribution, the pages with the most links, and the **link opportunities**:
+   similar pages that do not link to each other yet, orphan pages first.
 
 ## Configuration in one table
 
@@ -99,7 +100,7 @@ category *semantic_suggestion*):
 | `enableStemming` | `1` | Stem before vectorizing |
 | `debugMode` | `0` | Verbose log **and** debug output in the rendered HTML |
 | `overrideBootstrapTemplates` | `0` | Opt-in Bootstrap Package page templates |
-| `show*` | `1` | Section toggles of the backend module |
+| `show*` | `1` | Section toggles of the backend module, `showLinkOpportunities` included |
 
 Two things are worth knowing before tuning:
 

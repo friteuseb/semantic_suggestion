@@ -16,6 +16,46 @@
             <trans-unit id="scheduler.info.all_languages">
                 <target>Toutes les langues</target>
             </trans-unit>
+            <trans-unit id="backend.link_opportunities.title">
+                <source>Link opportunities</source>
+                <target>Liens à ajouter</target>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.help">
+                <source>Similar pages that do not link to each other yet (default language). Pages that no other page links to come first.</source>
+                <target>Pages proches qui ne se lient pas encore (langue par défaut). Les pages qu'aucune autre page ne lie passent en premier.</target>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.summary">
+                <source>Among the 5 closest pages of each page, above the display threshold: %1$s pairs, %2$s already linked, %3$s to add. Orphan pages: %4$s (with a similar page to link from: %5$s).</source>
+                <target>Parmi les 5 pages les plus proches de chaque page, au-dessus du seuil d'affichage : %1$s paires, %2$s déjà liées, %3$s à ajouter. Pages orphelines : %4$s (avec une page proche pour les lier : %5$s).</target>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.source">
+                <source>Add a link on</source>
+                <target>Ajouter un lien sur</target>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.target">
+                <source>Pointing to</source>
+                <target>Vers</target>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.incoming">
+                <source>Links received</source>
+                <target>Liens reçus</target>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.orphan">
+                <source>Orphan</source>
+                <target>Orpheline</target>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.none">
+                <source>Every similar pair already links.</source>
+                <target>Toutes les paires proches sont déjà liées.</target>
+            </trans-unit>
+            <trans-unit id="backend.link_opportunities.edit">
+                <source>Open this page in the Layout module</source>
+                <target>Ouvrir cette page dans le module Page</target>
+            </trans-unit>
+            <trans-unit id="backend.top_pairs.similarity_score">
+                <source>Similarity score</source>
+                <target>Score de similarité</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

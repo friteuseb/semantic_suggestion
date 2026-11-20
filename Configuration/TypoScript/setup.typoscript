@@ -44,6 +44,7 @@ plugin.tx_semanticsuggestion_suggestions {
         showTopSimilarPairs = {$plugin.tx_semanticsuggestion_suggestions.settings.showTopSimilarPairs}
         showDistributionScores = {$plugin.tx_semanticsuggestion_suggestions.settings.showDistributionScores}
         showTopSimilarPages = {$plugin.tx_semanticsuggestion_suggestions.settings.showTopSimilarPages}
+        showLinkOpportunities = {$plugin.tx_semanticsuggestion_suggestions.settings.showLinkOpportunities}
 
         # Analysis Algorithm Settings (used by Scheduler task)
         recencyWeight = {$plugin.tx_semanticsuggestion_suggestions.settings.recencyWeight}
