@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.2] - 2026-11-22
+
+### Fixed
+- **Version metadata.** `composer.json` still declared `"version": "5.1.0"`, so Packagist
+  ignored the `v5.1.1` tag and 5.1.1 never reached Composer users. 5.1.2 ships the same
+  code as 5.1.1 (the TYPO3 14 backend module fix below) with matching version numbers in
+  `composer.json` and `ext_emconf.php`.
+
 ## [5.1.1] - 2026-11-22
 
 ### Fixed
