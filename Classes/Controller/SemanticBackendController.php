@@ -318,7 +318,7 @@ class SemanticBackendController extends ActionController
         $siteFinder = GeneralUtility::makeInstance(SiteFinder::class);
         $rootPageIds = [];
 
-        foreach ($backendUser->returnWebmounts() as $webmount) {
+        foreach ($backendUser->getWebmounts() as $webmount) {
             $webmount = (int)$webmount;
             if ($webmount <= 0) {
                 continue;

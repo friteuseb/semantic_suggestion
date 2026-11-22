@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.1] - 2026-11-22
+
+### Fixed
+- **Backend module crashed for non-admin users on TYPO3 14** with "Call to undefined
+  method BackendUserAuthentication::returnWebmounts()". The core removed that method in
+  TYPO3 14; the module now calls `getWebmounts()`, which exists on TYPO3 12, 13 and 14.
+  Admins were not affected: the webmount check only runs for other users.
+
 ## [5.1.0] - 2026-11-20
 
 ### Added
