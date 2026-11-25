@@ -114,6 +114,36 @@ Two things are worth knowing before tuning:
 Details, and the settings that are accepted but currently ignored, are listed in
 [Configuration](Documentation/Configuration/Index.rst).
 
+## Embedding API (optional, 5.2)
+
+By default pages are compared on their words (TF-IDF). An embedding API compares their
+meaning instead: two pages about the same subject match even when they use different
+words. Set it in *Admin Tools → Settings → Extension Configuration → semantic_suggestion
+→ embedding*:
+
+| Setting | Values |
+|---|---|
+| `embedding.provider` | `tfidf` (default, no API), `mistral`, `openai`, `custom` |
+| `embedding.apiKey` | Key of the provider, or `env:VARIABLE_NAME` to read it from the environment |
+| `embedding.model` | Empty for the default: `mistral-embed`, `text-embedding-3-small` |
+| `embedding.endpoint` | `custom` only: any OpenAI-compatible URL, e.g. Ollama `http://host:11434/v1/embeddings` |
+| `embedding.timeout` | Seconds per request, `30` |
+
+Run the scheduler task again afterwards. What to know:
+
+- **Page texts are sent to the provider** (title, description, keywords, abstract,
+  content, first 8,000 characters). Mistral hosts in the EU; OpenAI in the US.
+- **Cost is negligible.** Each page is sent once, then again only when its text changes;
+  vectors are kept in `tx_semanticsuggestion_embeddings`. A 500-page site is well under
+  a million tokens for the first run.
+- **Scores keep the same scale.** Raw embedding scores run much higher than TF-IDF ones;
+  they are centred and rescaled per site, so `qualityLevel` and the relevance labels keep
+  their meaning. Sites under 8 pages stay on TF-IDF.
+- **TF-IDF is the safety net.** If the API fails (key, quota, timeout), that run uses
+  TF-IDF and logs a warning; the next run tries the API again.
+
+See [Configuration](Documentation/Configuration/Index.rst#configuration-embedding).
+
 ## Multi-site
 
 One task per site, `startPageId` on each site root. Suggestions can never cross a site

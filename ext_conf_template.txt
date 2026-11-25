@@ -6,3 +6,18 @@ settings.maxSuggestions = 3
 
 # cat=basic//40; type=int+; label=Excerpt Length: The maximum length of the page excerpt in characters
 settings.excerptLength = 100
+
+# cat=embedding//10; type=options[TF-IDF (no API, default)=tfidf,Mistral (mistral-embed)=mistral,OpenAI (text-embedding-3-small)=openai,Other OpenAI-compatible endpoint (Ollama, vLLM...)=custom]; label=Similarity method: TF-IDF compares the words of the pages. An embedding API compares their meaning (synonyms, paraphrases). Page texts are then sent to the chosen provider.
+embedding.provider = tfidf
+
+# cat=embedding//20; type=string; label=API key: Required for Mistral and OpenAI. Write env:VARIABLE_NAME to read it from an environment variable instead of storing it here.
+embedding.apiKey =
+
+# cat=embedding//30; type=string; label=Model: Leave empty for the provider default (mistral-embed, text-embedding-3-small). Required for a custom endpoint.
+embedding.model =
+
+# cat=embedding//40; type=string; label=Endpoint URL: Custom endpoint only, for example http://localhost:11434/v1/embeddings
+embedding.endpoint =
+
+# cat=embedding//50; type=int+; label=Timeout: Maximum seconds per API request
+embedding.timeout = 30

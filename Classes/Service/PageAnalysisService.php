@@ -23,6 +23,9 @@ use Psr\Log\NullLogger;
 use Cywolf\NlpTools\Service\LanguageDetectionService;
 use Cywolf\NlpTools\Service\TextAnalysisService;
 use Cywolf\NlpTools\Service\TextVectorizerService;
+use TalanHdf\SemanticSuggestion\Embedding\EmbeddingException;
+use TalanHdf\SemanticSuggestion\Embedding\EmbeddingSimilarity;
+use TalanHdf\SemanticSuggestion\Embedding\PageEmbeddingService;
 use TalanHdf\SemanticSuggestion\Service\SiteLanguageService;
 
 class PageAnalysisService implements LoggerAwareInterface
@@ -46,6 +49,13 @@ class PageAnalysisService implements LoggerAwareInterface
     protected ?TextAnalysisService $textAnalyzer = null;
     protected ?TextVectorizerService $textVectorizer = null;
     protected ?SiteLanguageService $siteLanguageService;
+    protected ?PageEmbeddingService $pageEmbeddingService = null;
+    protected EmbeddingSimilarity $embeddingSimilarity;
+
+    /**
+     * Set by computeEmbeddingScores() when the API failed during the current run.
+     */
+    private bool $embeddingApiFailed = false;
 
     /**
      * Resolved language code per "<pageUid>_<languageUid>", see resolvePageLanguage().
@@ -64,7 +74,9 @@ class PageAnalysisService implements LoggerAwareInterface
         ?SiteLanguageService $siteLanguageService = null,
         ?LanguageDetectionService $languageDetector = null,
         ?TextAnalysisService $textAnalyzer = null,
-        ?TextVectorizerService $textVectorizer = null
+        ?TextVectorizerService $textVectorizer = null,
+        ?PageEmbeddingService $pageEmbeddingService = null,
+        ?EmbeddingSimilarity $embeddingSimilarity = null
     ) {
         $this->context = $context;
         $this->configurationManager = $configurationManager;
@@ -85,6 +97,23 @@ class PageAnalysisService implements LoggerAwareInterface
         
         // Initialize nlp_tools services AFTER settings are initialized
         $this->initializeNlpServices($languageDetector, $textAnalyzer, $textVectorizer);
+
+        $this->embeddingSimilarity = $embeddingSimilarity ?? new EmbeddingSimilarity();
+        try {
+            $this->pageEmbeddingService = $pageEmbeddingService ?? GeneralUtility::makeInstance(PageEmbeddingService::class);
+        } catch (\Throwable $e) {
+            // Without it the analysis simply stays on TF-IDF.
+            $this->logWarning('Embedding service unavailable, using TF-IDF', ['exception' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * True when an embedding API is configured. The analysis may still fall back
+     * to TF-IDF for a given run, see computeEmbeddingScores().
+     */
+    protected function isEmbeddingEnabled(): bool
+    {
+        return $this->pageEmbeddingService !== null && $this->pageEmbeddingService->isEnabled();
     }
 
     protected function initializeNlpServices(
@@ -607,6 +636,10 @@ class PageAnalysisService implements LoggerAwareInterface
         // site, so a multi-language run would serve the first language's results to all
         // the others.
         $cacheIdentifier = "semantic_analysis_{$rootPageId}_{$parentPageId}_{$depth}_lang{$currentLanguageUid}";
+        if ($this->isEmbeddingEnabled()) {
+            // Switching provider or model must not serve the previous scores.
+            $cacheIdentifier .= '_' . substr(md5($this->pageEmbeddingService->getConfiguration()->getIdentifier()), 0, 8);
+        }
     
         if ($this->cache->has($cacheIdentifier)) {
             $cachedResult = $this->cache->get($cacheIdentifier);
@@ -635,18 +668,35 @@ class PageAnalysisService implements LoggerAwareInterface
             $pageLanguages = $vectorData['languages'];
             $pageVectors = $vectorData['vectors'];
 
+            // Null when embeddings are off, or when this run fell back to TF-IDF.
+            $embeddingScores = $this->computeEmbeddingScores($analysisResults);
+            $similarityMethod = $embeddingScores !== null
+                ? $this->pageEmbeddingService->getConfiguration()->getIdentifier()
+                : 'tfidf';
+            foreach ($analysisResults as &$pageData) {
+                unset($pageData['embeddingText']);
+            }
+            unset($pageData);
+
             $similarityCalculations = 0;
             foreach ($analysisResults as $pageId => &$pageData) {
                 foreach ($analysisResults as $comparisonPageId => $comparisonPageData) {
                     if ($pageId !== $comparisonPageId) {
-                        $similarity = $this->calculateSimilarityFromVectors(
-                            $pageData,
-                            $comparisonPageData,
-                            $pageLanguages[$pageId] ?? null,
-                            $pageLanguages[$comparisonPageId] ?? null,
-                            $pageVectors[$pageId] ?? null,
-                            $pageVectors[$comparisonPageId] ?? null
-                        );
+                        $similarity = $embeddingScores !== null
+                            ? $this->calculateSimilarityFromEmbeddings(
+                                $comparisonPageData,
+                                $pageData['detectedLanguage'] ?? null,
+                                $comparisonPageData['detectedLanguage'] ?? null,
+                                $embeddingScores[$pageId][$comparisonPageId] ?? 0.0
+                            )
+                            : $this->calculateSimilarityFromVectors(
+                                $pageData,
+                                $comparisonPageData,
+                                $pageLanguages[$pageId] ?? null,
+                                $pageLanguages[$comparisonPageId] ?? null,
+                                $pageVectors[$pageId] ?? null,
+                                $pageVectors[$comparisonPageId] ?? null
+                            );
 
                         // Ne pas ajouter les similarités à 0 (langues incompatibles)
                         if ($similarity['finalSimilarity'] > 0) {
@@ -672,18 +722,23 @@ class PageAnalysisService implements LoggerAwareInterface
                     'executionTime' => microtime(true) - $startTime,
                     'totalPages' => $totalPages,
                     'similarityCalculations' => $similarityCalculations,
+                    'similarityMethod' => $similarityMethod,
                     'fromCache' => false,
                 ],
             ];
-    
-            // site_<rootPageId> is what GenerateSimilaritiesTask and the DataHandler
-            // hook flush; without it, per-site invalidation silently matches nothing.
-            $this->cache->set(
-                $cacheIdentifier,
-                $result,
-                ['tx_semanticsuggestion', "pages_{$parentPageId}", "site_{$rootPageId}"],
-                86400
-            );
+
+            // A run where the API failed is not cached under the embedding key: the
+            // next run must try the API again.
+            if (!$this->embeddingApiFailed) {
+                // site_<rootPageId> is what GenerateSimilaritiesTask and the DataHandler
+                // hook flush; without it, per-site invalidation silently matches nothing.
+                $this->cache->set(
+                    $cacheIdentifier,
+                    $result,
+                    ['tx_semanticsuggestion', "pages_{$parentPageId}", "site_{$rootPageId}"],
+                    86400
+                );
+            }
     
             $this->logDebug('Analysis complete', [
                 'executionTime' => microtime(true) - $startTime,
@@ -829,6 +884,11 @@ class PageAnalysisService implements LoggerAwareInterface
             'detectedLanguage' => $language,
         ];
 
+        // Embeddings read the text as written: stop word removal and stemming would
+        // take away what the model needs to understand it.
+        $collectEmbeddingText = $this->isEmbeddingEnabled();
+        $embeddingTexts = [];
+
         foreach ($this->settings['analyzedFields'] as $field => $weight) {
             if ((float)$weight <= 0) {
                 // Disabled field: not fetched, not processed, not compared.
@@ -851,7 +911,10 @@ class PageAnalysisService implements LoggerAwareInterface
             }
     
             if (!empty($originalContent) && is_string($originalContent)) {
-                
+                if ($collectEmbeddingText) {
+                    $embeddingTexts[] = $this->cleanTextForEmbedding($originalContent);
+                }
+
                 // Utiliser le service TextAnalysisService de nlp_tools pour un traitement avancé
                 $startTime = microtime(true);
                 try {
@@ -893,6 +956,11 @@ class PageAnalysisService implements LoggerAwareInterface
         }
     
         $preparedData['content_modified_at'] = $page['content_modified_at'] ?? $page['crdate'] ?? time();
+        if ($collectEmbeddingText) {
+            // Fields in analyzedFields order, title first by default: when the text
+            // is cut at EmbeddingClient::MAX_TEXT_CHARACTERS, the end of the body goes.
+            $preparedData['embeddingText'] = trim(implode("\n", array_filter($embeddingTexts)));
+        }
 
         $this->logDebug('Page data prepared', [
             'pageUid' => $page['uid'],
@@ -1182,6 +1250,78 @@ private function getAllSubpages(int $parentId, int $depth = 0): array
         }
 
         return ['languages' => $languages, 'vectors' => $vectors];
+    }
+
+    /**
+     * Calibrated embedding score of every pair, or null when this run must use
+     * TF-IDF: embeddings off, fewer than EmbeddingSimilarity::MINIMUM_PAGES pages
+     * with text, or an API error. The whole run then uses TF-IDF, so that scores
+     * of one site never mix the two scales.
+     *
+     * @param array<int|string, array> $analysisResults prepared pages, with 'embeddingText'
+     * @return array<int|string, array<int|string, float>>|null
+     */
+    private function computeEmbeddingScores(array $analysisResults): ?array
+    {
+        $this->embeddingApiFailed = false;
+        if (!$this->isEmbeddingEnabled()) {
+            return null;
+        }
+
+        $pages = [];
+        foreach ($analysisResults as $pageId => $pageData) {
+            $text = (string)($pageData['embeddingText'] ?? '');
+            if ($text !== '') {
+                $pages[(int)$pageId] = ['languageUid' => (int)($pageData['sys_language_uid'] ?? 0), 'text' => $text];
+            }
+        }
+
+        if (count($pages) < EmbeddingSimilarity::MINIMUM_PAGES) {
+            $this->logInfo('Too few pages for embeddings, using TF-IDF', ['pages' => count($pages)]);
+            return null;
+        }
+
+        try {
+            $vectors = $this->pageEmbeddingService->getPageVectors($pages);
+        } catch (EmbeddingException $e) {
+            $this->embeddingApiFailed = true;
+            $this->logWarning('Embedding API failed, this run uses TF-IDF', ['exception' => $e->getMessage()]);
+            return null;
+        }
+
+        return $this->embeddingSimilarity->computeScores($vectors);
+    }
+
+    /**
+     * Same result shape as calculateSimilarityFromVectors(). Embeddings of both
+     * default models share one space across languages, so compatible languages
+     * need no special case here.
+     */
+    private function calculateSimilarityFromEmbeddings(
+        array $suggestedPage,
+        ?string $language1,
+        ?string $language2,
+        float $score
+    ): array {
+        if ($score <= 0.0 || !$this->areLanguagesCompatible($language1, $language2)) {
+            return [
+                'semanticSimilarity' => 0.0,
+                'recencyBoost' => 0.0,
+                'finalSimilarity' => 0.0,
+            ];
+        }
+
+        return $this->combineScores($score, $suggestedPage);
+    }
+
+    /**
+     * Plain text of a field as a reader sees it: no tags, no entities, single spaces.
+     */
+    private function cleanTextForEmbedding(string $content): string
+    {
+        $text = html_entity_decode(strip_tags(str_replace('<', ' <', $content)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return trim((string)preg_replace('/\s+/u', ' ', $text));
     }
 
     /**

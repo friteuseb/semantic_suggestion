@@ -124,6 +124,26 @@ Suggestions are irrelevant
 *   **Raise the weight of** ``title`` **and** ``keywords`` if the content of long
     pages drowns them out — see :ref:`analyzedFields <ts-analyzedFields>`.
 
+*   **Try an embedding provider** when related pages use different words for the
+    same subject: TF-IDF cannot match them. See :ref:`configuration-embedding`.
+
+..  _troubleshooting-embedding:
+
+The embedding provider seems ignored
+====================================
+
+The log entry "Similarities saved" carries a ``method`` field. ``tfidf`` while a
+provider is configured means that run fell back:
+
+*   **"Embedding API failed"** in the log: read the HTTP status in the message. 401 is
+    a wrong key, 429 a quota or rate limit. With ``env:NAME``, check that the variable
+    is set for the PHP process that runs the scheduler, not only in your shell.
+*   **Timeout** with a self-hosted model: the first call may load the model and take
+    longer than ``embedding.timeout``. Raise it, or call the endpoint once beforehand.
+*   **"Too few pages for embeddings"**: under 8 pages with text, TF-IDF is used.
+*   **No error at all**: a hosted provider without key, or a custom one without
+    endpoint or model, counts as not configured.
+
 ..  _troubleshooting-mixed-language:
 
 Suggestions from another language

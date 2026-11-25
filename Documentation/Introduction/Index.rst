@@ -14,8 +14,11 @@ What does it do?
 Semantic Suggestion builds a "related pages" list from the text of the pages
 themselves. No category has to be maintained and no link has to be created by hand.
 
-*   A scheduler task walks a page tree, turns every page into a TF-IDF vector and
-    compares the vectors pairwise.
+*   A scheduler task walks a page tree, turns every page into a vector and compares
+    the vectors pairwise. The vector is a TF-IDF one by default, built from the words
+    of the page. Since 5.2 it can come from an embedding API (Mistral, OpenAI or a
+    self-hosted model), which compares pages by meaning: see
+    :ref:`configuration-embedding`.
 *   Every pair scoring above a configurable threshold is written to the table
     :sql:`tx_semanticsuggestion_similarities`.
 *   A frontend plugin reads that table for the page being rendered and displays the

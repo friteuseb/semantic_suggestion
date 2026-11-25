@@ -20,7 +20,12 @@ return function (ContainerConfigurator $configurator, ContainerBuilder $containe
 
     // Auto-register all classes in Classes/ except Controllers
     $services->load('TalanHdf\\SemanticSuggestion\\', '../Classes/*')
-        ->exclude('../Classes/Controller/*');
+        ->exclude([
+            '../Classes/Controller/*',
+            // Value objects, not services.
+            '../Classes/Embedding/EmbeddingConfiguration.php',
+            '../Classes/Embedding/EmbeddingException.php',
+        ]);
 
     // --- Unconditional Service Registrations ---
     $services->set(TalanHdf\SemanticSuggestion\Controller\SuggestionsController::class)->public(true);
@@ -34,6 +39,8 @@ return function (ContainerConfigurator $configurator, ContainerBuilder $containe
     $services->set(TalanHdf\SemanticSuggestion\Service\LinkOpportunityService::class)->public(true);
     $services->set(TalanHdf\SemanticSuggestion\Service\BackendOverviewService::class)->public(true);
     $services->set(TalanHdf\SemanticSuggestion\Service\LanguageService::class);
+    // Public: PageAnalysisService falls back to makeInstance() when built by hand.
+    $services->set(TalanHdf\SemanticSuggestion\Embedding\PageEmbeddingService::class)->public(true);
     $services->set(TalanHdf\SemanticSuggestion\Service\SiteLanguageService::class);
 
     // DataHandler hook (SC_OPTIONS), registered for TYPO3 12, 13 and 14 alike.

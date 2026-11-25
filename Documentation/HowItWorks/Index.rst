@@ -39,6 +39,11 @@ Everything below happens inside the scheduler task.
     :ref:`analyzedFields <ts-analyzedFields>`), times its IDF. The whole text is used:
     there is no length cut-off.
 
+    With an embedding provider configured (see :ref:`configuration-embedding`), this
+    step changes: the plain text of each page is sent to the API, or read from
+    :sql:`tx_semanticsuggestion_embeddings` when it has not changed, and the scores
+    are calibrated per site. See :ref:`how-it-works-embeddings`.
+
 #.  **Comparison.** Every page is compared with every other page of the same language
     using cosine similarity on those vectors, then weighted by the freshness of the
     suggested page:
@@ -89,6 +94,57 @@ it to ``0.2`` to keep only close matches. ``0.5`` and above match almost nothing
 
 The relevance labels shown in the backend module are thresholds on that score:
 ``High`` from 0.25, ``Medium`` from 0.1, ``Low`` below.
+
+..  _how-it-works-embeddings:
+
+Embedding scores
+================
+
+An embedding model turns a text into a dense vector: about a thousand numbers that
+place it in a space where texts with close meanings lie close together. Two pages
+about roasting coffee and baking bread crust share the Maillard reaction; TF-IDF only
+sees it when both use the same words, an embedding sees it in any wording and across
+languages.
+
+Raw cosines of embeddings cannot be used as scores. Any two pages of a site already
+share a language, a style and a subject, so their cosine is high: the best
+suggestions of the demo site scored 0.59 to 0.79 with ``bge-m3``, against 0.10 to 0.48
+with TF-IDF. Every pair would pass the quality level. Two steps fix the scale, per
+site and per language:
+
+#.  **Centering.** The mean vector of all analysed pages is subtracted from each
+    vector, which removes what every page shares. Unrelated pages fall below 0.
+#.  **Rescaling.** Over all pairs, the median plus one standard deviation becomes 0
+    and 1 stays 1. Each model spreads its scores differently; this zero follows the
+    model in use. Pairs below it are dropped.
+
+Measured on the 24 articles of the demo site (four topics of six), pairs scoring 0.1 or more:
+
+..  list-table::
+    :header-rows: 1
+
+    *   -   Method
+        -   Pairs kept
+        -   Within the same topic
+    *   -   TF-IDF
+        -   144
+        -   71 %
+    *   -   ``bge-m3``, English
+        -   72
+        -   86 %
+    *   -   ``bge-m3``, French
+        -   76
+        -   82 %
+    *   -   ``bge-m3``, German
+        -   60
+        -   87 %
+    *   -   ``nomic-embed-text``, English
+        -   124
+        -   87 %
+
+The calibrated scores averaged 0.20, as TF-IDF ones do, so ``qualityLevel`` and the
+relevance labels apply unchanged. Below 8 pages the mean and the spread mean little,
+and the analysis stays on TF-IDF.
 
 ..  _how-it-works-languages:
 

@@ -350,6 +350,65 @@ fallback only:
 Their defaults match the TypoScript ones (``0.1`` and ``3``), so the backend module
 shows the values the frontend applies when no TypoScript overrides them.
 
+..  _configuration-embedding:
+
+Embedding API
+=============
+
+Since 5.2 the similarity can come from an embedding API instead of TF-IDF. TF-IDF
+compares the words of two pages; an embedding compares their meaning, so synonyms and
+paraphrases count. The settings live in the extension configuration, never in
+TypoScript, so the API key stays out of template records.
+
+..  list-table::
+    :header-rows: 1
+
+    *   -   Setting
+        -   Default
+        -   Effect
+    *   -   ``embedding.provider``
+        -   ``tfidf``
+        -   ``tfidf`` (no API), ``mistral``, ``openai`` or ``custom``.
+    *   -   ``embedding.apiKey``
+        -   *(empty)*
+        -   Required for ``mistral`` and ``openai``. ``env:NAME`` reads the key from
+            the environment variable ``NAME``, which keeps it out of
+            :file:`config/system/settings.php`.
+    *   -   ``embedding.model``
+        -   *(empty)*
+        -   Empty for the provider default: ``mistral-embed`` or
+            ``text-embedding-3-small``. Required for ``custom``.
+    *   -   ``embedding.endpoint``
+        -   *(empty)*
+        -   ``custom`` only. Any endpoint in the OpenAI format, for example Ollama
+            (``http://host:11434/v1/embeddings``) or vLLM.
+    *   -   ``embedding.timeout``
+        -   ``30``
+        -   Seconds per request. A self-hosted model that loads on first call may
+            need more.
+
+**What is sent.** For each page, the fields of ``analyzedFields`` with a weight above
+0, in that order, as plain text, cut at 8,000 characters. Field weights do not apply
+otherwise. Stop word removal and stemming do not apply either: the model reads the
+text as written.
+
+**Vector cache.** Vectors are stored in :sql:`tx_semanticsuggestion_embeddings`, one
+row per page, language and model, with a hash of the text sent. A page goes back to
+the API only when its text or the model changes, so an unchanged site costs no call.
+
+**Scores.** Raw cosines of embeddings are high for any two pages of a site (0.6 to 0.9
+for the best suggestions on the demo site, against 0.1 to 0.5 with TF-IDF). They are
+calibrated per site: the mean vector of the site is subtracted, then the median of all
+pair scores plus one standard deviation becomes 0. The result has the TF-IDF scale, so
+``qualityLevel`` and the relevance labels apply unchanged. On the 24 articles of the
+demo site, pairs scoring 0.1 or more were within the same topic in 71 % of cases with
+TF-IDF, 86 % with ``bge-m3`` and 87 % with ``nomic-embed-text``.
+
+**Fallback.** A run uses TF-IDF for the whole site when the API fails (invalid key,
+quota, network, timeout) or when fewer than 8 pages have text. A warning is logged, and
+the ``method`` field of the "Similarities saved" log entry says which method was used.
+The fallback result is not cached, so the next run tries the API again.
+
 ..  _configuration-columns:
 
 Database columns

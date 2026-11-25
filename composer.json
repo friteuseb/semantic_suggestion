@@ -1,8 +1,8 @@
 {
     "name": "talan-hdf/semantic-suggestion",
-    "version": "5.1.2",
+    "version": "5.2.0",
     "type": "typo3-cms-extension",
-    "description": "TYPO3 extension for suggesting semantically related pages using advanced NLP and TF-IDF analysis",
+    "description": "TYPO3 extension for suggesting semantically related pages using TF-IDF or an embedding API (Mistral, OpenAI, Ollama)",
     "license": "GPL-2.0-or-later",
     "authors": [
         {

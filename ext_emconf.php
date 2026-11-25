@@ -2,13 +2,13 @@
 
 $EM_CONF[$_EXTKEY] = [
     'title' => 'Semantic Suggestion',
-    'description' => 'TYPO3 extension for suggesting semantically related pages using advanced NLP and TF-IDF analysis',
+    'description' => 'TYPO3 extension for suggesting semantically related pages using TF-IDF or an embedding API (Mistral, OpenAI, Ollama)',
     'category' => 'plugin',
     'author' => 'Wolfangel Cyril',
     'author_email' => 'cyril.wolfangel@gmail.com',
     'state' => 'stable',
     'clearCacheOnLoad' => 0,
-    'version' => '5.1.2',
+    'version' => '5.2.0',
     'constraints' => [
         'depends' => [
             'php' => '8.1.0-8.99.99',

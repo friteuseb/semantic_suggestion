@@ -29,3 +29,21 @@ CREATE TABLE tx_semanticsuggestion_similarities (
     KEY scope_page_id (scope_page_id),
     KEY frontend_lookup (page_id, root_page_id, sys_language_uid)
 );
+
+#
+# Page vectors from the embedding API (embedding.* in the extension configuration).
+# One row per page, language and model. content_hash is the SHA-256 of the text sent:
+# a page goes back to the API only when it changed. vector holds float32 values,
+# little endian, base64 encoded.
+#
+CREATE TABLE tx_semanticsuggestion_embeddings (
+    uid int(11) unsigned NOT NULL auto_increment,
+    page_id int(11) unsigned DEFAULT '0' NOT NULL,
+    sys_language_uid int(11) DEFAULT '0' NOT NULL,
+    model varchar(190) DEFAULT '' NOT NULL,
+    content_hash varchar(64) DEFAULT '' NOT NULL,
+    vector mediumtext,
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+    PRIMARY KEY (uid),
+    UNIQUE KEY page_language_model (page_id, sys_language_uid, model)
+);

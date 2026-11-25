@@ -414,7 +414,9 @@ class GenerateSimilaritiesTask extends AbstractTask
                 'rootPageId' => $rootPageId,
                 'scopePageId' => $scopePageId,
                 'languageId' => $languageId,
-                'similaritiesCount' => count($bulkInserts)
+                'similaritiesCount' => count($bulkInserts),
+                // "tfidf" while an embedding provider is configured means the API failed.
+                'method' => $analysisData['metrics']['similarityMethod'] ?? 'tfidf',
             ]);
 
             // Clear the analysis cache of this site. PageAnalysisService tags its

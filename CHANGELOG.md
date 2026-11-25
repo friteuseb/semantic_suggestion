@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.2.0] - 2026-11-25
+
+### Added
+- **Embedding API as similarity source**, opt-in. Pages can be compared by meaning
+  instead of words, through Mistral (`mistral-embed`), OpenAI (`text-embedding-3-small`)
+  or any OpenAI-compatible endpoint (Ollama, vLLM). Settings in the extension
+  configuration, `embedding.*`; the API key may be read from an environment variable
+  (`env:NAME`). TF-IDF stays the default.
+- Table `tx_semanticsuggestion_embeddings`: one vector per page, language and model. A
+  page is sent to the API again only when its text changes.
+- Embedding scores are calibrated per site (centring, then median plus one standard
+  deviation as zero) to stay on the TF-IDF scale: `qualityLevel` and the relevance labels
+  keep their meaning. On the 24 articles of the demo site, pairs scoring 0.1 or more were
+  within the same topic in 71 % of cases with TF-IDF, 86 % with `bge-m3`.
+- When the API fails, or under 8 pages, the run falls back to TF-IDF and logs a warning.
+  The "Similarities saved" log entry now carries the `method` used.
+
 ## [5.1.2] - 2026-11-22
 
 ### Fixed

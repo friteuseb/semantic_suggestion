@@ -19,6 +19,11 @@ Release highlights
 
     *   -   Version
         -   Highlights
+    *   -   5.2.0
+        -   Optional embedding API (Mistral, OpenAI or an OpenAI-compatible endpoint)
+            to compare pages by meaning. Scores are calibrated to the TF-IDF scale;
+            TF-IDF stays the default and the fallback. See
+            :ref:`configuration-embedding`.
     *   -   5.1.0
         -   Link opportunities in the backend module: similar pages that do not link
             to each other yet, orphan pages first.
